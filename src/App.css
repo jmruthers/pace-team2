@@ -1,3 +1,77 @@
+/*
+ * Canonical consuming-app Tailwind v4 entry (Standard 7 Part A).
+ *
+ * Setup once: copy to src/app.css in your app. @source paths are relative to THIS file;
+ * if app.css lives elsewhere, adjust the path to node_modules (see Standard 7).
+ *
+ * Import only ./app.css from main.tsx — do not import core.css again from JS.
+ * Validate: npm run validate (pace-core audit checks structure and palettes).
+ */
+
+@import "tailwindcss";
+
+/* @source directives for Tailwind v4 content scanning (paths relative to this file) */
+@source "./**/*.{js,ts,jsx,tsx}";
+@source "../node_modules/@solvera/pace-core/src/**/*.{js,ts,jsx,tsx}";
+
+@import "@solvera/pace-core/styles/core.css";
+
+/* Suite layout width token (--app-width) is defined in pace-core core.css. Do not redefine it here. */
+
+@theme static {
+  /* main palette: primary surfaces/actions; base hue h=252.02 */
+  --color-main-raw: oklch(0.7 0.057 252.02);
+  --color-main-50: oklch(0.98 0.001 252.02);
+  --color-main-100: oklch(0.96 0.005 252.02);
+  --color-main-200: oklch(0.927 0.012 252.02);
+  --color-main-300: oklch(0.881 0.021 252.02);
+  --color-main-400: oklch(0.822 0.032 252.02);
+  --color-main-500: oklch(0.75 0.047 252.02);
+  --color-main-600: oklch(0.7 0.057 252.02);
+  --color-main-700: oklch(0.567 0.044 252.02);
+  --color-main-800: oklch(0.456 0.034 252.02);
+  --color-main-900: oklch(0.332 0.024 252.02);
+  --color-main-950: oklch(0.195 0.014 252.02);
+
+  /* sec palette: supporting surfaces/controls; base hue h=280.75 */
+  --color-sec-raw: oklch(0.58 0.23 280.75);
+  --color-sec-50: oklch(0.98 0.003 280.75);
+  --color-sec-100: oklch(0.96 0.014 280.75);
+  --color-sec-200: oklch(0.927 0.033 280.75);
+  --color-sec-300: oklch(0.881 0.059 280.75);
+  --color-sec-400: oklch(0.822 0.093 280.75);
+  --color-sec-500: oklch(0.75 0.133 280.75);
+  --color-sec-600: oklch(0.665 0.182 280.75);
+  --color-sec-700: oklch(0.58 0.23 280.75);
+  --color-sec-800: oklch(0.456 0.158 280.75);
+  --color-sec-900: oklch(0.332 0.099 280.75);
+  --color-sec-950: oklch(0.195 0.047 280.75);
+
+  /* acc palette: attention/destructive emphasis; base hue h=37.76 */
+  --color-acc-raw: oklch(0.64 0.21 37.76);
+  --color-acc-50: oklch(0.98 0.003 37.76);
+  --color-acc-100: oklch(0.96 0.015 37.76);
+  --color-acc-200: oklch(0.927 0.035 37.76);
+  --color-acc-300: oklch(0.881 0.063 37.76);
+  --color-acc-400: oklch(0.822 0.099 37.76);
+  --color-acc-500: oklch(0.75 0.143 37.76);
+  --color-acc-600: oklch(0.64 0.21 37.76);
+  --color-acc-700: oklch(0.567 0.177 37.76);
+  --color-acc-800: oklch(0.456 0.13 37.76);
+  --color-acc-900: oklch(0.332 0.085 37.76);
+  --color-acc-950: oklch(0.195 0.044 37.76);
+}
+
+.pace-background {
+  background: linear-gradient(
+    145deg,
+    var(--color-main-100) 10%,
+    var(--color-main-200) 30%,
+    var(--color-main-200) 70%,
+    var(--color-main-300) 90%
+  );
+  background-attachment: fixed;
+}
 .counter {
   font-size: 16px;
   padding: 5px 10px;

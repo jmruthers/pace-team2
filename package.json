@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "type-check": "tsc --noEmit",
+    "test": "vitest run --test-timeout=10000",
+    "test:coverage": "vitest run --test-timeout=10000 --coverage --coverage.provider=istanbul",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -24,7 +27,7 @@
     "@tanstack/react-query": "^5.0.0",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "react-router-dom": "^6.0.0 || ^7.0.0"
+    "react-router-dom": "^6.30.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
@@ -34,6 +37,7 @@
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/parser": "^8.59.2",
     "@vitejs/plugin-react": "^6.0.1",
     "@vitest/coverage-istanbul": "^2.0.0",
     "eslint": "^9.15.0",
@@ -42,7 +46,7 @@
     "eslint-plugin-react-refresh": "^0.5.2",
     "globals": "^17.5.0",
     "tailwindcss": "^4.0.0",
-    "typescript": "~6.0.2",
+    "typescript": "^5.9.3",
     "typescript-eslint": "^8.58.2",
     "vite": "^8.0.10",
     "vitest": "^2.0.0"
