@@ -1,0 +1,31 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+*.local
+
+# Supabase local link state
+.supabase/
+packages/core/.supabase/
+
+# Environment
+.env
+.env.*.local
+.cursor/mcp.json
+
+# Audit reports (optional: remove to commit reports)
+audit/*.md
+
+# Test coverage
+coverage/
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
