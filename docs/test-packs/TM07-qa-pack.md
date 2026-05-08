@@ -23,7 +23,11 @@
 
 ## Test run summary
 
-- overall result: Not run
+- overall result: Automated checks passed; manual scenarios pending execution
 - failed scenarios: -
 - defect links: N/A
 - retest needed: No
+- automated coverage:
+  - `src/pages/settings/SubOrganisationsPage.test.tsx` (8 tests)
+  - `src/lib/settings/subOrganisations.validation.test.ts` (5 tests)
+  - `npm run validate` passed on `202605081430` (98 tests pass, 0 fail)

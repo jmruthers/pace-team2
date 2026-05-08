@@ -9,6 +9,7 @@ import { Member360Page } from './pages/members/Member360Page';
 import { MemberRolesPage } from './pages/members/MemberRolesPage';
 import { ApprovalsPage } from './pages/approvals/ApprovalsPage';
 import { MembershipTypesPage } from './pages/settings/MembershipTypesPage';
+import { SubOrganisationsPage } from './pages/settings/SubOrganisationsPage';
 
 export const APP_NAME = 'TEAM';
 
@@ -196,6 +197,10 @@ function App() {
           <Route
             path="settings/membership-types"
             element={<MembershipTypesPage />}
+          />
+          <Route
+            path="settings/organisations"
+            element={<SubOrganisationsPage />}
           />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
