@@ -5,6 +5,7 @@ import { AccessDenied, PagePermissionGuard } from '@solvera/pace-core/rbac';
 import { usePaceMain, useUnifiedAuth } from '@solvera/pace-core/hooks';
 import { AuthenticatedShell } from './components/layout/AuthenticatedShell';
 import { MemberDirectoryPage } from './pages/members/MemberDirectoryPage';
+import { Member360Page } from './pages/members/Member360Page';
 
 export const APP_NAME = 'TEAM';
 
@@ -126,19 +127,6 @@ function NotFoundPage() {
   );
 }
 
-function MemberDetailPlaceholder() {
-  usePaceMain({ printTitle: 'Member' });
-
-  return (
-    <main>
-      <section>
-        <h1>Member profile</h1>
-        <p>Member detail page is delivered in TEAM-03.</p>
-      </section>
-    </main>
-  );
-}
-
 function CommunicationsPlaceholder() {
   usePaceMain({ printTitle: 'Communications' });
 
@@ -172,11 +160,7 @@ function App() {
           />
           <Route
             path="members/:memberId"
-            element={(
-              <PagePermissionGuard pageName="members" operation="read" fallback={<AccessDenied />}>
-                <MemberDetailPlaceholder />
-              </PagePermissionGuard>
-            )}
+            element={<Member360Page />}
           />
           <Route
             path="communications"
