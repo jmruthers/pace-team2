@@ -55,7 +55,7 @@ TEAM-06 does **not** own:
 
 **Org-scoped reads and writes.** Every list query, every aggregate query, and every mutation is filtered or stamped with `organisation_id = selectedOrganisation.id`. Switching the org context refetches the list against the new org and silently closes any open editor.
 
-**Editor pattern.** A bespoke `Dialog` editor is used for create / edit, invoked from row actions on the `DataTable`. The `DataTable`'s built-in `onCreateRow` / `onEditRow` modal is **not** used. `features.deletion: false` is set; `onDeleteRow` is not passed.
+**Editor pattern.** A slice-controlled `Dialog` editor is used for final create / edit submission. Create entry is initiated via the `DataTable` built-in create modal (`onCreateRow`), which hands off to the slice editor; edit entry is invoked from row actions. `features.deletion: false` is set; `onDeleteRow` is not passed.
 
 ### Page-level guards and evaluation ordering
 
@@ -108,7 +108,7 @@ If `selectedOrganisation` somehow resolves to `null` after step 3 (e.g. a race d
 
 ### Primary actions
 
-- **F-19** **Create membership type.** A toolbar button labelled "Create membership type" opens the editor dialog with a blank form. On successful save: the dialog closes; the list refreshes; a `success` toast renders with copy "Membership type created." The button is hidden when `canCreate === false`.
+- **F-19** **Create membership type.** A toolbar button labelled "Create" opens the `DataTable` create modal. Submitting that modal opens the slice editor dialog with a blank form. On successful save: the dialog closes; the list refreshes; a `success` toast renders with copy "Membership type created." The button is hidden when `canCreate === false`.
 - **F-20** **Edit row.** An "Edit" row action opens the editor dialog pre-populated with the row's current field values. On successful save: the dialog closes; the list refreshes; a `success` toast renders with copy "Membership type updated." The action is hidden when `canUpdate === false`.
 - **F-21** **Deactivate row.** A "Deactivate" row action (only shown when `is_active === true` and `canUpdate === true`) opens a `ConfirmationDialog` with the destructive variant per BR-10. On confirm: the row's `is_active` is updated to `false`; the dialog closes; the list refreshes; a `success` toast renders with copy `"{name} deactivated."` (with the type's name interpolated).
 - **F-22** **Reactivate row.** A "Reactivate" row action (only shown when `is_active === false` and `canUpdate === true`) directly updates `is_active` to `true` without a confirmation step. On success: the list refreshes; a `success` toast renders with copy `"{name} reactivated."` The action is hidden when `canUpdate === false`.
@@ -124,7 +124,7 @@ If `selectedOrganisation` somehow resolves to `null` after step 3 (e.g. a race d
 ### Permission-conditional rendering
 
 - **F-28** When `canRead === false`, the route's `PagePermissionGuard` denies and `<AccessDenied />` renders.
-- **F-29** When `canCreate === false`, the toolbar's **Create membership type** button is not rendered.
+- **F-29** When `canCreate === false`, the toolbar's **Create** button is not rendered.
 - **F-30** When `canUpdate === false`, the row actions **Edit**, **Deactivate**, and **Reactivate** are not rendered for any row.
 - **F-31** Hard delete is not surfaced under any permission combination.
 
@@ -166,7 +166,7 @@ Breakpoints: standard pace-core2 responsive behaviour applies — the `DataTable
 - `getRowId`: `(row) => row.id`.
 - `initialPageSize`: `25`.
 - `actions`: array of row-action descriptors for **Edit**, **Deactivate** (only when `is_active === true`), **Reactivate** (only when `is_active === false`), each opening the slice's own `Dialog` or `ConfirmationDialog`.
-- `onCreateRow`: wired to a slice-controlled handler that opens the editor `Dialog` with a blank form. The DataTable's built-in create modal is not used — the handler swallows the default and surfaces the slice's `Dialog` instead.
+- `onCreateRow`: wired to a slice-controlled handler that receives the DataTable create-modal submit and opens the editor `Dialog` with a blank form.
 - `onEditRow`, `onDeleteRow`: not used.
 - `features`: `{ import: false, export: false, hierarchical: false, grouping: false, deletion: false, deleteSelected: false, selection: false, search: true, pagination: true, sorting: true, filtering: true, creation: true, editing: false, columnVisibility: true, columnReordering: true }`.
 - `initialSorting`: `[{ id: 'name', desc: false }]`.
@@ -183,15 +183,15 @@ Columns:
 | Actions | (n/a) | narrow | Edit / Deactivate / Reactivate triggers per row gated by `canUpdate` |
 
 Toolbar (rendered by `DataTable` inside the table caption):
-- Search input — placeholder "Search membership types".
+- Search input — placeholder "Search…".
 - Column-filter toggle (default DataTable affordance).
 - Column-visibility popover (default DataTable affordance).
-- **Create membership type** primary button (right-aligned), visible when `canCreate === true`.
+- **Create** primary button (right-aligned), visible when `canCreate === true`.
 
 Pagination controls (rendered below the table by `DataTable`): page size dropdown (10 / 25 / 50), current page indicator, prev / next.
 
 **Editor `Dialog`** (`@solvera/pace-core/components`)
-- Trigger: **Create membership type** toolbar button (blank form) or **Edit** row action (pre-populated form).
+- Trigger: DataTable **Create** toolbar button submit (blank form handoff) or **Edit** row action (pre-populated form).
 - Container: `<Dialog open onOpenChange><DialogPortal><DialogContent><DialogHeader><DialogTitle>{Create | Edit} membership type</DialogTitle></DialogHeader><DialogBody>{form}</DialogBody></DialogContent></DialogPortal></Dialog>`.
 - Title copy: "Create membership type" or "Edit membership type" depending on mode.
 - Description: omitted.
@@ -255,7 +255,7 @@ Pagination controls (rendered below the table by `DataTable`): page size dropdow
 
 ### Interactions
 
-- **Create membership type** button: visible when `canCreate === true`. Default: standard primary tone. Hover: pace-core2 default hover treatment. Disabled: pace-core2 default disabled treatment. Click: opens editor `Dialog` with a blank form, focus moves into the first form input (DialogContent auto-focus).
+- **Create** button: visible when `canCreate === true`. Default: standard primary tone. Hover: pace-core2 default hover treatment. Disabled: pace-core2 default disabled treatment. Click: opens the DataTable create modal; submitting it opens the slice editor `Dialog` with focus in the first form input (DialogContent auto-focus).
 - **Edit row action**: visible when `canUpdate === true`. Click: opens editor `Dialog` pre-populated with that row's current values; focus moves into the first form input.
 - **Deactivate row action**: visible when `canUpdate === true` and the row is active. Click: opens `ConfirmationDialog` with destructive variant; focus on the destructive **Deactivate** button. Confirm: awaits the update, button shows pending state via `isPending`; on resolve the dialog closes. Cancel or escape: closes without mutation.
 - **Reactivate row action**: visible when `canUpdate === true` and the row is inactive. Click: directly performs the `is_active = true` update with no intermediate dialog. The row action button shows a brief pending state for the duration of the mutation.
@@ -484,7 +484,7 @@ All writes go via `useSecureSupabase().from('core_membership_type')`. Authorisat
 ### §9.2 Slice-specific caveats
 
 - **`useSecureSupabase` returns the base client when no org is resolved.** Callers must check `selectedOrganisation` separately before reading or writing — TEAM-01's `AuthenticatedShell` no-org empty state prevents this slice from rendering with `selectedOrganisation === null`, but defensive guards in mutation handlers are still required for the org-switch race (BR-07).
-- **`DataTable` bespoke editor pattern.** The DataTable's built-in `onCreateRow` / `onEditRow` modal is not used. The toolbar Create button's handler opens a slice-controlled `Dialog`; row Edit / Deactivate / Reactivate actions open slice-controlled `Dialog` / `ConfirmationDialog` overlays. `features.deletion: false` and `onDeleteRow` is not passed (no hard delete UX). `features.import`, `features.export`, `features.hierarchical`, `features.grouping`, `features.deleteSelected`, `features.selection` are also `false`.
+- **`DataTable` create handoff pattern.** Create entry uses the DataTable built-in create modal (`onCreateRow`) and then hands off to a slice-controlled `Dialog`; row Edit / Deactivate / Reactivate actions open slice-controlled `Dialog` / `ConfirmationDialog` overlays. `features.deletion: false` and `onDeleteRow` is not passed (no hard delete UX). `features.import`, `features.export`, `features.hierarchical`, `features.grouping`, `features.deleteSelected`, `features.selection` are also `false`.
 - **`HandleSupabaseError` 23505 override.** The default normalised copy for 23505 is "This record already exists." The slice intercepts 23505 in the mutation `catch` block, renders an inline form error on the **Name** field with the per-org override copy "A membership type with this name already exists in this organisation.", and does not raise a destructive toast for that case.
 - **`toast` mounting dependency.** `toast(...)` requires `<ToastProvider>` to be mounted in an ancestor. TEAM-01 mounts `<ToastProvider>` (which renders `<Toaster />` internally) inside `AuthenticatedShell`. The slice does not mount `Toaster` itself.
 - **Mutation contract gate.** All mutations rely on RBAC-checked INSERT and UPDATE RLS policies that are upstream platform work. Implementation cannot proceed until those policies land on dev — see §15.
@@ -522,10 +522,10 @@ All writes go via `useSecureSupabase().from('core_membership_type')`. Authorisat
 Given a user is authenticated, has an org, and has `read:page.membership-types`, when they navigate to `/settings/membership-types`, then the page renders the title "Membership types" and the table of all membership types for the current org, regardless of `is_active`. (Traces F-01, F-02, F-04.)
 
 **AC-02 — Empty state.**
-Given a user enters `/settings/membership-types` for an org that has zero membership types, when the page loads, then the table renders the empty state heading "No membership types yet." and description "Create your first to start assigning members." with the **Create membership type** button visible in the toolbar (assuming `canCreate === true`). (Traces F-07.)
+Given a user enters `/settings/membership-types` for an org that has zero membership types, when the page loads, then the table renders the empty state heading "No membership types yet." and description "Create your first to start assigning members." with the **Create** button visible in the toolbar (assuming `canCreate === true`). (Traces F-07.)
 
 **AC-03 — Create membership type — happy path.**
-Given a user has `canCreate === true`, when they open the Create dialog, fill `name = "Junior"`, `min_age = 5`, `max_age = 12`, leave Active on, and submit, then the dialog closes, the new row appears in the list, and a success toast renders with copy "Membership type created." (Traces F-19, BR-04, BR-11.)
+Given a user has `canCreate === true`, when they click **Create**, submit the DataTable create modal, then fill `name = "Junior"`, `min_age = 5`, `max_age = 12`, leave Active on, and submit in the slice editor dialog, then the editor closes, the new row appears in the list, and a success toast renders with copy "Membership type created." (Traces F-19, BR-04, BR-11.)
 
 **AC-04 — Edit membership type — happy path.**
 Given a user has `canUpdate === true` and a saved row, when they open the Edit dialog, change `name`, and submit, then the dialog closes, the row's name updates in the list, and a success toast renders with copy "Membership type updated." (Traces F-20, BR-11.)
@@ -552,7 +552,7 @@ Given a user has `canUpdate === true` and an inactive row, when they click React
 Given a user is authenticated and has org context but lacks `read:page.membership-types`, when they navigate to `/settings/membership-types`, then `<AccessDenied />` renders with copy "You do not have permission to view this page." inside the `AuthenticatedShell` chrome. (Traces F-10, F-28.)
 
 **AC-12 — Permission denied — create / update.**
-Given a user has `canRead === true` but `canCreate === false` and `canUpdate === false`, when they view `/settings/membership-types`, then the **Create membership type** button is not rendered and no row shows Edit / Deactivate / Reactivate actions. (Traces F-29, F-30, F-31.)
+Given a user has `canRead === true` but `canCreate === false` and `canUpdate === false`, when they view `/settings/membership-types`, then the **Create** button is not rendered and no row shows Edit / Deactivate / Reactivate actions. (Traces F-29, F-30, F-31.)
 
 **AC-13 — Switching organisation refreshes the list.**
 Given a user has the page open with rows visible for org A, when they switch the org context to org B in the header selector, then the list refetches and shows org B's rows (or the empty state). (Traces F-05, BR-01.)
@@ -603,7 +603,7 @@ Given a user submits a create with valid data but the server returns a 5xx error
 
 - All mutations must go via `useSecureSupabase().from('core_membership_type')`. Do not call `createClient` directly. Do not reach for any client that bypasses RBAC scope resolution.
 - Do not implement a hard-delete path. The DataTable's `features.deletion` is `false`, `onDeleteRow` is not passed, and no UI surface offers row deletion.
-- Do not use the DataTable's built-in `onCreateRow` / `onEditRow` modal. The slice's bespoke `Dialog` is the create / edit surface.
+- Do not use `onEditRow` / `onDeleteRow` built-in DataTable modals. Create may use DataTable `onCreateRow` as a handoff into the slice editor `Dialog`.
 - Do not author the RBAC-checked INSERT / UPDATE RLS policies on `core_membership_type` from inside this slice. That migration is upstream platform work; this slice depends on it (§15).
 - Do not query production database during build or test. All MCP verification targets dev-db only (`rkytnffgmwnnmewevqgp`).
 

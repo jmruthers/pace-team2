@@ -8,6 +8,7 @@ import { MemberDirectoryPage } from './pages/members/MemberDirectoryPage';
 import { Member360Page } from './pages/members/Member360Page';
 import { MemberRolesPage } from './pages/members/MemberRolesPage';
 import { ApprovalsPage } from './pages/approvals/ApprovalsPage';
+import { MembershipTypesPage } from './pages/settings/MembershipTypesPage';
 
 export const APP_NAME = 'TEAM';
 
@@ -191,6 +192,10 @@ function App() {
                 <CommunicationsPlaceholder />
               </PagePermissionGuard>
             )}
+          />
+          <Route
+            path="settings/membership-types"
+            element={<MembershipTypesPage />}
           />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
