@@ -7,6 +7,7 @@ import { AuthenticatedShell } from './components/layout/AuthenticatedShell';
 import { MemberDirectoryPage } from './pages/members/MemberDirectoryPage';
 import { Member360Page } from './pages/members/Member360Page';
 import { MemberRolesPage } from './pages/members/MemberRolesPage';
+import { ApprovalsPage } from './pages/approvals/ApprovalsPage';
 
 export const APP_NAME = 'TEAM';
 
@@ -166,6 +167,22 @@ function App() {
           <Route
             path="members/:memberId/roles"
             element={<MemberRolesPage />}
+          />
+          <Route
+            path="approvals"
+            element={(
+              <PagePermissionGuard pageName="approvals" operation="read" fallback={<AccessDenied />}>
+                <ApprovalsPage />
+              </PagePermissionGuard>
+            )}
+          />
+          <Route
+            path="approvals/:requestId"
+            element={(
+              <PagePermissionGuard pageName="approvals" operation="read" fallback={<AccessDenied />}>
+                <ApprovalsPage />
+              </PagePermissionGuard>
+            )}
           />
           <Route
             path="communications"
