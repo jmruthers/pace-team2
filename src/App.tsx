@@ -6,6 +6,7 @@ import { usePaceMain, useUnifiedAuth } from '@solvera/pace-core/hooks';
 import { AuthenticatedShell } from './components/layout/AuthenticatedShell';
 import { MemberDirectoryPage } from './pages/members/MemberDirectoryPage';
 import { Member360Page } from './pages/members/Member360Page';
+import { MemberRolesPage } from './pages/members/MemberRolesPage';
 
 export const APP_NAME = 'TEAM';
 
@@ -161,6 +162,10 @@ function App() {
           <Route
             path="members/:memberId"
             element={<Member360Page />}
+          />
+          <Route
+            path="members/:memberId/roles"
+            element={<MemberRolesPage />}
           />
           <Route
             path="communications"

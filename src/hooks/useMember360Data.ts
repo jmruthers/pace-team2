@@ -3,6 +3,8 @@ import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSecureSupabase } from '@solvera/pace-core/rbac';
 import { HandleSupabaseError } from '@solvera/pace-core/utils';
+import { apiErr, apiOk } from '@/lib/apiResult';
+import type { ApiResult } from '@/lib/apiResult';
 import type {
   AdditionalContactRow,
   ApplicationStatus,
@@ -96,7 +98,7 @@ function asMutationError(error: unknown, context: Member360MutationError['contex
 export async function runIdentitySave(
   secureSupabase: SecureSupabaseClientLike,
   payload: IdentitySavePayload
-): Promise<void> {
+): Promise<ApiResult<void, Member360MutationError>> {
   const personPayload = {
     first_name: payload.firstName.trim(),
     last_name: payload.lastName.trim(),
@@ -122,7 +124,7 @@ export async function runIdentitySave(
     .single()) as SupabaseQueryResult<{ id: string } | null>;
 
   if (personUpdate.error != null) {
-    throw asMutationError(personUpdate.error, 'core_person');
+    return apiErr<void, Member360MutationError>(asMutationError(personUpdate.error, 'core_person'));
   }
 
   const memberUpdate = (await secureSupabase
@@ -133,14 +135,16 @@ export async function runIdentitySave(
     .single()) as SupabaseQueryResult<{ id: string } | null>;
 
   if (memberUpdate.error != null) {
-    throw asMutationError(memberUpdate.error, 'core_member');
+    return apiErr<void, Member360MutationError>(asMutationError(memberUpdate.error, 'core_member'));
   }
+
+  return apiOk<void, Member360MutationError>(undefined);
 }
 
 export async function runCardActivationUpdate(
   secureSupabase: SecureSupabaseClientLike,
   payload: { cardId: string; isActive: boolean }
-): Promise<void> {
+): Promise<ApiResult<void, Member360MutationError>> {
   const result = (await secureSupabase
     .from('core_member_card')
     .update({ is_active: payload.isActive })
@@ -149,8 +153,10 @@ export async function runCardActivationUpdate(
     .single()) as SupabaseQueryResult<{ id: string } | null>;
 
   if (result.error != null) {
-    throw asMutationError(result.error, 'core_member_card');
+    return apiErr<void, Member360MutationError>(asMutationError(result.error, 'core_member_card'));
   }
+
+  return apiOk<void, Member360MutationError>(undefined);
 }
 
 function parseInteger(value: string): number | null {
@@ -517,7 +523,7 @@ export function useMember360Data({ memberId, organisationId }: UseMember360DataO
         } as Member360MutationError;
       }
 
-      await runIdentitySave(secureSupabase, {
+      const result = await runIdentitySave(secureSupabase, {
         memberId: member.id,
         personId: member.personId,
         firstName: values.firstName,
@@ -532,6 +538,9 @@ export function useMember360Data({ memberId, organisationId }: UseMember360DataO
         validFrom: values.validFrom,
         validTo: values.validTo,
       });
+      if (result.ok === false) {
+        throw result.error;
+      }
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['member', memberId, organisationId] });
@@ -544,7 +553,10 @@ export function useMember360Data({ memberId, organisationId }: UseMember360DataO
       if (secureSupabase == null) {
         throw new Error('Secure client unavailable');
       }
-      await runCardActivationUpdate(secureSupabase, { cardId, isActive });
+      const result = await runCardActivationUpdate(secureSupabase, { cardId, isActive });
+      if (result.ok === false) {
+        throw result.error;
+      }
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['member', memberId, 'cards', organisationId] });

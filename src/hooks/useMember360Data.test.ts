@@ -51,7 +51,7 @@ describe('useMember360Data mutation helpers', () => {
       { data: { id: 'member-1' }, error: null },
     ]);
 
-    await runIdentitySave(client as never, {
+    const result = await runIdentitySave(client as never, {
       memberId: 'member-1',
       personId: 'person-1',
       firstName: 'Ava',
@@ -67,33 +67,36 @@ describe('useMember360Data mutation helpers', () => {
       validTo: '',
     });
 
+    expect(result.ok).toBe(true);
     expect(calls.map((call) => call.table)).toEqual(['core_person', 'core_member']);
   });
 
-  it('stops identity save when core_person update fails', async () => {
+  it('returns failure result and stops identity save when core_person update fails', async () => {
     const { client, calls } = buildSecureClient([
       { data: null, error: new Error('person denied') },
       { data: { id: 'member-1' }, error: null },
     ]);
 
-    await expect(
-      runIdentitySave(client as never, {
-        memberId: 'member-1',
-        personId: 'person-1',
-        firstName: 'Ava',
-        lastName: 'Adams',
-        preferredName: '',
-        email: '',
-        dateOfBirth: '',
-        genderId: null,
-        pronounId: null,
-        membershipTypeId: null,
-        membershipNumber: '',
-        validFrom: '',
-        validTo: '',
-      })
-    ).rejects.toMatchObject({
-      context: 'core_person',
+    const result = await runIdentitySave(client as never, {
+      memberId: 'member-1',
+      personId: 'person-1',
+      firstName: 'Ava',
+      lastName: 'Adams',
+      preferredName: '',
+      email: '',
+      dateOfBirth: '',
+      genderId: null,
+      pronounId: null,
+      membershipTypeId: null,
+      membershipNumber: '',
+      validFrom: '',
+      validTo: '',
+    });
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        context: 'core_person',
+      },
     });
 
     expect(calls.map((call) => call.table)).toEqual(['core_person']);
@@ -124,7 +127,7 @@ describe('useMember360Data mutation helpers', () => {
       },
     };
 
-    await Promise.all([
+    const results = await Promise.all([
       runIdentitySave(client as never, {
         memberId: 'member-1',
         personId: 'person-1',
@@ -157,14 +160,19 @@ describe('useMember360Data mutation helpers', () => {
       }),
     ]);
 
+    expect(results.every((result) => result.ok)).toBe(true);
     expect(['Alpha', 'Beta']).toContain(state.first_name);
   });
 
-  it('returns contextual mutation error for card updates', async () => {
+  it('returns contextual mutation error result for card updates', async () => {
     const { client } = buildSecureClient([{ data: null, error: new Error('card denied') }]);
 
-    await expect(runCardActivationUpdate(client as never, { cardId: 'card-1', isActive: false })).rejects.toMatchObject({
-      context: 'core_member_card',
+    const result = await runCardActivationUpdate(client as never, { cardId: 'card-1', isActive: false });
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        context: 'core_member_card',
+      },
     });
   });
 });
