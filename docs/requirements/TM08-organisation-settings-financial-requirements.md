@@ -46,7 +46,7 @@ TEAM-08 v1 does **not** own:
 
 ### Architectural posture
 
-**Mutation contract — Option A (RBAC-checked RLS).** All reads and writes go via `useSecureSupabase().from('core_org_settings')`. Save is a single `.upsert(payload, { onConflict: 'organisation_id' })` call. Authorisation is enforced at the database layer by RBAC-checked INSERT and UPDATE RLS policies on `core_org_settings` matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md`, using `check_rbac_permission_with_context('<op>:page.org-settings', 'org-settings', organisation_id, NULL, get_app_id('TEAM'))` (where `<op>` is `create` or `update`). The slice does **not** author the RLS migration. The migration is upstream platform work and gates implementation (see §15). Super-admins also pass authorisation via the standards-template super-admin OR-clause (`is_super_admin(safe_get_user_id_for_rls())`).
+**Mutation contract — Option A (RBAC-checked RLS).** All reads and writes go via `useSecureSupabase().from('core_org_settings')`. Save is a single `.upsert(payload, { onConflict: 'organisation_id' })` call. Authorisation is enforced at the database layer by RBAC-checked INSERT and UPDATE RLS policies on `core_org_settings` matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md`, using `data_check_rbac_permission_with_context('<op>:page.org-settings', 'org-settings', organisation_id, NULL, data_get_app_id('TEAM'))` (where `<op>` is `create` or `update`). The slice does **not** author the RLS migration. The migration is upstream platform work and gates implementation (see §15). Super-admins also pass authorisation via the standards-template super-admin OR-clause (`is_super_admin(safe_get_user_id_for_rls())`).
 
 **Page guard.** The page is wrapped in `<PagePermissionGuard pageName="org-settings" operation="read">`. Scope is resolved internally by the guard from `OrganisationServiceProvider` context — no `scope` prop is passed.
 
@@ -340,7 +340,7 @@ Sticky elements: the shell header and footer are sticky per TEAM-01's `PaceAppLa
 
 **BR-11 — RLS authority via Option A**
 - Input: an INSERT or UPDATE on `core_org_settings` from the slice (issued via the upsert call).
-- Output: server-side RLS authorises the operation when either `is_super_admin(safe_get_user_id_for_rls())` is true OR `check_rbac_permission_with_context('<op>:page.org-settings', 'org-settings', organisation_id, NULL, get_app_id('TEAM'))` returns true (where `<op>` is `create` or `update`). Super-admins also pass authorisation via the standards-template super-admin OR-clause (`is_super_admin(safe_get_user_id_for_rls())`). The DELETE policy remains super-admin-only and is not exercised by this slice.
+- Output: server-side RLS authorises the operation when either `is_super_admin(safe_get_user_id_for_rls())` is true OR `data_check_rbac_permission_with_context('<op>:page.org-settings', 'org-settings', organisation_id, NULL, data_get_app_id('TEAM'))` returns true (where `<op>` is `create` or `update`). Super-admins also pass authorisation via the standards-template super-admin OR-clause (`is_super_admin(safe_get_user_id_for_rls())`). The DELETE policy remains super-admin-only and is not exercised by this slice.
 
 ---
 
@@ -376,7 +376,7 @@ This slice does not publish any types, hooks, or services for other slices to im
 | Org member without `org-settings` permissions | allow (SELECT) | denied | denied | denied |
 | Anonymous | denied | denied | denied | denied |
 
-Authorisation is enforced server-side by RBAC-checked INSERT and UPDATE RLS policies on `core_org_settings` for `pageName` `org-settings` (matching the standards-file template). The SELECT policy is not changed by this slice and continues to allow super-admins, organisation members (via `check_user_organisation_access(organisation_id)`), and TRAC planners (via `check_rbac_permission_with_context('read:page.planning', 'planning', organisation_id, NULL, get_app_id('TRAC'))`) to read the row.
+Authorisation is enforced server-side by RBAC-checked INSERT and UPDATE RLS policies on `core_org_settings` for `pageName` `org-settings` (matching the standards-file template). The SELECT policy is not changed by this slice and continues to allow super-admins, organisation members (via `check_user_organisation_access(organisation_id)`), and TRAC planners (via `data_check_rbac_permission_with_context('read:page.planning', 'planning', organisation_id, NULL, data_get_app_id('TRAC'))`) to read the row.
 
 ### Cross-slice handoffs
 
@@ -414,18 +414,18 @@ Verified 2026-05-04 via Supabase MCP:
 
 The TEAM-08 v1 slice does NOT author migrations. Before TEAM-08 implementation begins (and certainly before it can be marked Done):
 
-1. **RBAC-checked INSERT and UPDATE policies** on `public.core_org_settings` for `pageName` `org-settings` must replace the prior `check_user_is_org_admin(organisation_id)` policies, matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` and using `check_rbac_permission_with_context('<op>:page.org-settings', 'org-settings', organisation_id, NULL, get_app_id('TEAM'))` for `<op>` in `{create, update}`. The new policies include the super-admin OR-clause from the standards template; the SELECT policy is unchanged; DELETE remains super-admin-only.
+1. **RBAC-checked INSERT and UPDATE policies** on `public.core_org_settings` for `pageName` `org-settings` must replace the prior `check_user_is_org_admin(organisation_id)` policies, matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` and using `data_check_rbac_permission_with_context('<op>:page.org-settings', 'org-settings', organisation_id, NULL, data_get_app_id('TEAM'))` for `<op>` in `{create, update}`. The new policies include the super-admin OR-clause from the standards template; the SELECT policy is unchanged; DELETE remains super-admin-only.
 
 ### Helpers referenced (must be present on dev)
 
-- `check_rbac_permission_with_context(p_permission TEXT, p_page_name TEXT, p_organisation_id UUID, p_event_id TEXT, p_app_id UUID) RETURNS boolean` — STABLE SECURITY DEFINER wrapper. Verified via dev MCP 2026-05-04.
+- `data_check_rbac_permission_with_context(p_permission TEXT, p_page_name TEXT, p_organisation_id UUID, p_event_id TEXT, p_app_id UUID) RETURNS boolean` — STABLE SECURITY DEFINER wrapper. Verified via dev MCP 2026-05-04.
 - `is_super_admin(p_user_id UUID) RETURNS boolean` — verified.
 - `safe_get_user_id_for_rls() RETURNS UUID` — verified.
-- `get_app_id(p_app_name TEXT) RETURNS UUID` — verified; called as `get_app_id('TEAM')`.
+- `data_get_app_id(p_app_name TEXT) RETURNS UUID` — verified; called as `data_get_app_id('TEAM')`.
 
 ### Domain references
 
-- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC Permission-Based Policy template; helper function attributes; `check_rbac_permission_with_context` reference.
+- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC Permission-Based Policy template; helper function attributes; `data_check_rbac_permission_with_context` reference.
 - DB-419 (Operational `member_validation_config` column) — informational only for v1; not exercised by this slice.
 - DB-420 (`base_currency` column + CHECK) — defines the regex enforced server-side and surfaced in BR-04 / §4 F-12.
 
@@ -500,7 +500,7 @@ A canonical `rbac_app_pages` row for `pageName = 'org-settings'` (with `scope_ty
 
 ### Row-level access
 
-- The SELECT policy is not changed by this slice. A user sees their organisation's row when they are a super-admin OR have `check_user_organisation_access(organisation_id)` OR (TRAC-side) `check_rbac_permission_with_context('read:page.planning', 'planning', organisation_id, NULL, get_app_id('TRAC'))`. TEAM-08's UI only renders for users who passed `read:page.org-settings` at the page guard, so the SELECT widening is invisible to TEAM users.
+- The SELECT policy is not changed by this slice. A user sees their organisation's row when they are a super-admin OR have `check_user_organisation_access(organisation_id)` OR (TRAC-side) `data_check_rbac_permission_with_context('read:page.planning', 'planning', organisation_id, NULL, data_get_app_id('TRAC'))`. TEAM-08's UI only renders for users who passed `read:page.org-settings` at the page guard, so the SELECT widening is invisible to TEAM users.
 
 ### Proxy / impersonation
 
@@ -574,7 +574,7 @@ Given the user clears `bank_account_name`, `bank_bsb`, and `bank_account_number`
 - Confirm Cancel reverts every field to the most-recently-loaded values.
 - Confirm the org-context switch handler fires the default-variant toast and resets the form.
 - Against dev-db (`rkytnffgmwnnmewevqgp`):
-  - Confirm RBAC-checked INSERT and UPDATE policies on `public.core_org_settings` for `pageName` `org-settings` are present and use `check_rbac_permission_with_context(... , get_app_id('TEAM'))`.
+  - Confirm RBAC-checked INSERT and UPDATE policies on `public.core_org_settings` for `pageName` `org-settings` are present and use `data_check_rbac_permission_with_context(... , data_get_app_id('TEAM'))`.
   - Confirm `rbac_app_pages` has a row for `pageName = 'org-settings'` with `scope_type = 'organisation'` and the TEAM `app_id` (post-build seeding may handle this; if absent, the slice's Save affordance will be hidden because `useResourcePermissions` returns false — note as a known seeding gap, not a code defect).
 - Manually verify that an INSERT with an invalid `base_currency` value (e.g. lower-case `'usd'`) returns Postgres 23514 and that the slice surfaces the inline `Alert` from §4 F-12.
 - Manually verify that an UPDATE attempt by an authenticated user without the update permission returns an RLS denial (Postgres `42501` or PostgREST equivalent) and that the slice surfaces the destructive toast from §4 F-13.
@@ -632,13 +632,13 @@ n/a — standard PDLC quality gates apply.
 - `/docs/requirements/team/TM01-app-shell-auth-layout-requirements.md` — app shell, `AuthenticatedShell` mounting `<ToastProvider>` (which renders `<Toaster />`), nav menu, `ProtectedRoute`, no-org empty state, post-build RBAC seeding plan.
 - `/docs/requirements/team/TM06-membership-types-requirements.md` — sibling settings slice using the same RBAC-checked-RLS mutation pattern; convention reference for editor / DataTable bespoke pattern.
 - `/docs/requirements/team/TM07-sub-organisations-requirements.md` — sibling settings slice (sub-organisations) using the same RBAC-checked-RLS mutation pattern; convention reference for `<PagePermissionGuard>` usage and toast variants.
-- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC Permission-Based Policy template; helper function attributes; `check_rbac_permission_with_context`; `get_app_id`.
+- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC Permission-Based Policy template; helper function attributes; `data_check_rbac_permission_with_context`; `data_get_app_id`.
 
 ### Implementation gate (upstream platform work — repeated for traceability)
 
 Before TEAM-08 is marked Done:
 
-1. RBAC-checked INSERT and UPDATE RLS policies on `core_org_settings` for `pageName` `org-settings` (matching `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` "RBAC Permission-Based Policy"), using `check_rbac_permission_with_context('<op>:page.org-settings', 'org-settings', organisation_id, NULL, get_app_id('TEAM'))`, must replace the current `check_user_is_org_admin(organisation_id)` policies on dev.
+1. RBAC-checked INSERT and UPDATE RLS policies on `core_org_settings` for `pageName` `org-settings` (matching `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` "RBAC Permission-Based Policy"), using `data_check_rbac_permission_with_context('<op>:page.org-settings', 'org-settings', organisation_id, NULL, data_get_app_id('TEAM'))`, must replace the current `check_user_is_org_admin(organisation_id)` policies on dev.
 
 The v6 slice does not author the migration. Super-admins also pass authorisation via the standards-template super-admin OR-clause (`is_super_admin(safe_get_user_id_for_rls())`).
 

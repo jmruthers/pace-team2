@@ -541,7 +541,7 @@ This slice publishes no symbols for other slices to import. The reporting UX liv
 - Confirm `core_report_template` has `domain_id (text)` and `app_id (text)` columns and the `sort_config` / `column_config` jsonb columns.
 - Confirm `core_report_template` RLS policies match the §7 RLS contract (super-admin / creator / `check_user_is_org_admin(organisation_id)` for UPDATE / DELETE; super-admin / `check_user_organisation_access(organisation_id)` for INSERT).
 - Confirm `rbac_apps` row `name = 'TEAM'`, `is_active = true`.
-- Confirm an `rbac_app_pages` row exists for `page_name = 'reports'` (lower-case), `app_id = get_app_id('TEAM')`, `scope_type = 'organisation'` after the post-build seeding pass (§15).
+- Confirm an `rbac_app_pages` row exists for `page_name = 'reports'` (lower-case), `app_id = data_get_app_id('TEAM')`, `scope_type = 'organisation'` after the post-build seeding pass (§15).
 
 ### Domain / decision references
 
@@ -731,7 +731,7 @@ Given templates exist for org B but the user is signed in with org A selected, w
 - **MCP test — `core_field_list` re-seed.** Against dev-db (`rkytnffgmwnnmewevqgp`), confirm at least one row exists with `report_availability = true` AND `report_domains @> ARRAY['participant']` (bare domain id). If zero rows match, the §15 prerequisite has not landed and the slice cannot render fields.
 - **MCP test — `core_report_template` columns.** Confirm `domain_id`, `app_id`, `sort_config`, `column_config` are present.
 - **MCP test — RLS authority.** As a user with org-admin access on org A, run a SELECT on `core_report_template` without an `organisation_id` filter; confirm only org A rows return. Repeat with the slice's defensive `organisation_id = :orgA` filter and confirm the same row set.
-- **MCP test — `rbac_app_pages` lower-case row.** Confirm a row exists for `page_name = 'reports'` (lower-case), `app_id = get_app_id('TEAM')`, `scope_type = 'organisation'` after the post-build seeding pass.
+- **MCP test — `rbac_app_pages` lower-case row.** Confirm a row exists for `page_name = 'reports'` (lower-case), `app_id = data_get_app_id('TEAM')`, `scope_type = 'organisation'` after the post-build seeding pass.
 - **MCP test — role-grant rows.** Confirm `rbac_page_permissions` rows exist for super-admin (read|create|update|delete|export), org-admin (read|create|update|delete|export), and staff (read|export only) on the `reports` page for the TEAM app.
 - **In-app demo flow — happy path.** Sign in as a TEAM org-admin. Visit `/reports`. Pick three fields. Click Run report. Confirm the results table shows rows. Save the configuration as "Demo report", visibility "Private". Confirm the Templates panel shows the row with Owner "You" and badge "Private".
 - **In-app demo flow — load and update.** Reload the page. From the Templates panel, click the "Demo report" row. Confirm the builder restores fields. Modify the description. Click Save. Confirm a `'success'`-variant toast and the Modified column updates.

@@ -7,7 +7,7 @@ Slice ID:        TEAM-05
 Name:            Member requests queue & review
 Status:          Draft
 Depends on:      TEAM-01 (app shell, ToastProvider, AuthenticatedShell, navItems, Approvals nav cell)
-Backend impact:  Schema changes (upstream platform: extend team_member_request_type enum with 'join'/'transfer'; extend team_member_request_status enum with 'on_hold'; add columns target_organisation_id, source_organisation_id, membership_type_id, applicant_member_number, review_notes to team_member_request; update app_submit_member_request RPC to accept request_type and insert provisional core_member; update app_update_member_request_status RPC to accept 'on_hold' and execute member-side effects atomically — see §15 implementation gate)
+Backend impact:  Schema changes (upstream platform: extend team_member_request_type enum with 'join'/'transfer'; extend team_member_request_status enum with 'on_hold'; add columns target_organisation_id, source_organisation_id, membership_type_id, applicant_member_number, review_notes to team_member_request; update app_submit_member_request RPC to accept request_type and insert provisional core_member; update app_resolve_member_request RPC to accept 'on_hold' and execute member-side effects atomically — see §15 implementation gate)
 Frontend impact: UI
 Routes owned:    /approvals; /approvals/:requestId
 QA pack:         docs/test-packs/TEAM-05-qa-pack.md
@@ -17,7 +17,7 @@ QA pack:         docs/test-packs/TEAM-05-qa-pack.md
 
 ## §2 Overview
 
-TEAM-05 delivers the join and transfer request queue and review surface for org-admin staff at `/approvals`. The page renders two tabs — Open (default: `pending` and `on_hold` requests for the currently selected organisation) and Closed (read-only history of `approved`, `rejected`, and `withdrawn` requests) — with column sort, search, request-type filter, and pagination. Selecting a row opens a hybrid review panel via the child route `/approvals/:requestId`: side-by-side at `md+` (queue list + review panel), stacked single-column below `md` (selecting a row navigates to detail; queue is hidden). The review panel shows applicant details, request metadata, and form responses, and exposes the resolve action rail (Approve / Put on hold / Reject) for `pending` requests. All resolve transitions go through the `app_update_member_request_status` RPC, which executes member-side effects (member status change, member-number assignment, transfer source-org adjustment, reject member-row delete) atomically server-side. The page is wrapped by `<PagePermissionGuard pageName="approvals" operation="read">`.
+TEAM-05 delivers the join and transfer request queue and review surface for org-admin staff at `/approvals`. The page renders two tabs — Open (default: `pending` and `on_hold` requests for the currently selected organisation) and Closed (read-only history of `approved`, `rejected`, and `withdrawn` requests) — with column sort, search, request-type filter, and pagination. Selecting a row opens a hybrid review panel via the child route `/approvals/:requestId`: side-by-side at `md+` (queue list + review panel), stacked single-column below `md` (selecting a row navigates to detail; queue is hidden). The review panel shows applicant details, request metadata, and form responses, and exposes the resolve action rail (Approve / Put on hold / Reject) for `pending` requests. All resolve transitions go through the `app_resolve_member_request` RPC, which executes member-side effects (member status change, member-number assignment, transfer source-org adjustment, reject member-row delete) atomically server-side. The page is wrapped by `<PagePermissionGuard pageName="approvals" operation="read">`.
 
 ---
 
@@ -51,7 +51,7 @@ TEAM-05 does **not** own:
 
 ### Architectural posture
 
-**RPC-only resolve mutations.** All resolve transitions go through `app_update_member_request_status(p_request_id, p_status, p_resolution_note?, p_member_number?)`. The slice does not call `.from('team_member_request').update(...)` or `.delete(...)` directly, and does not write `core_member` from the client. Member-side effects (set `core_member.membership_status='Active'`, assign member number, DELETE provisional row on reject, set source-org member to `Resigned` on transfer-approve) execute server-side inside the RPC, atomically with the request status change.
+**RPC-only resolve mutations.** All resolve transitions go through `app_resolve_member_request(p_request_id, p_status, p_review_notes?, p_member_number?)`. The slice does not call `.from('team_member_request').update(...)` or `.delete(...)` directly, and does not write `core_member` from the client. Member-side effects (set `core_member.membership_status='Active'`, assign member number, DELETE provisional row on reject, set source-org member to `Resigned` on transfer-approve) execute server-side inside the RPC, atomically with the request status change.
 
 **Page guard.** `<PagePermissionGuard pageName="approvals" operation="read">` wraps the parent layout, covering both `/approvals` and `/approvals/:requestId`. The guard resolves scope internally from `OrganisationServiceProvider` context — no `scope` prop is passed.
 
@@ -113,7 +113,7 @@ If `selectedOrganisation` resolves to `null` after step 3 (for example a race du
 - **F-17** When a list query (Open or Closed) fails, the corresponding tab's `DataTable` is not rendered; instead the tab's content area renders an inline `<Alert variant="destructive">` with title "Could not load requests", description set from the normalised error returned by `HandleSupabaseError`, and a Retry button alongside that re-runs the query. The slice also calls `HandleSupabaseError(error, { context: 'team_member_request' })` for normalised logging.
 - **F-18** When the review-panel request query fails, the review panel renders `<Alert variant="destructive">` with title "Could not load request", description from `HandleSupabaseError`, and a Retry button.
 - **F-19** When the form-responses query fails, the right column renders `<Alert variant="destructive">` with title "Could not load form responses" and a Retry button. The left column and action rail continue to display normally.
-- **F-20** When the resolve RPC raises `'Pending request not found'` (stale resolve), the slice surfaces a destructive toast "This request has already been resolved by another admin. Refreshing the queue.", invalidates the queue query keys (Open + Closed for current org) and the `['approvals', 'open-count', orgId]` key, and navigates to `/approvals` (clearing the `:requestId` from the URL).
+- **F-20** When the resolve RPC raises `'Resolvable request not found'` (stale resolve), the slice surfaces a destructive toast "This request has already been resolved by another admin. Refreshing the queue.", invalidates the queue query keys (Open + Closed for current org) and the `['approvals', 'open-count', orgId]` key, and navigates to `/approvals` (clearing the `:requestId` from the URL).
 - **F-21** When the resolve RPC raises `'Permission denied'`, the slice surfaces a destructive toast "Could not resolve request: Permission denied." and the dialog stays open (so the user does not lose typed notes).
 - **F-22** When the resolve RPC raises any other error, the slice surfaces a destructive toast "Could not resolve request: {normalised error message}." and the dialog stays open.
 - **F-23** A user without `read:page.approvals` sees `<AccessDenied />` rendered inside the `AuthenticatedShell` chrome with copy "You do not have permission to view this page." (the `AccessDenied` default).
@@ -161,10 +161,10 @@ If `selectedOrganisation` resolves to `null` after step 3 (for example a race du
 - **F-47** When `status === 'pending'` AND `useResourcePermissions('approvals', 'update').canUpdate === true`, the action rail renders, anchored at the top of the right pane just below the panel title strip (not sticky).
 - **F-48** The action rail contains three `Button` controls in left-to-right visual order: **Reject** (destructive variant), **Put on hold** (outline variant), **Approve** (primary variant). Right-aligned: Approve sits at the right edge, then Put on hold to its left, then Reject at the leftmost. (Read right-to-left as Approve | Put on hold | Reject per the resolution.)
 - **F-49** When `status !== 'pending'` OR `canUpdate === false`, the action rail does not render. (When `status === 'pending'` and `canUpdate === false`, the read-only state shows the request as still pending without offering a resolve affordance.)
-- **F-50** **Approve** click — when `applicant_member_number` on the request is non-null and non-empty, the slice opens a `ConfirmationDialog` (per BR-19) with title "Approve request?", description "{applicant} will become an active member with member number {applicant_member_number}.", confirmLabel "Approve", cancelLabel "Cancel", variant "default". On confirm, the slice calls `app_update_member_request_status(p_request_id=:requestId, p_status='approved', p_resolution_note=null, p_member_number=null)` (server-side uses the request's `applicant_member_number`).
-- **F-51** **Approve** click — when `applicant_member_number` is null or empty, the slice opens a composed `Dialog` (per BR-19) with title "Approve request?", body containing a required `<Input label="Member number">` defaulting to empty (helper text "Required. Must be unique within this organisation."), and a `<DialogFooter>` with a Cancel `Button` (default/outline variant) and an "Approve" `Button` (primary variant). The Approve button is disabled while the input is empty/whitespace-only or while the RPC is in flight. On confirm, the slice calls `app_update_member_request_status(p_request_id=:requestId, p_status='approved', p_resolution_note=null, p_member_number={trimmed input})`.
-- **F-52** **Reject** click — the slice opens a composed `Dialog` (per BR-19) with title "Reject request?", body containing a required `<Textarea label="Reason for rejection (visible to admins only)">` (helper text "At least 10 characters."), and a `<DialogFooter>` with a Cancel `Button` (default/outline variant) and a "Reject" `Button` (destructive variant). The Reject button is disabled while the trimmed textarea length is less than 10 or while the RPC is in flight. On confirm, the slice calls `app_update_member_request_status(p_request_id=:requestId, p_status='rejected', p_resolution_note={trimmed textarea}, p_member_number=null)`.
-- **F-53** **Put on hold** click — the slice opens a composed `Dialog` (per BR-19) with title "Put request on hold?", body containing an optional `<Textarea label="Note (optional)">` (helper text "Visible to admins only."), and a `<DialogFooter>` with a Cancel `Button` (default/outline variant) and a "Put on hold" `Button` (outline variant). The Put on hold button is enabled by default; disabled while the RPC is in flight. On confirm, the slice calls `app_update_member_request_status(p_request_id=:requestId, p_status='on_hold', p_resolution_note={trimmed textarea or null}, p_member_number=null)`.
+- **F-50** **Approve** click — when `applicant_member_number` on the request is non-null and non-empty, the slice opens a `ConfirmationDialog` (per BR-19) with title "Approve request?", description "{applicant} will become an active member with member number {applicant_member_number}.", confirmLabel "Approve", cancelLabel "Cancel", variant "default". On confirm, the slice calls `app_resolve_member_request(p_request_id=:requestId, p_status='approved', p_review_notes=null, p_member_number=null)` (server-side uses the request's `applicant_member_number`).
+- **F-51** **Approve** click — when `applicant_member_number` is null or empty, the slice opens a composed `Dialog` (per BR-19) with title "Approve request?", body containing a required `<Input label="Member number">` defaulting to empty (helper text "Required. Must be unique within this organisation."), and a `<DialogFooter>` with a Cancel `Button` (default/outline variant) and an "Approve" `Button` (primary variant). The Approve button is disabled while the input is empty/whitespace-only or while the RPC is in flight. On confirm, the slice calls `app_resolve_member_request(p_request_id=:requestId, p_status='approved', p_review_notes=null, p_member_number={trimmed input})`.
+- **F-52** **Reject** click — the slice opens a composed `Dialog` (per BR-19) with title "Reject request?", body containing a required `<Textarea label="Reason for rejection (visible to admins only)">` (helper text "At least 10 characters."), and a `<DialogFooter>` with a Cancel `Button` (default/outline variant) and a "Reject" `Button` (destructive variant). The Reject button is disabled while the trimmed textarea length is less than 10 or while the RPC is in flight. On confirm, the slice calls `app_resolve_member_request(p_request_id=:requestId, p_status='rejected', p_review_notes={trimmed textarea}, p_member_number=null)`.
+- **F-53** **Put on hold** click — the slice opens a composed `Dialog` (per BR-19) with title "Put request on hold?", body containing an optional `<Textarea label="Note (optional)">` (helper text "Visible to admins only."), and a `<DialogFooter>` with a Cancel `Button` (default/outline variant) and a "Put on hold" `Button` (outline variant). The Put on hold button is enabled by default; disabled while the RPC is in flight. On confirm, the slice calls `app_resolve_member_request(p_request_id=:requestId, p_status='on_hold', p_review_notes={trimmed textarea or null}, p_member_number=null)`.
 - **F-54** On a successful Approve RPC return, the slice closes the dialog, invalidates the Open + Closed list query keys for the current org and the `['approvals', 'open-count', orgId]` key, navigates to `/approvals`, and surfaces a `'success'`-variant toast "Request approved. {applicant} is now an active member." (where `{applicant}` is the subject person's full name).
 - **F-55** On a successful Reject RPC return, the slice closes the dialog, invalidates the same query keys, navigates to `/approvals`, and surfaces a `'success'`-variant toast "Request rejected.".
 - **F-56** On a successful Put-on-hold RPC return, the slice closes the dialog, invalidates the Open list query key for the current org and the `['approvals', 'open-count', orgId]` key (Closed list does not change), navigates to `/approvals`, and surfaces a `'success'`-variant toast "Request placed on hold.".
@@ -441,28 +441,28 @@ The review panel is a single container occupying the right pane (`md+`) or the f
 - Output: include rows WHERE `team_member_request.organisation_id = :orgId` AND `team_member_request.status IN ('approved','rejected','withdrawn')` AND `team_member_request.request_type IN ('join','transfer')`.
 
 **BR-04 — Approve resolve transition (server-side, atomic).**
-- Input: Approve confirm action — calls `app_update_member_request_status(p_request_id, p_status='approved', p_resolution_note=null, p_member_number)`.
+- Input: Approve confirm action — calls `app_resolve_member_request(p_request_id, p_status='approved', p_review_notes=null, p_member_number)`.
 - Server-side outputs (executed atomically inside the RPC):
   - UPDATE `team_member_request` SET `status='approved'`, `resolved_by`, `resolved_at`, audit columns WHERE `id=:requestId AND status='pending'`.
   - UPDATE the joined provisional `core_member` SET `membership_status='Active'`, `membership_number=:p_member_number ?? :request.applicant_member_number ?? :platform-generated`.
   - When `request_type='transfer'` AND `team_member_request.source_organisation_id IS NOT NULL`: UPDATE the source-org `core_member` SET `membership_status='Resigned'` WHERE `core_member.organisation_id=:source_organisation_id AND core_member.person_id=:subject_person_id`.
   - On success: returns TRUE.
-- Edge: stale call (status no longer pending) raises `'Pending request not found'`. UI catches and surfaces destructive toast + refetch (BR-10).
+- Edge: stale call (status no longer pending/on_hold) raises `'Resolvable request not found'`. UI catches and surfaces destructive toast + refetch (BR-10).
 - Edge: duplicate member number raises `'Membership number already exists for this organisation'` (or equivalent normalised message). UI surfaces destructive toast + leaves dialog open.
 - Client never writes `core_member` directly.
 
 **BR-05 — Reject resolve transition (server-side, atomic).**
-- Input: Reject confirm action — calls `app_update_member_request_status(p_request_id, p_status='rejected', p_resolution_note, p_member_number=null)`.
-- Validation (client-side): trimmed `p_resolution_note` length ≥ 10. Confirm button disabled until valid.
+- Input: Reject confirm action — calls `app_resolve_member_request(p_request_id, p_status='rejected', p_review_notes, p_member_number=null)`.
+- Validation (client-side): trimmed `p_review_notes` length ≥ 10. Confirm button disabled until valid.
 - Server-side outputs:
-  - UPDATE `team_member_request` SET `status='rejected'`, `resolution_note=trim(:p_resolution_note)`, `resolved_by`, `resolved_at`, audit columns WHERE `id=:requestId AND status='pending'`.
+  - UPDATE `team_member_request` SET `status='rejected'`, `review_notes=trim(:p_review_notes)`, `resolved_by`, `resolved_at`, audit columns WHERE `id=:requestId`.
   - DELETE the joined provisional `core_member` row identified by `subject_member_id`. FK ON DELETE SET NULL clears `team_member_request.subject_member_id`.
 - Client never writes `core_member` directly.
 
 **BR-06 — Put-on-hold transition (server-side).**
-- Input: Put-on-hold confirm action — calls `app_update_member_request_status(p_request_id, p_status='on_hold', p_resolution_note=optional, p_member_number=null)`.
+- Input: Put-on-hold confirm action — calls `app_resolve_member_request(p_request_id, p_status='on_hold', p_review_notes=optional, p_member_number=null)`.
 - Server-side outputs:
-  - UPDATE `team_member_request` SET `status='on_hold'`, `resolution_note=trim(:p_resolution_note) when supplied`, `resolved_by`, `resolved_at`, audit columns WHERE `id=:requestId AND status='pending'`.
+  - UPDATE `team_member_request` SET `status='on_hold'`, `review_notes=trim(:p_review_notes) when supplied`, `resolved_by`, `resolved_at`, audit columns WHERE `id=:requestId`.
   - No change to `core_member`; provisional row stays `Provisional`.
 - Note: `resolved_by` / `resolved_at` columns are repurposed to record the most recent state-change author and timestamp for any non-pending status, including `on_hold`. Column rename to `last_action_by` / `last_action_at` is a future polish item; v1 reuses these column names as-is.
 
@@ -485,7 +485,7 @@ The review panel is a single container occupying the right pane (`md+`) or the f
 - Selecting a row at any breakpoint navigates to `/approvals/:requestId`.
 
 **BR-10 — Stale resolve recovery.**
-- Input: `app_update_member_request_status` raises `'Pending request not found'`.
+- Input: `app_resolve_member_request` raises `'Resolvable request not found'`.
 - Output: surface destructive toast "This request has already been resolved by another admin. Refreshing the queue.", invalidate Open + Closed list query keys for the current org and the `['approvals', 'open-count', orgId]` key, and navigate to `/approvals` if the user is on `/approvals/:requestId`.
 
 **BR-11 — Form responses query.**
@@ -618,22 +618,22 @@ No other symbols are exported. The approvals UX lives behind `/approvals` and `/
 
 ### Write contracts
 
-This slice has one mutation path: `app_update_member_request_status` RPC.
+This slice has one mutation path: `app_resolve_member_request` RPC.
 
-- **RPC: `app_update_member_request_status(p_request_id uuid, p_status team_member_request_status, p_resolution_note text DEFAULT NULL, p_member_number text DEFAULT NULL) RETURNS boolean`** (planned contract). Note: the RPC returns `boolean` but TEAM-05 ignores the value — success is signalled by the absence of a thrown error. The return is reserved for future use (e.g. an explicit `false` if the resolve was a no-op due to status guard).
+- **RPC: `app_resolve_member_request(p_request_id uuid, p_status team_member_request_status, p_review_notes text DEFAULT NULL, p_member_number text DEFAULT NULL) RETURNS boolean`** (planned contract). Note: the RPC returns `boolean` but TEAM-05 ignores the value — success is signalled by the absence of a thrown error. The return is reserved for future use (e.g. an explicit `false` if the resolve was a no-op due to status guard).
 - **Behaviour (planned contract):**
   - Validates user → resolver person.
   - Asserts `p_status IN ('approved','rejected','on_hold')`. Other values raise `'Resolution status must be approved, rejected, or on_hold'`.
-  - SELECTs `organisation_id` from request WHERE `id=p_request_id AND status='pending'`. Stale → raises `'Pending request not found'`.
+  - SELECTs request row where `id=p_request_id AND status IN ('pending','on_hold')`. Stale → raises `'Resolvable request not found'`.
   - Calls `team_member_request_can_resolve(v_org_id)`. FALSE → raises `'Permission denied'`.
-  - UPDATEs `team_member_request` SET `status=p_status`, `resolution_note=trim(p_resolution_note) when supplied`, `resolved_by=current user → core_person`, `resolved_at=now()`, audit columns WHERE `id=p_request_id AND status='pending'`.
+  - UPDATEs `team_member_request` SET `status=p_status`, `review_notes=trim(p_review_notes) when supplied`, `resolved_by=current user → core_person`, `resolved_at=now()`, audit columns WHERE `id=p_request_id`.
   - When `p_status='approved'`: UPDATE the joined provisional `core_member` SET `membership_status='Active'`, `membership_number=p_member_number ?? request.applicant_member_number ?? platform-generated`. If duplicate `(organisation_id, membership_number)`, raise `'Membership number already exists for this organisation'`. When `request_type='transfer'` AND `source_organisation_id IS NOT NULL`, also UPDATE the source-org `core_member` SET `membership_status='Resigned'` WHERE `organisation_id=source_organisation_id AND person_id=subject_person_id`.
   - When `p_status='rejected'`: DELETE the joined provisional `core_member` row identified by `subject_member_id`. FK ON DELETE SET NULL clears `team_member_request.subject_member_id`.
   - When `p_status='on_hold'`: no `core_member` change.
   - Returns TRUE on success.
 
 - **Failure outcomes the slice handles:**
-  - `'Pending request not found'` → BR-10 stale-resolve recovery; toast + invalidate + navigate.
+  - `'Resolvable request not found'` → BR-10 stale-resolve recovery; toast + invalidate + navigate.
   - `'Permission denied'` → destructive toast "Could not resolve request: Permission denied."; dialog stays open.
   - `'Membership number already exists for this organisation'` → destructive toast with normalised message; dialog stays open.
   - Any other error → destructive toast "Could not resolve request: {message}."; dialog stays open.
@@ -648,7 +648,7 @@ This slice has one mutation path: `app_update_member_request_status` RPC.
 - **SELECT** on `core_form_responses` / `core_form_response_values` / `core_form_fields` / `core_forms` enforced by platform-standard RLS for read access.
 - **UPDATE** on `team_member_request` (via the RPC, which runs `SECURITY DEFINER`) is gated by `team_member_request_can_resolve(organisation_id)`. Direct DML from the client is RLS-permitted but not used by this slice (BR-X14).
 - **UPDATE / DELETE** on `core_member` (via the RPC, `SECURITY DEFINER`) is gated by the RPC's permission check; not exposed to client direct DML in this slice.
-- The page guard uses canonical `pageName='approvals'` and `operation='read'`. `rbac_app_pages` must have a row with `page_name='approvals'`, `app_id=get_app_id('TEAM')`, `scope_type='organisation'` (post-build seeding noted in §15).
+- The page guard uses canonical `pageName='approvals'` and `operation='read'`. `rbac_app_pages` must have a row with `page_name='approvals'`, `app_id=data_get_app_id('TEAM')`, `scope_type='organisation'` (post-build seeding noted in §15).
 - The action-rail visibility gate uses `useResourcePermissions('approvals', 'update')` under app TEAM. Server-side authority is `team_member_request_can_resolve` under app PACE — different keys; server is the final authority.
 
 ### Cross-slice handoffs
@@ -675,7 +675,7 @@ This slice has one mutation path: `app_update_member_request_status` RPC.
 
 | Table | Access | Via |
 |---|---|---|
-| `team_member_request` | SELECT, RPC-write | `useSecureSupabase()` SELECT for queues + detail; `app_update_member_request_status` RPC for resolve |
+| `team_member_request` | SELECT, RPC-write | `useSecureSupabase()` SELECT for queues + detail; `app_resolve_member_request` RPC for resolve |
 | `core_person` | SELECT (joined for subject + resolver) | `useSecureSupabase()` |
 | `core_member` | SELECT (joined for subject) | `useSecureSupabase()` |
 | `core_membership_type` | SELECT (joined for membership type name) | `useSecureSupabase()` |
@@ -723,15 +723,15 @@ This slice has one mutation path: `app_update_member_request_status` RPC.
 - Confirm `team_member_request_type` enum has been extended with `'join'` and `'transfer'`.
 - Confirm `team_member_request_status` enum has been extended with `'on_hold'`.
 - Confirm `team_member_request` has columns `target_organisation_id`, `source_organisation_id`, `membership_type_id`, `applicant_member_number`, `review_notes`.
-- Confirm `app_update_member_request_status` accepts `p_status='on_hold'` and `p_member_number` parameter, and executes member-side effects atomically (Approve → `core_member.membership_status='Active'` + member number assignment + transfer source-org adjustment; Reject → DELETE provisional `core_member`; On-hold → no member change).
+- Confirm `app_resolve_member_request` accepts `p_status='on_hold'` and `p_member_number` parameter, and executes member-side effects atomically (Approve → `core_member.membership_status='Active'` + member number assignment + transfer source-org adjustment; Reject → DELETE provisional `core_member`; On-hold → no member change).
 - Confirm `app_submit_member_request` accepts a `request_type` parameter and inserts the provisional `core_member` row when `request_type IN ('join','transfer')`. (Owned by TEAM-09 + Portal; verified for upstream readiness only.)
 - Confirm `core_form_responses` carries `workflow_subject_type` (text) and `workflow_subject_id` (uuid) columns; convention used by this slice is `workflow_subject_type='team_member_request'`.
 - Confirm `rbac_apps` row `name='TEAM'`, `is_active=true`.
-- Confirm an `rbac_app_pages` row for `page_name='approvals'`, `app_id=get_app_id('TEAM')`, `scope_type='organisation'` is in place (post-TEAM-01 seeding).
+- Confirm an `rbac_app_pages` row for `page_name='approvals'`, `app_id=data_get_app_id('TEAM')`, `scope_type='organisation'` is in place (post-TEAM-01 seeding).
 
 ### Domain references
 
-- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC helper attributes; `check_rbac_permission_with_context`; `get_app_id`; canonical RLS policy templates.
+- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC helper attributes; `data_check_rbac_permission_with_context`; `data_get_app_id`; canonical RLS policy templates.
 - `pace-core2/packages/core/docs/database/domains/team.md` — `team_member_request` shape and enum reference (subject to the planned platform contract noted above).
 
 ---
@@ -810,9 +810,9 @@ This slice has one mutation path: `app_update_member_request_status` RPC.
 ### Server-side enforcement
 
 - **`team_member_request` SELECT** enforced by RLS `rbac_select_team_member_request` via `team_member_request_can_read(organisation_id, requester_person_id)`. A user without read access for the target org receives an empty array.
-- **`team_member_request` UPDATE / DELETE** are RLS-permitted for users where `team_member_request_can_resolve(organisation_id) OR team_member_request_is_requester(requester_person_id)` — but this slice does not call direct DML; all resolve transitions go through `app_update_member_request_status` (RPC, `SECURITY DEFINER`).
+- **`team_member_request` UPDATE / DELETE** are RLS-permitted for users where `team_member_request_can_resolve(organisation_id) OR team_member_request_is_requester(requester_person_id)` — but this slice does not call direct DML; all resolve transitions go through `app_resolve_member_request` (RPC, `SECURITY DEFINER`).
 - **`core_member`, `core_person`, `core_membership_type`, `core_organisations`, `core_form_responses`, `core_form_response_values`, `core_form_fields`, `core_forms`** SELECTs enforced by their respective RLS policies per platform standards.
-- **`app_update_member_request_status` RPC** runs `SECURITY DEFINER`. Internal call to `team_member_request_can_resolve(organisation_id)` enforces authorisation; FALSE raises `'Permission denied'`. Stale call (status no longer pending) raises `'Pending request not found'`.
+- **`app_resolve_member_request` RPC** runs `SECURITY DEFINER`. Internal call to `team_member_request_can_resolve(organisation_id)` enforces authorisation; FALSE raises `'Permission denied'`. Stale call (status no longer pending/on_hold) raises `'Resolvable request not found'`.
 
 ---
 
@@ -855,22 +855,22 @@ Given the user has navigated to `/approvals/:requestId` for a request whose `cor
 Given the user has navigated to `/approvals/:requestId` for a request whose `core_form_responses` table has no row for `workflow_subject_id=:requestId`, when the review panel renders, then the right column shows heading "No form configured for this request type." and description "Configure your org signup form at /forms." with a text link to `/forms`. (Traces F-16, F-44.)
 
 **AC-13 — Approve happy path with applicant-supplied member number.**
-Given the user has `update:page.approvals` AND the request has `applicant_member_number='AC-001'` AND `status='pending'`, when they click Approve, then a `ConfirmationDialog` opens with title "Approve request?", description "Jane Smith will become an active member with member number AC-001.", and a primary "Approve" button. When the user clicks Approve, then `app_update_member_request_status(:requestId, 'approved', null, null)` is called, on success the dialog closes, the slice navigates to `/approvals`, the Open + Closed + Open count query keys for the current org are invalidated, and a `'success'`-variant toast renders with copy "Request approved. Jane Smith is now an active member." (Traces F-50, F-54, BR-04, BR-19.)
+Given the user has `update:page.approvals` AND the request has `applicant_member_number='AC-001'` AND `status='pending'`, when they click Approve, then a `ConfirmationDialog` opens with title "Approve request?", description "Jane Smith will become an active member with member number AC-001.", and a primary "Approve" button. When the user clicks Approve, then `app_resolve_member_request(:requestId, 'approved', null, null)` is called, on success the dialog closes, the slice navigates to `/approvals`, the Open + Closed + Open count query keys for the current org are invalidated, and a `'success'`-variant toast renders with copy "Request approved. Jane Smith is now an active member." (Traces F-50, F-54, BR-04, BR-19.)
 
 **AC-14 — Approve happy path requiring member-number input.**
-Given the request has `applicant_member_number=NULL` AND `status='pending'`, when the user clicks Approve, then a composed `Dialog` opens with title "Approve request?" and a body containing a required `<Input label="Member number">` (helper "Required. Must be unique within this organisation."). The "Approve" button is disabled while the input is empty. When the user types "AC-002" and clicks Approve, then `app_update_member_request_status(:requestId, 'approved', null, 'AC-002')` is called, on success the dialog closes, the slice navigates to `/approvals`, query keys are invalidated, and a success toast renders. (Traces F-51, F-54, BR-04, BR-08, BR-19.)
+Given the request has `applicant_member_number=NULL` AND `status='pending'`, when the user clicks Approve, then a composed `Dialog` opens with title "Approve request?" and a body containing a required `<Input label="Member number">` (helper "Required. Must be unique within this organisation."). The "Approve" button is disabled while the input is empty. When the user types "AC-002" and clicks Approve, then `app_resolve_member_request(:requestId, 'approved', null, 'AC-002')` is called, on success the dialog closes, the slice navigates to `/approvals`, query keys are invalidated, and a success toast renders. (Traces F-51, F-54, BR-04, BR-08, BR-19.)
 
 **AC-15 — Reject happy path with required notes.**
-Given the request has `status='pending'`, when the user clicks Reject, then a composed `Dialog` opens with title "Reject request?" and a body containing a required `<Textarea label="Reason for rejection (visible to admins only)">` (helper "At least 10 characters."). The "Reject" button is disabled while the trimmed length is less than 10. When the user types "Application incomplete after follow-up" (longer than 10 chars) and clicks Reject, then `app_update_member_request_status(:requestId, 'rejected', 'Application incomplete after follow-up', null)` is called, on success the dialog closes, the slice navigates to `/approvals`, query keys are invalidated, and a `'success'`-variant toast renders with copy "Request rejected." (Traces F-52, F-55, BR-05, BR-19.)
+Given the request has `status='pending'`, when the user clicks Reject, then a composed `Dialog` opens with title "Reject request?" and a body containing a required `<Textarea label="Reason for rejection (visible to admins only)">` (helper "At least 10 characters."). The "Reject" button is disabled while the trimmed length is less than 10. When the user types "Application incomplete after follow-up" (longer than 10 chars) and clicks Reject, then `app_resolve_member_request(:requestId, 'rejected', 'Application incomplete after follow-up', null)` is called, on success the dialog closes, the slice navigates to `/approvals`, query keys are invalidated, and a `'success'`-variant toast renders with copy "Request rejected." (Traces F-52, F-55, BR-05, BR-19.)
 
 **AC-16 — Put-on-hold happy path with optional note.**
-Given the request has `status='pending'`, when the user clicks "Put on hold", then a composed `Dialog` opens with title "Put request on hold?" and a body containing an optional `<Textarea label="Note (optional)">` (helper "Visible to admins only."). The "Put on hold" button is enabled by default. When the user clicks "Put on hold" without typing, then `app_update_member_request_status(:requestId, 'on_hold', null, null)` is called, on success the dialog closes, the slice navigates to `/approvals`, the Open + Open count query keys are invalidated (Closed list is not affected), and a `'success'`-variant toast renders with copy "Request placed on hold." (Traces F-53, F-56, BR-06, BR-19.)
+Given the request has `status='pending'`, when the user clicks "Put on hold", then a composed `Dialog` opens with title "Put request on hold?" and a body containing an optional `<Textarea label="Note (optional)">` (helper "Visible to admins only."). The "Put on hold" button is enabled by default. When the user clicks "Put on hold" without typing, then `app_resolve_member_request(:requestId, 'on_hold', null, null)` is called, on success the dialog closes, the slice navigates to `/approvals`, the Open + Open count query keys are invalidated (Closed list is not affected), and a `'success'`-variant toast renders with copy "Request placed on hold." (Traces F-53, F-56, BR-06, BR-19.)
 
 **AC-17 — Reject blocked by insufficient note length.**
 Given the request has `status='pending'` AND the user has typed "too short" (8 chars) into the Reject dialog's textarea, when they look at the dialog footer, then the "Reject" button is disabled. (Traces F-52, BR-05.)
 
 **AC-18 — Stale resolve recovery.**
-Given two admins have the Open tab open, admin A has clicked Approve on request R, the RPC has succeeded, and admin B then clicks Approve on the same request R, when admin B's RPC call returns, then the RPC raises `'Pending request not found'`, the slice surfaces a destructive toast "This request has already been resolved by another admin. Refreshing the queue.", invalidates the Open + Closed + Open count query keys for the current org, and navigates back to `/approvals`. (Traces F-20, BR-10.)
+Given two admins have the Open tab open, admin A has clicked Approve on request R, the RPC has succeeded, and admin B then clicks Approve on the same request R, when admin B's RPC call returns, then the RPC raises `'Resolvable request not found'`, the slice surfaces a destructive toast "This request has already been resolved by another admin. Refreshing the queue.", invalidates the Open + Closed + Open count query keys for the current org, and navigates back to `/approvals`. (Traces F-20, BR-10.)
 
 **AC-19 — Permission denied — read.**
 Given a user is authenticated and has org context but lacks `read:page.approvals`, when they navigate to `/approvals`, then `<AccessDenied />` renders with copy "You do not have permission to view this page." inside the `AuthenticatedShell` chrome and no tab, table, toolbar, or review panel renders. (Traces F-23, F-64.)
@@ -915,13 +915,13 @@ Given the open-count query at key `['approvals', 'open-count', selectedOrganisat
 - **MCP test — `team_member_request_type` enum.** Confirm the enum has at least values `'member_profile_access'`, `'join'`, `'transfer'`. If `'join'` or `'transfer'` is missing, the slice is blocked (see §15).
 - **MCP test — `team_member_request_status` enum.** Confirm the enum has at least values `'pending'`, `'on_hold'`, `'approved'`, `'rejected'`, `'withdrawn'`. If `'on_hold'` is missing, the slice is blocked.
 - **MCP test — `team_member_request` columns.** Confirm `target_organisation_id`, `source_organisation_id`, `membership_type_id`, `applicant_member_number`, and `review_notes` exist on the table. If any are missing, the slice is blocked.
-- **MCP test — `app_update_member_request_status` contract.** Smoke-test by invoking the RPC with `p_status='on_hold'` and `p_member_number=null` against a known pending request fixture; confirm no enum-mismatch error and that the row's `status` updates to `'on_hold'`. Smoke-test with `p_status='approved'` and `p_member_number='TEST-001'` against a separate fixture; confirm the joined `core_member.membership_status` updates to `'Active'` and `core_member.membership_number` becomes `'TEST-001'`. Smoke-test with `p_status='rejected'` and `p_resolution_note='QA test reject'` against a separate fixture; confirm the joined `core_member` row is DELETEd and `team_member_request.subject_member_id` becomes NULL. If member-side effects do not execute server-side, the slice is blocked.
-- **MCP test — `app_update_member_request_status` stale-resolve.** Invoke the RPC with `p_status='approved'` against a request whose `status` is already `'approved'`; confirm the RPC raises `'Pending request not found'`.
-- **MCP test — `app_update_member_request_status` permission-denied.** Invoke the RPC as a user without org-admin access for the target org; confirm the RPC raises `'Permission denied'`.
-- **MCP test — `app_update_member_request_status` member-number uniqueness.** Invoke the RPC with `p_status='approved'` and a `p_member_number` that already exists in the org; confirm the RPC raises a duplicate error.
+- **MCP test — `app_resolve_member_request` contract.** Smoke-test by invoking the RPC with `p_status='on_hold'` and `p_member_number=null` against a known pending request fixture; confirm no enum-mismatch error and that the row's `status` updates to `'on_hold'`. Smoke-test with `p_status='approved'` and `p_member_number='TEST-001'` against a separate fixture; confirm the joined `core_member.membership_status` updates to `'Active'` and `core_member.membership_number` becomes `'TEST-001'`. Smoke-test with `p_status='rejected'` and `p_review_notes='QA test reject'` against a separate fixture; confirm the joined `core_member` row is DELETEd and `team_member_request.subject_member_id` becomes NULL. If member-side effects do not execute server-side, the slice is blocked.
+- **MCP test — `app_resolve_member_request` stale-resolve.** Invoke the RPC with `p_status='approved'` against a request whose `status` is already `'approved'`; confirm the RPC raises `'Resolvable request not found'`.
+- **MCP test — `app_resolve_member_request` permission-denied.** Invoke the RPC as a user without org-admin access for the target org; confirm the RPC raises `'Permission denied'`.
+- **MCP test — `app_resolve_member_request` member-number uniqueness.** Invoke the RPC with `p_status='approved'` and a `p_member_number` that already exists in the org; confirm the RPC raises a duplicate error.
 - **MCP test — `core_form_responses` link convention.** Insert a fixture row with `workflow_subject_type='team_member_request'` and `workflow_subject_id=<test request id>`; confirm a SELECT joining to `core_form_response_values` and `core_form_fields` returns the expected `(label, value)` pairs.
 - **MCP test — RLS authority.** Against dev-db (`rkytnffgmwnnmewevqgp`), as a user with org-admin access on org A, run a SELECT on `team_member_request` that does not include an `organisation_id` filter. Confirm only org A's rows are returned.
-- **MCP test — `rbac_app_pages` seeding.** Confirm a row exists with `page_name='approvals'`, `app_id=get_app_id('TEAM')`, `scope_type='organisation'`.
+- **MCP test — `rbac_app_pages` seeding.** Confirm a row exists with `page_name='approvals'`, `app_id=data_get_app_id('TEAM')`, `scope_type='organisation'`.
 - **In-app demo flow — happy path Approve (member number supplied).** Sign in as a TEAM org-admin. Visit `/approvals`. Click a `pending` row whose `applicant_member_number` is supplied. In the review panel, click Approve. Confirm the `ConfirmationDialog` opens with the description listing the applicant's name and member number. Click Approve. Confirm the slice navigates to `/approvals`, the success toast appears, and the row no longer appears in the Open tab (it is now in the Closed tab as Approved).
 - **In-app demo flow — happy path Approve (member number entered).** Click a `pending` row whose `applicant_member_number` is NULL. In the review panel, click Approve. Confirm the composed Dialog opens with the Member-number Input. Type a unique member number. Click Approve. Confirm the success toast and tab transition.
 - **In-app demo flow — happy path Reject.** Click a `pending` row. Click Reject. Type "Application has insufficient information for review." (≥10 chars). Click Reject. Confirm the dialog closes, success toast appears, and the row moves to the Closed tab as Rejected.
@@ -945,8 +945,8 @@ Given the open-count query at key `['approvals', 'open-count', selectedOrganisat
 - Integration test that asserts the Open list query filters `request_type IN ('join','transfer')` and `status IN ('pending','on_hold')` against a fixture dataset.
 - Integration test that asserts the Closed list query filters `request_type IN ('join','transfer')` and `status IN ('approved','rejected','withdrawn')` against a fixture dataset.
 - Integration test that asserts the open-count query at `['approvals', 'open-count', orgId]` excludes `on_hold` rows.
-- Integration test that asserts a stale-resolve error from `app_update_member_request_status` ('Pending request not found') triggers the destructive toast, query-key invalidation, and navigation back to `/approvals`.
-- Integration test that asserts a member-number uniqueness error from `app_update_member_request_status` leaves the Approve dialog open with the typed input intact.
+- Integration test that asserts a stale-resolve error from `app_resolve_member_request` ('Resolvable request not found') triggers the destructive toast, query-key invalidation, and navigation back to `/approvals`.
+- Integration test that asserts a member-number uniqueness error from `app_resolve_member_request` leaves the Approve dialog open with the typed input intact.
 - Otherwise: standard PDLC quality gates apply.
 
 ---
@@ -954,7 +954,7 @@ Given the open-count query at key `['approvals', 'open-count', selectedOrganisat
 ## §14 Build execution rules
 
 - All reads must go via `useSecureSupabase()`. Direct `createClient` calls are forbidden. Any client that bypasses RBAC scope resolution is forbidden.
-- All resolve mutations must go via `app_update_member_request_status` RPC. Direct `.from('team_member_request').update(...)` and `.delete(...)` calls are forbidden, even though RLS would technically permit them for resolvers. The slice does not write `core_member` from the client.
+- All resolve mutations must go via `app_resolve_member_request` RPC. Direct `.from('team_member_request').update(...)` and `.delete(...)` calls are forbidden, even though RLS would technically permit them for resolvers. The slice does not write `core_member` from the client.
 - Do not author the migration extending `team_member_request_type` or `team_member_request_status` enums, adding the planned-contract columns, or updating the RPC behaviour. Those are upstream platform work; the slice depends on them (§15).
 - Do not implement org form authoring, external-validation configuration, request submission, or request withdrawal in this slice.
 - Do not query production database during build or test. All MCP verification targets dev-db only (`rkytnffgmwnnmewevqgp`).
@@ -971,12 +971,12 @@ Given the open-count query at key `['approvals', 'open-count', selectedOrganisat
   - **(a)** `team_member_request_type` enum is extended with `'join'` and `'transfer'` on dev (`rkytnffgmwnnmewevqgp`).
   - **(b)** `team_member_request_status` enum is extended with `'on_hold'` on dev.
   - **(c)** `team_member_request` table extended with columns `target_organisation_id` (uuid NOT NULL, FK `core_organisations.id`), `source_organisation_id` (uuid NULL, FK `core_organisations.id`), `membership_type_id` (uuid NULL, FK `core_membership_type.id`), `applicant_member_number` (text NULL), and `review_notes` (text NULL) on dev.
-  - **(d)** `app_update_member_request_status` RPC accepts `p_status='on_hold'` and a `p_member_number` parameter, and executes member-side effects atomically server-side per BR-04 / BR-05 / BR-06 (Approve → set `core_member.membership_status='Active'` and assign member number; transfer-Approve → also set source-org `core_member.membership_status='Resigned'`; Reject → DELETE provisional `core_member` row; On-hold → no `core_member` change).
+  - **(d)** `app_resolve_member_request` RPC accepts `p_status='on_hold'` and a `p_member_number` parameter, and executes member-side effects atomically server-side per BR-04 / BR-05 / BR-06 (Approve → set `core_member.membership_status='Active'` and assign member number; transfer-Approve → also set source-org `core_member.membership_status='Resigned'`; Reject → DELETE provisional `core_member` row; On-hold → no `core_member` change).
   - **(e)** `app_submit_member_request` RPC accepts a `request_type` parameter and inserts the provisional `core_member` row server-side at submission time when `request_type IN ('join','transfer')`. (Owned by TEAM-09 + Portal; verified for upstream readiness only.)
 
   The v6 slice does not author the migration. Until items (a) through (e) are confirmed via Supabase MCP against dev, this slice cannot be marked Done.
 
-- Post-build RBAC seeding: the `rbac_app_pages` row for `page_name='approvals'`, `app_id=get_app_id('TEAM')`, `scope_type='organisation'` must be in place before release.
+- Post-build RBAC seeding: the `rbac_app_pages` row for `page_name='approvals'`, `app_id=data_get_app_id('TEAM')`, `scope_type='organisation'` must be in place before release.
 - Open count nav badge contract verified end-to-end with TEAM-01: TEAM-05 publishes the query at `['approvals', 'open-count', selectedOrganisation.id]`, TEAM-01's nav cell reads it, and resolve-success invalidations propagate to the badge.
 
 ---
@@ -989,7 +989,7 @@ Given the open-count query at key `['approvals', 'open-count', selectedOrganisat
 - Do not edit or display the `member_validation_config` on `core_org_settings`. That is TEAM-08 (`/settings/org`).
 - Do not implement request submission in this slice. The org_signup form runtime in TEAM-09 + Portal owns the `app_submit_member_request` RPC, which creates the `team_member_request` row and the provisional `core_member` row server-side at submission time.
 - Do not implement request withdrawal in this slice. Portal participants own `app_withdraw_member_request`; org admins never call it.
-- Do not call `.from('team_member_request').update(...)` or `.delete(...)` from the client. All resolve transitions go via `app_update_member_request_status` RPC.
+- Do not call `.from('team_member_request').update(...)` or `.delete(...)` from the client. All resolve transitions go via `app_resolve_member_request` RPC.
 - Do not write `core_member` from the client. All member-side effects (`membership_status` change, member-number assignment, transfer source-org adjustment, provisional-row delete on reject) execute server-side inside the RPC, atomically with the request status change.
 - Do not surface a "Reopen" or "Move back to pending" affordance on `on_hold` rows in v1. The action rail visibility uses `status === 'pending'` strictly; `on_hold` rows show the read-only header strip.
 - Do not surface the `team_unit` legacy construct anywhere in this slice. The slice has no relationship to that construct.
@@ -1011,12 +1011,12 @@ Given the open-count query at key `['approvals', 'open-count', selectedOrganisat
 - **TEAM-03** — owns `/members/:memberId`. TEAM-05's review panel navigates there from the "View member 360" button using `core_member.id` when BR-12 is satisfied.
 - **TEAM-08** — owns `/settings/org` Operational. Owns `member_validation_config`. The external validation status / message display on the review panel is deferred from v1 and bundles with TEAM-08's Operational deferral pattern (deferred to a follow-up slice when `external_validation_status` and `external_validation_message` columns and `app_get_effective_member_validation_config` helper land on dev, alongside the national-DB validation API readiness).
 - **TEAM-09** — owns `/forms`, including authoring of the `org_signup` form whose responses appear in this slice's review panel right column. TEAM-09 + Portal also own the matching `app_submit_member_request` RPC contract — the planned-contract version inserts both the `team_member_request` row and the provisional `core_member` row server-side at submission time when `request_type IN ('join','transfer')`. TEAM-05 is a downstream reader only.
-- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC helper attributes; `check_rbac_permission_with_context`; `get_app_id`; canonical RLS policy templates.
+- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC helper attributes; `data_check_rbac_permission_with_context`; `data_get_app_id`; canonical RLS policy templates.
 - `pace-core2/packages/core/docs/requirements/CR04-rbac.md` — `PagePermissionGuard` usage; `pageName` + `operation`; no `scope` prop at page level. `useResourcePermissions(resource, operation)` for action-level visibility gates.
 - `pace-core2/packages/core/docs/requirements/CR05c-layout-and-shell.md` — `PaceAppLayout` and shell chrome (provided by TEAM-01).
 - `pace-core2/packages/core/docs/requirements/CR21-workflow-forms-runtime.md` — shared forms runtime contract; `core_forms` / `field_key` semantics; future shared form-response viewer that will replace this slice's minimal local rendering when shipped.
 - `pace-core2/packages/core/docs/database/domains/team.md` — `team_member_request` shape and enum reference (subject to the planned platform contract — see §15 implementation gate).
 - DB-309 — `core_member.organisation_id NOT NULL` (live on dev).
-- DB-418 — Upstream platform schema/RPC dependency for `team_member_request` enum extensions, column additions, and `app_update_member_request_status` / `app_submit_member_request` contract updates. The TEAM-05 implementation gate in §15 enumerates the deliverables platform must land on dev before this slice can be built.
-- **RPC name note.** This slice cites `app_update_member_request_status` per the live name. If platform team renames the RPC to `app_resolve_member_request` as part of the planned-contract migration, swap the name in §7 / §9 / §11 / §15 / §17. The behaviour change (accept `'on_hold'`; execute member-side effects atomically; accept `p_member_number`) is the substantive update; the rename is cosmetic.
+- DB-418 — Upstream platform schema/RPC dependency for `team_member_request` enum extensions, column additions, and `app_resolve_member_request` / `app_submit_member_request` contract updates. The TEAM-05 implementation gate in §15 enumerates the deliverables platform must land on dev before this slice can be built.
+- **RPC contract note.** This slice uses `app_resolve_member_request` as the canonical resolver contract. The substantive requirements remain: accept `'on_hold'`, execute member-side effects atomically, and accept `p_member_number` for approvals.
 

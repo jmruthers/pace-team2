@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, PaceLoginPage, ProtectedRoute
 import { AccessDenied, PagePermissionGuard } from '@solvera/pace-core/rbac';
 import { usePaceMain, useUnifiedAuth } from '@solvera/pace-core/hooks';
 import { AuthenticatedShell } from './components/layout/AuthenticatedShell';
+import { MemberDirectoryPage } from './pages/members/MemberDirectoryPage';
 
 export const APP_NAME = 'TEAM';
 
@@ -125,6 +126,32 @@ function NotFoundPage() {
   );
 }
 
+function MemberDetailPlaceholder() {
+  usePaceMain({ printTitle: 'Member' });
+
+  return (
+    <main>
+      <section>
+        <h1>Member profile</h1>
+        <p>Member detail page is delivered in TEAM-03.</p>
+      </section>
+    </main>
+  );
+}
+
+function CommunicationsPlaceholder() {
+  usePaceMain({ printTitle: 'Communications' });
+
+  return (
+    <main>
+      <section>
+        <h1>Communications</h1>
+        <p>Communications page is delivered in TEAM-13.</p>
+      </section>
+    </main>
+  );
+}
+
 function App() {
   return (
     <Routes>
@@ -136,6 +163,26 @@ function App() {
             element={(
               <PagePermissionGuard pageName="home" operation="read" fallback={<AccessDenied />}>
                 <HomePage />
+              </PagePermissionGuard>
+            )}
+          />
+          <Route
+            path="members"
+            element={<MemberDirectoryPage />}
+          />
+          <Route
+            path="members/:memberId"
+            element={(
+              <PagePermissionGuard pageName="members" operation="read" fallback={<AccessDenied />}>
+                <MemberDetailPlaceholder />
+              </PagePermissionGuard>
+            )}
+          />
+          <Route
+            path="communications"
+            element={(
+              <PagePermissionGuard pageName="CommsLog" operation="read" fallback={<AccessDenied />}>
+                <CommunicationsPlaceholder />
               </PagePermissionGuard>
             )}
           />

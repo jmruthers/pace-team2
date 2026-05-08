@@ -51,7 +51,7 @@ TEAM-12 does **not** own:
 
 **Read contract.** The list is loaded by calling `data_moderation_photo_list(p_organisation_id uuid)` via `useSecureSupabase().rpc(...)`. The RPC encapsulates the join (`core_file_references.table_name = 'core_person'` → `core_person.id` → `core_member.organisation_id`) and the read-permission check. There is no `app_id` filter in v1 — all profile photos for `core_person`-pointed members of the current organisation are in scope regardless of which app uploaded them.
 
-**Authority enforcement (server-side).** Reads are gated by an RBAC-checked SELECT policy on `core_file_references` for `read:page.moderation-photos`; deletes are gated by an RBAC-checked DELETE policy for `delete:page.moderation-photos`. Both policies match the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` and use `check_rbac_permission_with_context(<op>, 'moderation-photos', <organisation_id resolved from the target person's org>, NULL, get_app_id('TEAM'))`. The slice never authors these policies; they are upstream platform work and gate Done.
+**Authority enforcement (server-side).** Reads are gated by an RBAC-checked SELECT policy on `core_file_references` for `read:page.moderation-photos`; deletes are gated by an RBAC-checked DELETE policy for `delete:page.moderation-photos`. Both policies match the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` and use `data_check_rbac_permission_with_context(<op>, 'moderation-photos', <organisation_id resolved from the target person's org>, NULL, data_get_app_id('TEAM'))`. The slice never authors these policies; they are upstream platform work and gate Done.
 
 **Mutation contract.** The Remove action calls `deleteAttachment` from `@solvera/pace-core/crud` with `secureClient: useSecureSupabase()`, `metadataId: row.id`, `filePath: row.file_path`, and an adapter `{ metadataTable: 'core_file_references', storageBucket: row.is_public ? 'public-files' : 'files' }`. The helper removes the storage object first, then deletes the metadata row. The slice uses the helper's default `continueOnStorageFailure` semantics — if the storage delete fails, the metadata row is preserved and a destructive toast surfaces.
 
@@ -373,7 +373,7 @@ Sticky elements: the shell header and footer are sticky per TEAM-01's `PaceAppLa
 
 **BR-17 — Mutation authority via RBAC-checked RLS**
 - Input: a DELETE on `core_file_references` from the slice (via `deleteAttachment`'s metadata-delete step).
-- Output: server-side RLS authorises the operation when either `is_super_admin(safe_get_user_id_for_rls())` is true OR `check_rbac_permission_with_context('delete:page.moderation-photos', 'moderation-photos', <organisation_id resolved from the target person's org>, NULL, get_app_id('TEAM'))` returns true. Reads are authorised by the parallel SELECT policy using `read:page.moderation-photos`.
+- Output: server-side RLS authorises the operation when either `is_super_admin(safe_get_user_id_for_rls())` is true OR `data_check_rbac_permission_with_context('delete:page.moderation-photos', 'moderation-photos', <organisation_id resolved from the target person's org>, NULL, data_get_app_id('TEAM'))` returns true. Reads are authorised by the parallel SELECT policy using `read:page.moderation-photos`.
 
 ---
 
@@ -475,9 +475,9 @@ Verified 2026-05-04 via Supabase MCP:
 
 The TEAM-12 v6 slice does NOT author migrations. Before TEAM-12 can be marked Done:
 
-(a) **RBAC-checked SELECT policy** on `public.core_file_references` for `read:page.moderation-photos` must be added, matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md`. The policy resolves the target person's organisation via a SECURITY DEFINER helper (e.g. `core_person.id` → `core_member.organisation_id`) and calls `check_rbac_permission_with_context('read:page.moderation-photos', 'moderation-photos', <org_resolved>, NULL, get_app_id('TEAM'))`.
+(a) **RBAC-checked SELECT policy** on `public.core_file_references` for `read:page.moderation-photos` must be added, matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md`. The policy resolves the target person's organisation via a SECURITY DEFINER helper (e.g. `core_person.id` → `core_member.organisation_id`) and calls `data_check_rbac_permission_with_context('read:page.moderation-photos', 'moderation-photos', <org_resolved>, NULL, data_get_app_id('TEAM'))`.
 
-(b) **RBAC-checked DELETE policy** on `public.core_file_references` for `delete:page.moderation-photos`, structured the same way and calling `check_rbac_permission_with_context('delete:page.moderation-photos', 'moderation-photos', <org_resolved>, NULL, get_app_id('TEAM'))`.
+(b) **RBAC-checked DELETE policy** on `public.core_file_references` for `delete:page.moderation-photos`, structured the same way and calling `data_check_rbac_permission_with_context('delete:page.moderation-photos', 'moderation-photos', <org_resolved>, NULL, data_get_app_id('TEAM'))`.
 
 (c) **(Recommended) `data_moderation_photo_list(p_organisation_id uuid)` RPC** encapsulating the join (`core_file_references.table_name = 'core_person'` → `core_person.id` → `core_member.organisation_id = p_organisation_id`) and the page-permission check, returning the row shape described in §7.
 
@@ -485,14 +485,14 @@ The v6 slice does not author the migration.
 
 ### Helpers referenced (must be present on dev)
 
-- `check_rbac_permission_with_context(p_permission TEXT, p_page_name TEXT, p_organisation_id UUID, p_event_id TEXT, p_app_id UUID) RETURNS boolean` — STABLE SECURITY DEFINER wrapper; verified via dev MCP 2026-05-04.
+- `data_check_rbac_permission_with_context(p_permission TEXT, p_page_name TEXT, p_organisation_id UUID, p_event_id TEXT, p_app_id UUID) RETURNS boolean` — STABLE SECURITY DEFINER wrapper; verified via dev MCP 2026-05-04.
 - `is_super_admin(p_user_id UUID) RETURNS boolean` — verified.
 - `safe_get_user_id_for_rls() RETURNS UUID` — verified.
-- `get_app_id(p_app_name TEXT) RETURNS UUID` — verified; called as `get_app_id('TEAM')`.
+- `data_get_app_id(p_app_name TEXT) RETURNS UUID` — verified; called as `data_get_app_id('TEAM')`.
 
 ### Domain references
 
-- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC Permission-Based Policy template; helper function attributes; `check_rbac_permission_with_context`; `get_app_id`.
+- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC Permission-Based Policy template; helper function attributes; `data_check_rbac_permission_with_context`; `data_get_app_id`.
 - `pace-core2/packages/core/docs/requirements/CR04-rbac.md` — `PagePermissionGuard` API.
 - `pace-core2/packages/core/docs/requirements/CR05c-layout-and-shell.md` — shell chrome contract.
 - `pace-core2/packages/core/src/types/fileStorage.ts` — `FileReference` shape and the documented absence of org / event columns on `core_file_references`.
@@ -576,7 +576,7 @@ A canonical `rbac_app_pages` row for `pageName = 'moderation-photos'` (with `sco
 
 ### Row-level access
 
-- A user can SELECT a `core_file_references` row whose `table_name = 'core_person'` and the referenced person is a member of an organisation where the user has `read:page.moderation-photos` permission. The recommended SELECT policy resolves the target person's organisation server-side and routes through `check_rbac_permission_with_context`.
+- A user can SELECT a `core_file_references` row whose `table_name = 'core_person'` and the referenced person is a member of an organisation where the user has `read:page.moderation-photos` permission. The recommended SELECT policy resolves the target person's organisation server-side and routes through `data_check_rbac_permission_with_context`.
 
 ### Proxy / impersonation
 
@@ -642,7 +642,7 @@ Given two moderators click Remove on the same row at the same time, when the sec
 - Confirm the row Remove action and the Preview dialog Remove button are conditioned on `useResourcePermissions('moderation-photos').canDelete`.
 - Confirm the Preview dialog never shows `file_path`; only the row `id`, member name, and metadata fields listed in AC-06.
 - Against dev-db (`rkytnffgmwnnmewevqgp`):
-  - Confirm the RBAC-checked SELECT policy on `public.core_file_references` for `read:page.moderation-photos` is present and uses `check_rbac_permission_with_context(... , get_app_id('TEAM'))`.
+  - Confirm the RBAC-checked SELECT policy on `public.core_file_references` for `read:page.moderation-photos` is present and uses `data_check_rbac_permission_with_context(... , data_get_app_id('TEAM'))`.
   - Confirm the RBAC-checked DELETE policy on `public.core_file_references` for `delete:page.moderation-photos` is present and uses the same helper.
   - Confirm the `data_moderation_photo_list(p_organisation_id uuid)` RPC exists and returns the joined row shape described in §7 (including `member_display_name`, `created_by_display_name`).
   - Confirm `rbac_app_pages` has a row for `pageName = 'moderation-photos'` with `scope_type = 'organisation'` and the TEAM `app_id` (post-build seeding may handle this; if absent, the page renders `<AccessDenied />` for non-super-admin users — note as a known seeding gap, not a code defect).
@@ -708,7 +708,7 @@ n/a — standard PDLC quality gates apply.
 - `/docs/requirements/team/TM01-app-shell-auth-layout-requirements.md` — app shell, `AuthenticatedShell` mounting `<ToastProvider>` (which renders `<Toaster />`), nav menu Moderation entry, `ProtectedRoute`, no-org empty state, post-build RBAC seeding plan.
 - `/docs/requirements/team/TM06-membership-types-requirements.md` — sibling settings slice using the same RBAC-checked-RLS pattern; convention reference for DataTable bespoke-action pattern.
 - `/docs/requirements/team/TM07-sub-organisations-requirements.md` — sibling settings slice using the same RBAC-checked-RLS pattern; convention reference for ConfirmationDialog destructive-action wiring.
-- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC Permission-Based Policy template; helper function attributes; `check_rbac_permission_with_context`; `get_app_id`.
+- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC Permission-Based Policy template; helper function attributes; `data_check_rbac_permission_with_context`; `data_get_app_id`.
 - `pace-core2/packages/core/docs/requirements/CR04-rbac.md` — `PagePermissionGuard` API; no `scope` prop at page level.
 - `pace-core2/packages/core/docs/requirements/CR05c-layout-and-shell.md` — `PaceAppLayout`; nav menu dropdown contract.
 - `pace-core2/packages/core/src/types/fileStorage.ts` — `FileReference` type; documented absence of org / event columns on `core_file_references`.

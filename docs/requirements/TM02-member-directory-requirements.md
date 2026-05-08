@@ -7,7 +7,7 @@ Slice ID:        TEAM-02
 Name:            Member directory
 Status:          Draft
 Depends on:      TEAM-01 (app shell, ToastProvider, AuthenticatedShell, navItems)
-Backend impact:  Schema changes (upstream platform: extend team_member_request_type enum with 'join'/'transfer'; extend team_member_request_status enum with 'on_hold'; update app_submit_member_request, app_update_member_request_status, app_withdraw_member_request RPCs accordingly — see §15 implementation gate)
+Backend impact:  Schema changes (upstream platform: extend team_member_request_type enum with 'join'/'transfer'; extend team_member_request_status enum with 'on_hold'; update app_submit_member_request, app_resolve_member_request, app_withdraw_member_request RPCs accordingly — see §15 implementation gate)
 Frontend impact: UI
 Routes owned:    /members
 QA pack:         docs/test-packs/TEAM-02-qa-pack.md
@@ -419,7 +419,7 @@ This slice has no write contracts. There are no inserts, updates, or deletes per
 - **SELECT** on `core_person` is permitted by `rbac_select_core_person` (super-admin OR own user OR via `check_user_person_access_via_member_roles(id)`).
 - **SELECT** on `team_member_request` is permitted by `rbac_select_team_member_request` via `team_member_request_can_read(organisation_id, requester_person_id)`.
 - **SELECT** on `core_membership_type` is permitted on dev by `read_team_membership_types` (`USING is_authenticated_user()`).
-- The page guard uses canonical `pageName = 'members'` and `operation = 'read'`. `rbac_app_pages` must have a row with `page_name = 'members'`, `app_id = get_app_id('TEAM')`, and `scope_type = 'organisation'` (post-build seeding noted in TEAM-01 §8).
+- The page guard uses canonical `pageName = 'members'` and `operation = 'read'`. `rbac_app_pages` must have a row with `page_name = 'members'`, `app_id = data_get_app_id('TEAM')`, and `scope_type = 'organisation'` (post-build seeding noted in TEAM-01 §8).
 
 ### Cross-slice handoffs
 
@@ -477,7 +477,7 @@ Live columns: `id (uuid)`, `organisation_id (uuid NOT NULL)`, `requester_person_
 Planned platform contract for this slice (see §15 implementation gate):
 - `team_member_request_type` enum extended with values `'join'` and `'transfer'`. After the migration, the enum carries `'member_profile_access'`, `'join'`, and `'transfer'`.
 - `team_member_request_status` enum extended with value `'on_hold'`. After the migration, the enum carries `'pending'`, `'approved'`, `'rejected'`, `'withdrawn'`, and `'on_hold'`.
-- RPCs `app_submit_member_request`, `app_update_member_request_status`, `app_withdraw_member_request` updated to accept and surface the new enum values; signature/behaviour deltas referenced in §17.
+- RPCs `app_submit_member_request`, `app_resolve_member_request`, `app_withdraw_member_request` updated to accept and surface the new enum values; signature/behaviour deltas referenced in §17.
 
 ### `core_membership_type` columns (live dev-db)
 
@@ -497,11 +497,11 @@ Planned platform contract for this slice (see §15 implementation gate):
 - Confirm `team_member_request_status` enum has been extended with `'on_hold'`. **If not yet present on dev, this slice is blocked — see §15.**
 - Confirm `core_membership_type.is_active` is `NOT NULL DEFAULT true` (DB-317).
 - Confirm `rbac_apps` row `name = 'TEAM'`, `is_active = true`.
-- Confirm an `rbac_app_pages` row for `page_name = 'members'`, `app_id = get_app_id('TEAM')`, `scope_type = 'organisation'` is in place (post-TEAM-01 seeding).
+- Confirm an `rbac_app_pages` row for `page_name = 'members'`, `app_id = data_get_app_id('TEAM')`, `scope_type = 'organisation'` is in place (post-TEAM-01 seeding).
 
 ### Domain references
 
-- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC helper attributes; `check_rbac_permission_with_context`; `get_app_id`; RBAC permission policy template (referenced for §10 server-side enforcement).
+- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC helper attributes; `data_check_rbac_permission_with_context`; `data_get_app_id`; RBAC permission policy template (referenced for §10 server-side enforcement).
 - `pace-core2/packages/core/docs/database/domains/team.md` — `team_member_request` shape and `team_member_request_type` / `team_member_request_status` enum reference (subject to the planned contract noted above).
 
 ---
@@ -647,10 +647,10 @@ Given a member exists in org B but not in org A, when the user is signed in with
 - **MCP test — RLS authority.** Against dev-db (`rkytnffgmwnnmewevqgp`), as a user with org-admin access on org A, run a SELECT on `core_member` that does not include an `organisation_id` filter. Confirm only org A's rows are returned (RLS enforces isolation). Repeat with the slice's defensive `organisation_id = :orgA` filter present and confirm the same row set.
 - **MCP test — `pace_membership_status` enum.** Confirm the enum has exactly six values: `Provisional`, `Active`, `Suspended`, `Lapsed`, `Resigned`, `Revoked` (no `Cancelled`).
 - **MCP test — `team_member_request` planned contract.** Confirm `team_member_request_type` enum has been extended with `'join'` and `'transfer'`. Confirm `team_member_request_status` enum has been extended with `'on_hold'`. If either is missing, the slice is blocked (see §15).
-- **MCP test — RPC contract.** Confirm `app_submit_member_request`, `app_update_member_request_status`, `app_withdraw_member_request` accept the new enum values where applicable. Smoke-test by invoking each RPC with a known payload and verifying no enum-mismatch error.
+- **MCP test — RPC contract.** Confirm `app_submit_member_request`, `app_resolve_member_request`, `app_withdraw_member_request` accept the new enum values where applicable. Smoke-test by invoking each RPC with a known payload and verifying no enum-mismatch error.
 - **MCP test — `core_member.organisation_id NOT NULL`.** Confirm `core_member.organisation_id` is `NOT NULL` (DB-309).
 - **MCP test — `core_membership_type.is_active`.** Confirm `core_membership_type.is_active` is `NOT NULL DEFAULT true` (DB-317).
-- **MCP test — `rbac_app_pages` seeding.** Confirm a row exists with `page_name = 'members'`, `app_id = get_app_id('TEAM')`, `scope_type = 'organisation'`.
+- **MCP test — `rbac_app_pages` seeding.** Confirm a row exists with `page_name = 'members'`, `app_id = data_get_app_id('TEAM')`, `scope_type = 'organisation'`.
 - **In-app demo flow — happy path.** Sign in as a TEAM org-admin. Visit `/members`. Confirm the Members tab renders with rows in (last name, first name) order. Click a row and confirm navigation to `/members/:memberId`. Return to `/members`. Click the Pending tab and confirm rows or the empty state.
 - **In-app demo flow — search and filter.** Type a partial last name into the search; confirm only matching rows remain. Pick a membership type from the filter; confirm only rows of that type remain. Clear both; confirm all rows return.
 - **In-app demo flow — picker mode entry.** From a stub `/communications` page, navigate to `/members` with `location.state.intent = 'commsManualPick'`. Confirm picker banner, sticky action bar, Pending tab hidden, and the Members tab's leftmost column is a checkbox column.
@@ -691,7 +691,7 @@ Given a member exists in org B but not in org A, when the user is signed in with
 - **Implementation blocked until:**
   - **(a)** `team_member_request_type` enum is extended with `'join'` and `'transfer'` on dev (`rkytnffgmwnnmewevqgp`).
   - **(b)** `team_member_request_status` enum is extended with `'on_hold'` on dev.
-  - **(c)** RPC contract updates for `app_submit_member_request`, `app_update_member_request_status`, and `app_withdraw_member_request` to accept and surface the new enum values have landed on dev.
+  - **(c)** RPC contract updates for `app_submit_member_request`, `app_resolve_member_request`, and `app_withdraw_member_request` to accept and surface the new enum values have landed on dev (no compatibility alias is expected for the removed legacy resolver).
   The v6 slice does not author the migration. Until items (a), (b), and (c) are confirmed via Supabase MCP against dev, this slice cannot be marked Done.
 - Post-build RBAC seeding reminder noted in TEAM-01: `rbac_app_pages` must include the row for `page_name = 'members'` with `scope_type = 'organisation'` for the TEAM app before release.
 - Picker mode hand-off contract verified end-to-end with TEAM-13: a Done click writes the payload, a `/communications` mount in TEAM-13 reads-and-clears it, the resulting recipient list matches `selectedIds`.
@@ -726,9 +726,9 @@ Given a member exists in org B but not in org A, when the user is signed in with
 - **TEAM-05** — owns `/approvals` and the `team_member_request` queue. TEAM-02 reads `team_member_request` for the Pending tab join only; mutations on requests live in TEAM-05.
 - **TEAM-06** — owns `core_membership_type` mutations. TEAM-02 reads `core_membership_type.id` and `name` for the Members-tab filter dropdown.
 - **TEAM-13** — owns `/communications`. TEAM-02 hands off the picker payload via `sessionStorage['pace:team:comms:manual-pick']` with shape `{ organisationId: string, memberIds: string[], updatedAt: number }`. TEAM-13 reads-and-clears the key on mount when the org id matches.
-- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC helper attributes; `check_rbac_permission_with_context`; `get_app_id`; canonical RLS policy templates for read-only surfaces.
+- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC helper attributes; `data_check_rbac_permission_with_context`; `data_get_app_id`; canonical RLS policy templates for read-only surfaces.
 - `pace-core2/packages/core/docs/requirements/CR04-rbac.md` — `PagePermissionGuard` usage; `pageName` + `operation`; no `scope` prop at page level.
 - `pace-core2/packages/core/docs/requirements/CR05c-layout-and-shell.md` — `PaceAppLayout` and shell chrome (provided by TEAM-01).
-- `pace-core2/packages/core/docs/database/domains/team.md` — `team_member_request` shape and enum reference (subject to the planned platform contract — see §15 implementation gate). The slice depends on enum extensions `'join'` / `'transfer'` (`team_member_request_type`) and `'on_hold'` (`team_member_request_status`), and on RPC contract updates for `app_submit_member_request`, `app_update_member_request_status`, `app_withdraw_member_request` to accept and surface these values.
+- `pace-core2/packages/core/docs/database/domains/team.md` — `team_member_request` shape and enum reference (subject to the planned platform contract — see §15 implementation gate). The slice depends on enum extensions `'join'` / `'transfer'` (`team_member_request_type`) and `'on_hold'` (`team_member_request_status`), and on RPC contract updates for `app_submit_member_request`, `app_resolve_member_request`, `app_withdraw_member_request` to accept and surface these values.
 - DB-309 — `core_member.organisation_id NOT NULL` (live on dev).
 - DB-317 — `core_membership_type.is_active NOT NULL DEFAULT true` (live on dev).

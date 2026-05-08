@@ -531,7 +531,7 @@ The slice does not perform PostgREST reads against `core_events` or `base_applic
 
 For completeness:
 - The RPCs are SECURITY DEFINER; their bodies bypass RLS on the tables they read. The RPC's own access gate (caller is super-admin OR org admin of `p_organisation_id`) is the sole authorisation surface beyond the page guard.
-- The page guard uses canonical `pageName = 'events'` and `operation = 'read'`. `rbac_app_pages` must have a row with `page_name = 'events'`, `app_id = get_app_id('TEAM')`, and `scope_type = 'organisation'` (post-build seeding noted in TEAM-01).
+- The page guard uses canonical `pageName = 'events'` and `operation = 'read'`. `rbac_app_pages` must have a row with `page_name = 'events'`, `app_id = data_get_app_id('TEAM')`, and `scope_type = 'organisation'` (post-build seeding noted in TEAM-01).
 
 ### Cross-slice handoffs
 
@@ -617,7 +617,7 @@ Every verification step here targets dev-db only.
 - Confirm `core_events.event_days` is `integer` (used for date-span composition per BR-L).
 - Confirm `core_events.event_venue` is `varchar` (nullable; em-dash when null).
 - Confirm `rbac_apps` row `name = 'TEAM'`, `is_active = true`.
-- Confirm an `rbac_app_pages` row for `page_name = 'events'`, `app_id = get_app_id('TEAM')`, `scope_type = 'organisation'` is in place (post-TEAM-01 seeding).
+- Confirm an `rbac_app_pages` row for `page_name = 'events'`, `app_id = data_get_app_id('TEAM')`, `scope_type = 'organisation'` is in place (post-TEAM-01 seeding).
 
 ### Domain references
 
@@ -767,7 +767,7 @@ Given an event exists for org B but org A has no presence, when the user is sign
 - **MCP test — `app_org_event_attendees` return shape.** Invoke the RPC with a known org id and event id and confirm the row shape contains `member_id (uuid)`, `person_id (uuid)`, `first_name (text)`, `last_name (text)`, `preferred_name (text)`, `application_status (text)`, `event_id (uuid)`, `event_name (varchar)`, `event_date (date)`, `event_days (integer)`, `event_venue (varchar)`.
 - **MCP test — `core_events.event_id` and `base_application.event_id` are uuid.** Confirm via `information_schema.columns` that both are `uuid`. The FK `base_application_event_id_fkey` is intact.
 - **MCP test — `base_application.status` CHECK constraint.** Confirm the CHECK accepts the six values `'draft'`, `'submitted'`, `'under_review'`, `'approved'`, `'rejected'`, `'withdrawn'`.
-- **MCP test — `rbac_app_pages` seeding.** Confirm a row exists with `page_name = 'events'`, `app_id = get_app_id('TEAM')`, `scope_type = 'organisation'`.
+- **MCP test — `rbac_app_pages` seeding.** Confirm a row exists with `page_name = 'events'`, `app_id = data_get_app_id('TEAM')`, `scope_type = 'organisation'`.
 - **MCP test — drafts excluded.** Insert a `base_application` row for a known member and event with `status = 'draft'`. Invoke `app_org_event_summaries` for the org. Confirm the event does not appear in the result if the draft is the only application; confirm the `members_registered_count` does not include the draft applicant when other applicants exist.
 - **In-app demo — happy path `/events`.** Sign in as a TEAM org admin. Visit `/events`. Confirm the events list renders with rows in `event_date DESC NULLS LAST` order. Confirm each row shows Event name, Event date (single day or range), Event venue (or "—"), Members registered count.
 - **In-app demo — happy path `/events/:eventId`.** Click an event row. Confirm navigation to `/events/:eventId`. Confirm the header card shows the event name, formatted date span, and venue. Confirm the attendee list shows current-org members with non-draft applications. Click an attendee row. Confirm navigation to `/members/:memberId`.

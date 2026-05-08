@@ -568,7 +568,7 @@ Toolbar: Search input — placeholder "Search applications"; filters by `core_ev
 
 **BR-Q — Applications cross-app permission.**
 - Input: a SELECT on `base_application` from the TEAM app.
-- Output: server-side RLS on `base_application` requires `check_rbac_permission_with_context('read:page.applications', 'applications', organisation_id, event_id, get_app_id('BASE'))` OR `is_super_admin`. Staff are assumed to hold BASE `read:page.applications`. When they do not, the query returns zero rows (RLS deny) and the Applications section renders the empty state ("No applications recorded.") — same UX as the no-data case. The cross-app dependency is documented in §10.
+- Output: server-side RLS on `base_application` requires `data_check_rbac_permission_with_context('read:page.applications', 'applications', organisation_id, event_id, data_get_app_id('BASE'))` OR `is_super_admin`. Staff are assumed to hold BASE `read:page.applications`. When they do not, the query returns zero rows (RLS deny) and the Applications section renders the empty state ("No applications recorded.") — same UX as the no-data case. The cross-app dependency is documented in §10.
 
 **BR-R — Portal CTA display.**
 - Input: the acting user's identity, the target member's `core_person.user_id`, and `useResourcePermissions('member-profile')` results.
@@ -672,7 +672,7 @@ All writes go via `useSecureSupabase().from(...)` against the live `check_user_i
 - **SELECT** on `core_address` is permitted by `rbac_select_core_address` and chained policies.
 - **SELECT** on `core_contact` is permitted by `rbac_select_core_contact` (org-admin chain via `core_member_role` plus owner-person path).
 - **SELECT** on `core_member_card` is permitted by `rbac_select_core_member_card` via `core_member_card_visible_to_user(id, safe_get_user_id_for_rls())`.
-- **SELECT** on `base_application` is permitted by `rbac_select_base_application` via `check_rbac_permission_with_context('read:page.applications', 'applications', organisation_id, event_id, get_app_id('BASE'))` OR `is_super_admin`. **Cross-app permission dependency** — TEAM staff must hold BASE `read:page.applications` to read application rows. When they do not, the query returns zero rows (RLS deny) and the Applications section renders the empty state.
+- **SELECT** on `base_application` is permitted by `rbac_select_base_application` via `data_check_rbac_permission_with_context('read:page.applications', 'applications', organisation_id, event_id, data_get_app_id('BASE'))` OR `is_super_admin`. **Cross-app permission dependency** — TEAM staff must hold BASE `read:page.applications` to read application rows. When they do not, the query returns zero rows (RLS deny) and the Applications section renders the empty state.
 - **SELECT** on `core_events` is permitted by `rbac_select_core_events` via `check_user_event_access(event_id)` OR org-public visibility paths.
 - **SELECT** on `core_membership_type` is permitted on dev by `read_team_membership_types` (`USING is_authenticated_user()`).
 - **SELECT** on `core_gender_type`, `core_pronoun_type`, `core_contact_type` is permitted by their `_type` lookup-table SELECT policies (`USING is_authenticated_user()`).
@@ -814,15 +814,15 @@ Every verification step here targets dev-db only.
 - Confirm `core_contact_type` seed contains the six rows listed above with "Parent / Guardian" at id 1.
 - Confirm `pace_membership_status` enum values match the six listed: `Provisional`, `Active`, `Suspended`, `Lapsed`, `Resigned`, `Revoked`.
 - Confirm `rbac_apps` row `name = 'TEAM'`, `is_active = true`.
-- Confirm `rbac_app_pages` row for `page_name = 'members'`, `app_id = get_app_id('TEAM')`, `scope_type = 'organisation'` is in place (post-TEAM-01 seeding; same row TEAM-02 uses).
-- Confirm `rbac_app_pages` row for `page_name = 'member-profile'` (singular) under the PACE app (`app_id = get_app_id('PACE')`) exists for the Portal CTA's resource permission resolution.
+- Confirm `rbac_app_pages` row for `page_name = 'members'`, `app_id = data_get_app_id('TEAM')`, `scope_type = 'organisation'` is in place (post-TEAM-01 seeding; same row TEAM-02 uses).
+- Confirm `rbac_app_pages` row for `page_name = 'member-profile'` (singular) under the PACE app (`app_id = data_get_app_id('PACE')`) exists for the Portal CTA's resource permission resolution.
 - Confirm `check_user_pace_member_access_via_member_id(p_member_id uuid) RETURNS boolean` exists (DB-417 implemented).
 - Confirm `core_member_card_card_identifier_key UNIQUE (card_identifier)` is global on dev.
 - **§15 verification step for the `base_application.event_id` ↔ `core_events.event_id` FK type relationship** — see §15.
 
 ### Domain references
 
-- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC API conventions; `useResourcePermissions` semantics; `check_rbac_permission_with_context` helper; `get_app_id`. Future cross-app convergence to RBAC-checked RLS for `core_person`, `core_member`, `core_contact`, `core_member_card` is informational only — see §17 References.
+- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC API conventions; `useResourcePermissions` semantics; `data_check_rbac_permission_with_context` helper; `data_get_app_id`. Future cross-app convergence to RBAC-checked RLS for `core_person`, `core_member`, `core_contact`, `core_member_card` is informational only — see §17 References.
 - `pace-core2/packages/core/docs/requirements/CR24-cross-app-member-profile-launch.md` — Portal handoff URL contract, helper surface (`buildMemberProfileLaunchUrl`, `launchMemberProfile`, `MemberProfileLaunchMode`), env config. Implementation gate captured in §15.
 - `pace-core2/packages/core/docs/database/domains/team.md` — `core_member`, `core_person`, `core_contact`, `core_member_card`, `core_phone`, `core_address` shapes.
 
@@ -901,7 +901,7 @@ Every verification step here targets dev-db only.
 - **`core_person` UPDATE** is enforced by `rbac_update_core_person` (super-admin OR `check_user_is_org_admin(...)` chained via `core_member_role` for the target person).
 - **`core_member_card` UPDATE** is enforced by `rbac_update_core_member_card` (super-admin OR `check_user_is_org_admin(organisation_id)`).
 - **All SELECTs** are enforced by their respective RLS policies — see §7 RLS / permission contracts.
-- **`base_application` SELECT** requires the cross-app BASE permission `read:page.applications` per `check_rbac_permission_with_context(...)`. This is a cross-app dependency the slice does not author — TEAM staff are seeded with the BASE permission in production; on dev the seeding may be partial.
+- **`base_application` SELECT** requires the cross-app BASE permission `read:page.applications` per `data_check_rbac_permission_with_context(...)`. This is a cross-app dependency the slice does not author — TEAM staff are seeded with the BASE permission in production; on dev the seeding may be partial.
 
 ---
 
@@ -1066,7 +1066,7 @@ Otherwise, n/a — standard PDLC quality gates apply.
 - **TEAM-05** — owns `/approvals` and `team_member_request` review. TEAM-03 reads `core_member` and does not modify `team_member_request`.
 - **TEAM-06** — owns `core_membership_type` mutations. TEAM-03 reads `core_membership_type.id` and `name` for the Membership type select.
 - **PORTAL** — owns `/profile/view/:memberId` and `/profile/edit/:memberId`. TEAM-03 hands off via the CR24 helper.
-- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC API conventions; `useResourcePermissions` semantics; `PagePermissionGuard` page-level gate; `check_rbac_permission_with_context` helper. **Future cross-app convergence note (informational, not blocking v1):** `core_person`, `core_member`, `core_contact`, `core_member_card` UPDATE/INSERT/DELETE RLS policies currently use `check_user_is_org_admin(...)` (legacy gate). Future migration candidate: extend these tables to RBAC-checked RLS template per this standards file, mirroring the TEAM-06 / TEAM-07 pattern. Not required for v1.
+- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC API conventions; `useResourcePermissions` semantics; `PagePermissionGuard` page-level gate; `data_check_rbac_permission_with_context` helper. **Future cross-app convergence note (informational, not blocking v1):** `core_person`, `core_member`, `core_contact`, `core_member_card` UPDATE/INSERT/DELETE RLS policies currently use `check_user_is_org_admin(...)` (legacy gate). Future migration candidate: extend these tables to RBAC-checked RLS template per this standards file, mirroring the TEAM-06 / TEAM-07 pattern. Not required for v1.
 - `pace-core2/packages/core/docs/requirements/CR24-cross-app-member-profile-launch.md` — Portal handoff URL builder and launcher contract. **Implementation gate:** `buildMemberProfileLaunchUrl`, `launchMemberProfile`, `MemberProfileLaunchMode` exported from `@solvera/pace-core/member-profile-launch`. Until those exports exist on the local pace-core2 working tree, the Portal CTA section in TEAM-03 cannot be marked Done — see §15.
 - `pace-core2/packages/core/docs/requirements/CR04-rbac.md` — `PagePermissionGuard` usage; `pageName` + `operation`; no `scope` prop at page level.
 - `pace-core2/packages/core/docs/requirements/CR05c-layout-and-shell.md` — `PaceAppLayout` and shell chrome (provided by TEAM-01).

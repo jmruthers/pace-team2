@@ -47,7 +47,7 @@ TEAM-06 does **not** own:
 
 ### Architectural posture
 
-**Mutation contract — Option A (RBAC-checked RLS policies).** All reads and writes go via `useSecureSupabase().from('core_membership_type')` using `select`, `insert`, and `update`. Authorisation is enforced at the database layer by RBAC-checked INSERT and UPDATE RLS policies on `core_membership_type` matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md`, using helper `check_rbac_permission_with_context('<op>:page.membership-types', 'membership-types', organisation_id, NULL, get_app_id('TEAM'))`. The slice does **not** author the RLS migration. The migration is upstream platform work and gates implementation (see §15).
+**Mutation contract — Option A (RBAC-checked RLS policies).** All reads and writes go via `useSecureSupabase().from('core_membership_type')` using `select`, `insert`, and `update`. Authorisation is enforced at the database layer by RBAC-checked INSERT and UPDATE RLS policies on `core_membership_type` matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md`, using helper `data_check_rbac_permission_with_context('<op>:page.membership-types', 'membership-types', organisation_id, NULL, data_get_app_id('TEAM'))`. The slice does **not** author the RLS migration. The migration is upstream platform work and gates implementation (see §15).
 
 **Page guard.** `/settings/membership-types` is wrapped by `<PagePermissionGuard pageName="membership-types" operation="read">`. The guard resolves scope internally from the `OrganisationServiceProvider` context — no `scope` prop is passed.
 
@@ -288,7 +288,7 @@ Pagination controls (rendered below the table by `DataTable`): page size dropdow
 
 **BR-02 — Org-scoped writes.**
 - Input: an insert or update payload for `core_membership_type`.
-- Output: the payload includes `organisation_id = selectedOrganisation.id`. The RBAC-checked RLS WITH CHECK policy (per pace-core2 standard 3 — RBAC Permission-Based Policy template) rejects mismatched org via `check_rbac_permission_with_context(...)`.
+- Output: the payload includes `organisation_id = selectedOrganisation.id`. The RBAC-checked RLS WITH CHECK policy (per pace-core2 standard 3 — RBAC Permission-Based Policy template) rejects mismatched org via `data_check_rbac_permission_with_context(...)`.
 
 **BR-03 — Per-org name uniqueness.**
 - Input: a submitted `name` plus the user's `organisation_id`.
@@ -382,7 +382,7 @@ All writes go via `useSecureSupabase().from('core_membership_type')`. Authorisat
 ### RLS / permission contracts
 
 - **SELECT** on `core_membership_type` is permitted on dev by the policy `read_team_membership_types` (`USING is_authenticated_user()`).
-- **INSERT** and **UPDATE** require RBAC-checked RLS policies on `core_membership_type` for `pageName` `membership-types`, matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md`. These policies use `check_rbac_permission_with_context('<op>:page.membership-types', 'membership-types', organisation_id, NULL, get_app_id('TEAM'))` and are upstream platform work — see §15 implementation gate.
+- **INSERT** and **UPDATE** require RBAC-checked RLS policies on `core_membership_type` for `pageName` `membership-types`, matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md`. These policies use `data_check_rbac_permission_with_context('<op>:page.membership-types', 'membership-types', organisation_id, NULL, data_get_app_id('TEAM'))` and are upstream platform work — see §15 implementation gate.
 - **DELETE** is not used; no DELETE policy is required.
 
 ### Cross-slice handoffs
@@ -436,13 +436,13 @@ All writes go via `useSecureSupabase().from('core_membership_type')`. Authorisat
 - Confirm the column shape and constraints above via Supabase MCP `execute_sql` against the canonical dev project ID.
 - Confirm `is_active` is `NOT NULL DEFAULT true` (DB-317).
 - Confirm `core_membership_type_name_organisation_id_key` UNIQUE on `(name, organisation_id)`.
-- Confirm the helper `check_rbac_permission_with_context` exists. Confirm `get_app_id('TEAM')` resolves to the TEAM app UUID.
+- Confirm the helper `data_check_rbac_permission_with_context` exists. Confirm `data_get_app_id('TEAM')` resolves to the TEAM app UUID.
 - Confirm `rbac_apps` row `name = 'TEAM'`, `is_active = true`.
 - Note: the RLS INSERT / UPDATE policies on `core_membership_type` for `pageName` `membership-types` do not yet exist on dev. This is the implementation gate (§15).
 
 ### Domain references
 
-- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — "RBAC Permission-Based Policy" template; `check_rbac_permission_with_context`; `get_app_id`; helper attributes (STABLE, SECURITY DEFINER, SET search_path TO public).
+- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — "RBAC Permission-Based Policy" template; `data_check_rbac_permission_with_context`; `data_get_app_id`; helper attributes (STABLE, SECURITY DEFINER, SET search_path TO public).
 
 ---
 
@@ -512,7 +512,7 @@ All writes go via `useSecureSupabase().from('core_membership_type')`. Authorisat
 
 ### Server-side enforcement
 
-- INSERT and UPDATE on `core_membership_type` are authorised by RBAC-checked RLS policies using `check_rbac_permission_with_context('<op>:page.membership-types', 'membership-types', organisation_id, NULL, get_app_id('TEAM'))`. Any client that bypasses the UI and submits a mutation without the requisite permission receives a Postgres permission error. See §12 verification.
+- INSERT and UPDATE on `core_membership_type` are authorised by RBAC-checked RLS policies using `data_check_rbac_permission_with_context('<op>:page.membership-types', 'membership-types', organisation_id, NULL, data_get_app_id('TEAM'))`. Any client that bypasses the UI and submits a mutation without the requisite permission receives a Postgres permission error. See §12 verification.
 
 ---
 
@@ -580,7 +580,7 @@ Given a user submits a create with valid data but the server returns a 5xx error
 ## §12 Verification
 
 - **MCP test — RLS bypass surface.** Against dev-db (`rkytnffgmwnnmewevqgp`), once the upstream RBAC-checked INSERT / UPDATE RLS policies (§15 gate) have landed, attempt an INSERT into `core_membership_type` as an authenticated user **without** `create:page.membership-types`. The query must fail with a Postgres permission error (RLS WITH CHECK violation). Repeat for UPDATE without `update:page.membership-types`.
-- **MCP test — Helper exists.** Confirm `check_rbac_permission_with_context(...)` exists and that `get_app_id('TEAM')` returns a non-null UUID via `select check_rbac_permission_with_context(...)` and `select get_app_id('TEAM')`. The slice's RLS posture depends on these helpers per pace-core2 standard 3.
+- **MCP test — Helper exists.** Confirm `data_check_rbac_permission_with_context(...)` exists and that `data_get_app_id('TEAM')` returns a non-null UUID via `select data_check_rbac_permission_with_context(...)` and `select data_get_app_id('TEAM')`. The slice's RLS posture depends on these helpers per pace-core2 standard 3.
 - **MCP test — Per-org uniqueness.** Insert a row `(name='Junior', organisation_id=<org A>)` and confirm a second insert with the same name in org A fails with 23505. Confirm the same name succeeds in org B (different `organisation_id`). This proves per-org (not global) uniqueness.
 - **MCP test — Schema invariants.** Confirm `core_membership_type.is_active` is `NOT NULL DEFAULT true` (DB-317).
 - **In-app demo flow — happy path.** Sign in as a TEAM org-admin, navigate to `/settings/membership-types`, create a new type, edit its name, deactivate it, reactivate it. Confirm the success toast for each step (per BR-11 copy) and that the list reflects each change.
@@ -612,7 +612,7 @@ Given a user submits a create with valid data but the server returns a 5xx error
 ## §15 Done criteria
 
 - All 19 acceptance criteria (AC-01 through AC-19) verified via the slice's QA pack.
-- **Implementation blocked until RBAC-checked INSERT/UPDATE RLS policies on `core_membership_type` for `pageName` `membership-types` land on dev. The v6 slice does not author the migration.** Specifically: an INSERT policy with `WITH CHECK` and an UPDATE policy with `USING` + `WITH CHECK` must both call `check_rbac_permission_with_context('<op>:page.membership-types', 'membership-types', organisation_id, NULL, get_app_id('TEAM'))`, matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md`. Until those policies exist on dev, this slice cannot be marked Done.
+- **Implementation blocked until RBAC-checked INSERT/UPDATE RLS policies on `core_membership_type` for `pageName` `membership-types` land on dev. The v6 slice does not author the migration.** Specifically: an INSERT policy with `WITH CHECK` and an UPDATE policy with `USING` + `WITH CHECK` must both call `data_check_rbac_permission_with_context('<op>:page.membership-types', 'membership-types', organisation_id, NULL, data_get_app_id('TEAM'))`, matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md`. Until those policies exist on dev, this slice cannot be marked Done.
 - Post-build RBAC seeding reminder noted in TEAM-01: `rbac_app_pages` must include the row for `page_name = 'membership-types'` with `scope_type = 'organisation'` for the TEAM app before release.
 
 ---
@@ -639,7 +639,7 @@ Given a user submits a create with valid data but the server returns a 5xx error
 - **TEAM-01** — provides `ProtectedRoute`, `AuthenticatedShell`, `PaceAppLayout`, the navigation menu (Settings → Membership Types), and **mounts `<ToastProvider>` (which renders `<Toaster />` internally) inside `AuthenticatedShell`** so any descendant route (including this slice) can call `toast(...)`. TEAM-06 depends on this mount; without it, `toast(...)` throws.
 - **TEAM-02 / TEAM-03** — read `core_membership_type.id` and `name` for filters and detail views; the row shape they consume is the row shape this slice writes.
 - **TEAM-08** — owns financial / fee semantics; this slice does not surface fees.
-- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — "RBAC Permission-Based Policy" template; helper-function attributes; `check_rbac_permission_with_context`; `get_app_id('TEAM')`. **Implementation gate:** the v6 slice does not author the RBAC-checked INSERT/UPDATE RLS policies on `core_membership_type` for `pageName` `membership-types`. The migration is upstream platform work and gates implementation per §15.
+- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — "RBAC Permission-Based Policy" template; helper-function attributes; `data_check_rbac_permission_with_context`; `data_get_app_id('TEAM')`. **Implementation gate:** the v6 slice does not author the RBAC-checked INSERT/UPDATE RLS policies on `core_membership_type` for `pageName` `membership-types`. The migration is upstream platform work and gates implementation per §15.
 - `pace-core2/packages/core/docs/requirements/CR04-rbac.md` — `PagePermissionGuard` usage; `pageName` + `operation`; no `scope` prop at page level.
 - `pace-core2/packages/core/docs/requirements/CR05c-layout-and-shell.md` — `PaceAppLayout` and shell chrome (provided by TEAM-01).
 - DB-317 — `is_active NOT NULL DEFAULT true` on `core_membership_type` (live on dev).

@@ -48,7 +48,7 @@ TEAM-07 does **not** own:
 
 ### Architectural posture
 
-**Mutation contract.** All mutations on `core_organisations` go through `useSecureSupabase().from('core_organisations').insert/update`. Authority is enforced server-side by RBAC-checked INSERT and UPDATE RLS policies for `pageName` `organisations`, matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` and using `check_rbac_permission_with_context('<op>:page.organisations', 'organisations', parent_id, NULL, get_app_id('TEAM'))`. (`parent_id` here refers to the parent organisation under which the child is being created or updated — not the new or existing row's own `id`. Authorisation is scoped to the user's permissions on the parent org.) Hard delete remains gated by the super-admin-only DELETE policy and is not exercised by this slice.
+**Mutation contract.** All mutations on `core_organisations` go through `useSecureSupabase().from('core_organisations').insert/update`. Authority is enforced server-side by RBAC-checked INSERT and UPDATE RLS policies for `pageName` `organisations`, matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` and using `data_check_rbac_permission_with_context('<op>:page.organisations', 'organisations', parent_id, NULL, data_get_app_id('TEAM'))`. (`parent_id` here refers to the parent organisation under which the child is being created or updated — not the new or existing row's own `id`. Authorisation is scoped to the user's permissions on the parent org.) Hard delete remains gated by the super-admin-only DELETE policy and is not exercised by this slice.
 
 **App-access seeding.** When a new child organisation is inserted, an `AFTER INSERT` trigger on `core_organisations` seeds rows in `core_organisation_app_access` for the new child by copying the active app-access rows from the parent organisation. The TEAM-07 client never writes to `core_organisation_app_access`.
 
@@ -351,7 +351,7 @@ Sticky elements: the shell header and footer are sticky per TEAM-01's `PaceAppLa
 
 **BR-11 — Mutation authority via RBAC-checked RLS**
 - Input: an INSERT or UPDATE on `core_organisations` from the slice.
-- Output: server-side RLS authorises the operation when either `is_super_admin(safe_get_user_id_for_rls())` is true OR `check_rbac_permission_with_context('<op>:page.organisations', 'organisations', parent_id, NULL, get_app_id('TEAM'))` returns true (where `<op>` is `create` or `update`). `parent_id` here refers to the parent organisation under which the child is being created or updated — not the new or existing row's own `id`. Authorisation is scoped to the user's permissions on the parent org. DELETE remains gated by the super-admin-only policy.
+- Output: server-side RLS authorises the operation when either `is_super_admin(safe_get_user_id_for_rls())` is true OR `data_check_rbac_permission_with_context('<op>:page.organisations', 'organisations', parent_id, NULL, data_get_app_id('TEAM'))` returns true (where `<op>` is `create` or `update`). `parent_id` here refers to the parent organisation under which the child is being created or updated — not the new or existing row's own `id`. Authorisation is scoped to the user's permissions on the parent org. DELETE remains gated by the super-admin-only policy.
 
 **BR-12 — App-access auto-seed**
 - Input: a successful INSERT into `core_organisations`.
@@ -464,19 +464,19 @@ Verified 2026-05-04 via Supabase MCP:
 
 The TEAM-07 v6 slice does NOT author migrations. Before TEAM-07 can be marked Done:
 
-1. **RBAC-checked INSERT and UPDATE policies** on `public.core_organisations` for `pageName` `organisations` must replace the current super-admin-only policies, matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` and using `check_rbac_permission_with_context('<op>:page.organisations', 'organisations', parent_id, NULL, get_app_id('TEAM'))`. (`parent_id` here refers to the parent organisation under which the child is being created or updated — not the new or existing row's own `id`. Authorisation is scoped to the user's permissions on the parent org.)
+1. **RBAC-checked INSERT and UPDATE policies** on `public.core_organisations` for `pageName` `organisations` must replace the current super-admin-only policies, matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` and using `data_check_rbac_permission_with_context('<op>:page.organisations', 'organisations', parent_id, NULL, data_get_app_id('TEAM'))`. (`parent_id` here refers to the parent organisation under which the child is being created or updated — not the new or existing row's own `id`. Authorisation is scoped to the user's permissions on the parent org.)
 2. **`AFTER INSERT` trigger on `public.core_organisations`** that seeds `public.core_organisation_app_access` for the new child organisation by copying the active app-access rows from `NEW.parent_id`. Trigger function follows pace-core2 trigger standards (`SET search_path TO public`, schema-qualified references, `SECURITY DEFINER` if it queries RLS-protected tables, `COMMENT ON FUNCTION` documenting rationale).
 
 ### Helpers referenced (must be present on dev)
 
-- `check_rbac_permission_with_context(p_permission TEXT, p_page_name TEXT, p_organisation_id UUID, p_event_id TEXT, p_app_id UUID) RETURNS boolean` — STABLE SECURITY DEFINER wrapper. Verified via dev MCP 2026-05-04.
+- `data_check_rbac_permission_with_context(p_permission TEXT, p_page_name TEXT, p_organisation_id UUID, p_event_id TEXT, p_app_id UUID) RETURNS boolean` — STABLE SECURITY DEFINER wrapper. Verified via dev MCP 2026-05-04.
 - `is_super_admin(p_user_id UUID) RETURNS boolean` — verified.
 - `safe_get_user_id_for_rls() RETURNS UUID` — verified.
-- `get_app_id(p_app_name TEXT) RETURNS UUID` — verified; called as `get_app_id('TEAM')`.
+- `data_get_app_id(p_app_name TEXT) RETURNS UUID` — verified; called as `data_get_app_id('TEAM')`.
 
 ### Domain references
 
-- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC Permission-Based Policy template; helper function attributes; `check_rbac_permission_with_context` reference.
+- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC Permission-Based Policy template; helper function attributes; `data_check_rbac_permission_with_context` reference.
 - `pace-core2/packages/core/docs/requirements/CR04-rbac.md` — `PagePermissionGuard` API.
 - `pace-core2/packages/core/docs/requirements/CR05c-layout-and-shell.md` — shell chrome contract.
 
@@ -620,7 +620,7 @@ Given a user opens the Edit dialog on a row, when the dialog renders, then a rea
 - Confirm UPDATE payloads include only `display_name`, `description` (or `null`), `is_active` — no `name`, no `parent_id`.
 - Confirm the toolbar "+ New sub-organisation" button is conditioned on `useResourcePermissions('organisations').canCreate`; confirm the row Edit action is conditioned on `.canUpdate`.
 - Against dev-db (`rkytnffgmwnnmewevqgp`):
-  - Confirm RBAC-checked INSERT and UPDATE policies on `public.core_organisations` for `pageName` `organisations` are present and use `check_rbac_permission_with_context(... , get_app_id('TEAM'))`.
+  - Confirm RBAC-checked INSERT and UPDATE policies on `public.core_organisations` for `pageName` `organisations` are present and use `data_check_rbac_permission_with_context(... , data_get_app_id('TEAM'))`.
   - Confirm the `AFTER INSERT` trigger on `public.core_organisations` seeds `public.core_organisation_app_access` for the new child from the parent.
   - Confirm `rbac_app_pages` has a row for `pageName = 'organisations'` with `scope_type = 'organisation'` and the TEAM `app_id` (post-build seeding may handle this; if absent, the slice's affordances will be hidden because `useResourcePermissions` returns false — note as a known seeding gap, not a code defect).
 - Manually verify in dev-db that an INSERT by an org admin with `create:page.organisations` succeeds and seeds `core_organisation_app_access` rows for the new child matching the parent's active app-access set.
@@ -679,7 +679,7 @@ n/a — standard PDLC quality gates apply.
 - `/rebuild/architecture.md` — route ownership of `/settings/organisations`; canonical `pageName` `organisations`; nav entry under Settings.
 - `/docs/requirements/team/TM01-app-shell-auth-layout-requirements.md` — app shell, `AuthenticatedShell` mounting `<ToastProvider>` (which renders `<Toaster />`), nav menu, `ProtectedRoute`, no-org empty state, post-build RBAC seeding plan.
 - `/docs/requirements/team/TM06-membership-types-requirements.md` — sibling settings slice using the same RBAC-checked-RLS mutation pattern; convention reference for editor / DataTable bespoke pattern.
-- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC Permission-Based Policy template; helper function attributes; `check_rbac_permission_with_context`; `get_app_id`.
+- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC Permission-Based Policy template; helper function attributes; `data_check_rbac_permission_with_context`; `data_get_app_id`.
 - `pace-core2/packages/core/docs/requirements/CR04-rbac.md` — `PagePermissionGuard` API; no `scope` prop at page level.
 - `pace-core2/packages/core/docs/requirements/CR05c-layout-and-shell.md` — `PaceAppLayout`; nav menu dropdown contract.
 

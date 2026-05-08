@@ -1,12 +1,12 @@
+import type { ReactNode } from 'react';
 import { Badge, Button } from '@solvera/pace-core/components';
 import type { DataTableColumn } from '@solvera/pace-core/components';
 import {
   formatMembershipNumber,
   formatShortDate,
   getMemberDisplayName,
-  type MemberDirectoryRow,
-  type PendingDirectoryRow,
-} from './memberDirectory.data';
+} from './memberDirectory.display';
+import type { MemberDirectoryRow, PendingDirectoryRow } from './memberDirectory.types';
 
 interface MemberColumnOptions {
   pickerMode: boolean;
@@ -19,6 +19,7 @@ interface PendingColumnOptions {
 
 function renderPrimaryActionCell<T extends MemberDirectoryRow>(
   row: T,
+  content: ReactNode,
   pickerMode: boolean,
   onPrimaryAction: (member: T) => void
 ) {
@@ -30,7 +31,7 @@ function renderPrimaryActionCell<T extends MemberDirectoryRow>(
       onClick={() => onPrimaryAction(row)}
       aria-label={pickerMode ? `Select ${getMemberDisplayName(row)}` : `Open ${getMemberDisplayName(row)}`}
     >
-      {getMemberDisplayName(row)}
+      {content}
     </Button>
   );
 }
@@ -44,14 +45,33 @@ export function buildMemberColumns(options: MemberColumnOptions): DataTableColum
       accessorKey: 'lastName',
       header: 'Name',
       sortable: true,
-      cell: ({ row }) => renderPrimaryActionCell(row, pickerMode, onPrimaryAction),
+      cell: ({ row }) => renderPrimaryActionCell(row, getMemberDisplayName(row), pickerMode, onPrimaryAction),
+    },
+    {
+      id: 'firstName',
+      accessorKey: 'firstName',
+      header: 'First name (search)',
+      searchable: true,
+    },
+    {
+      id: 'preferredName',
+      accessorKey: 'preferredName',
+      header: 'Preferred name (search)',
+      searchable: true,
+    },
+    {
+      id: 'email',
+      accessorKey: 'email',
+      header: 'Email (search)',
+      searchable: true,
     },
     {
       id: 'membershipNumber',
       accessorKey: 'membershipNumber',
       header: 'Membership #',
       sortable: true,
-      cell: ({ row }) => formatMembershipNumber(row.membershipNumber),
+      cell: ({ row }) =>
+        renderPrimaryActionCell(row, formatMembershipNumber(row.membershipNumber), pickerMode, onPrimaryAction),
     },
     {
       id: 'membershipStatus',
@@ -59,9 +79,14 @@ export function buildMemberColumns(options: MemberColumnOptions): DataTableColum
       header: 'Membership status',
       sortable: true,
       cell: ({ row }) => (
-        <Badge variant={row.membershipStatus === 'Active' ? 'soft-main-normal' : 'soft-sec-normal'}>
-          {row.membershipStatus}
-        </Badge>
+        renderPrimaryActionCell(
+          row,
+          <Badge variant={row.membershipStatus === 'Active' ? 'soft-main-normal' : 'soft-sec-normal'}>
+            {row.membershipStatus}
+          </Badge>,
+          pickerMode,
+          onPrimaryAction
+        )
       ),
     },
     {
@@ -69,9 +94,7 @@ export function buildMemberColumns(options: MemberColumnOptions): DataTableColum
       accessorKey: 'membershipTypeName',
       header: 'Membership type',
       sortable: true,
-      cell: ({ row }) => row.membershipTypeName ?? '—',
-      enableColumnFilter: true,
-      filterType: 'select',
+      cell: ({ row }) => renderPrimaryActionCell(row, row.membershipTypeName ?? '—', pickerMode, onPrimaryAction),
     },
   ];
 }
@@ -85,28 +108,46 @@ export function buildPendingColumns(options: PendingColumnOptions): DataTableCol
       accessorKey: 'lastName',
       header: 'Name',
       sortable: true,
-      cell: ({ row }) => renderPrimaryActionCell(row, false, onPrimaryAction),
+      cell: ({ row }) => renderPrimaryActionCell(row, getMemberDisplayName(row), false, onPrimaryAction),
+    },
+    {
+      id: 'firstName',
+      accessorKey: 'firstName',
+      header: 'First name (search)',
+      searchable: true,
+    },
+    {
+      id: 'preferredName',
+      accessorKey: 'preferredName',
+      header: 'Preferred name (search)',
+      searchable: true,
+    },
+    {
+      id: 'email',
+      accessorKey: 'email',
+      header: 'Email (search)',
+      searchable: true,
     },
     {
       id: 'membershipNumber',
       accessorKey: 'membershipNumber',
       header: 'Membership #',
       sortable: true,
-      cell: ({ row }) => formatMembershipNumber(row.membershipNumber),
+      cell: ({ row }) => renderPrimaryActionCell(row, formatMembershipNumber(row.membershipNumber), false, onPrimaryAction),
     },
     {
       id: 'membershipTypeName',
       accessorKey: 'membershipTypeName',
       header: 'Membership type',
       sortable: true,
-      cell: ({ row }) => row.membershipTypeName ?? '—',
+      cell: ({ row }) => renderPrimaryActionCell(row, row.membershipTypeName ?? '—', false, onPrimaryAction),
     },
     {
       id: 'requestedAt',
       accessorKey: 'requestedAt',
       header: 'Requested',
       sortable: true,
-      cell: ({ row }) => formatShortDate(row.requestedAt),
+      cell: ({ row }) => renderPrimaryActionCell(row, formatShortDate(row.requestedAt), false, onPrimaryAction),
     },
     {
       id: 'requestType',
@@ -114,9 +155,14 @@ export function buildPendingColumns(options: PendingColumnOptions): DataTableCol
       header: 'Request type',
       sortable: true,
       cell: ({ row }) => (
-        <Badge variant="outline-main-normal">
-          {row.requestType === 'join' ? 'Join' : 'Transfer'}
-        </Badge>
+        renderPrimaryActionCell(
+          row,
+          <Badge variant="outline-main-normal">
+            {row.requestType === 'join' ? 'Join' : 'Transfer'}
+          </Badge>,
+          false,
+          onPrimaryAction
+        )
       ),
     },
   ];

@@ -503,14 +503,14 @@ The PUMP Edge functions write to `pump_message`, `pump_message_recipient`, `pump
 
 - Confirm `pump_get_effective_sender_identity(uuid, text, uuid)` exists and returns the expected shape. Smoke-test with `selectedOrganisation.id` and null context.
 - Confirm `core_membership_type.is_active NOT NULL DEFAULT true`.
-- Confirm `rbac_app_pages` row exists with `page_name = 'CommsLog'`, `app_id = get_app_id('PUMP')`, `scope_type = 'organisation'`.
+- Confirm `rbac_app_pages` row exists with `page_name = 'CommsLog'`, `app_id = data_get_app_id('PUMP')`, `scope_type = 'organisation'`.
 - Confirm PUMP Edge functions `pump-resolve-pool`, `pump-send`, `pump-schedule`, `pump-send-test`, `pump-load-templates`, `pump-load-merge-fields` are deployed on dev (`list_edge_functions`).
 - Confirm `pump_gateway_config` has at least one row per channel for the dev environment.
 - Confirm `pump_organisation_templates` has at least one fixture row per org per channel for demo.
 
 ### Domain references
 
-- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC helper attributes; `check_rbac_permission_with_context`; `get_app_id`; canonical RLS policy templates.
+- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC helper attributes; `data_check_rbac_permission_with_context`; `data_get_app_id`; canonical RLS policy templates.
 - `pace-core2/packages/core/docs/requirements/CR23-comms-platform.md` — authoritative integration contract (consumer-side reference for `RecipientPoolDescriptor`, `CommSendAdapter`, `EffectivePumpSenderIdentity`, RBAC model).
 - `pace-core2/packages/core/docs/database/decisions/DB-change-decisions-p4.md` — PUMP DB foundation (DB-404 through DB-411 + DB-421 sender identity + system template seeds).
 
@@ -662,7 +662,7 @@ Given any successful send or schedule from this slice, when the request reaches 
 
 - **MCP test — `pump_get_effective_sender_identity`.** Against dev-db (`rkytnffgmwnnmewevqgp`), call the RPC with a known org id and `null` source context. Confirm the return shape matches `EffectivePumpSenderIdentity` (organisationId, sourceContextType, sourceContextId, senderName, fromAddress, replyToAddress, senderPhone, resolvedFrom, resolvedOrganisationId, canSendEmail, canSendSms).
 - **MCP test — `core_membership_type` for chip row.** Confirm `SELECT id, name FROM core_membership_type WHERE organisation_id = :orgId AND is_active = true ORDER BY name` returns at least one row for the demo org.
-- **MCP test — `rbac_app_pages` `CommsLog` row.** Confirm a row exists with `page_name = 'CommsLog'`, `app_id = get_app_id('PUMP')`, `scope_type = 'organisation'`.
+- **MCP test — `rbac_app_pages` `CommsLog` row.** Confirm a row exists with `page_name = 'CommsLog'`, `app_id = data_get_app_id('PUMP')`, `scope_type = 'organisation'`.
 - **MCP test — Edge function deployment.** Run `list_edge_functions` and confirm the presence of `pump-resolve-pool`, `pump-send`, `pump-schedule`, `pump-send-test`, `pump-load-templates`, `pump-load-merge-fields`. If any are missing, see §15 — implementation is gated.
 - **MCP test — `pump_gateway_config`.** Confirm at least one row exists per channel for the dev environment. If absent, dispatch will fail at PUMP Edge time.
 - **Fixture seed — `pump_organisation_templates`.** Seed at least one row per channel for the demo org, e.g. `{ id: <uuid>, organisation_id: <demoOrgId>, name: 'Welcome', channel: 'email', subject: 'Welcome', body_html: '<p>Hi {{first_name}}</p>', body_text: 'Hi {{first_name}}', is_active: true, require_merge_field_validation: false }`. Without at least one row, the templates section will not render.
@@ -747,7 +747,7 @@ Given any successful send or schedule from this slice, when the request reaches 
 - **TEAM-01** — provides `ProtectedRoute`, `AuthenticatedShell`, `PaceAppLayout`, the navigation menu (Communications entry), and **mounts `<ToastProvider>` (which renders `<Toaster />` internally) inside `AuthenticatedShell`** so TEAM-13 can call `toast(...)`. TEAM-13 depends on this mount.
 - **TEAM-02** — owns `/members`. TEAM-13 hands off to the picker via `sessionStorage['pace:team:comms:manual-pick']` with shape `{ organisationId: string, memberIds: string[], updatedAt: number }`. The picker enforces the soft cap (500) and hard cap (2000) on the manual list; TEAM-13 is the consumer side and displays only.
 - **TEAM-06** — owns `core_membership_type` mutations. TEAM-13 reads `core_membership_type.id` and `name` for the chip row.
-- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC helper attributes; `check_rbac_permission_with_context`; `get_app_id`; canonical RLS policy templates.
+- `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md` — RBAC helper attributes; `data_check_rbac_permission_with_context`; `data_get_app_id`; canonical RLS policy templates.
 - `pace-core2/packages/core/docs/requirements/CR23-comms-platform.md` — authoritative integration contract for `RecipientPoolDescriptor`, `CommSendAdapter`, `EffectivePumpSenderIdentity`, RBAC model.
 - `pace-core2/packages/core/docs/database/decisions/DB-change-decisions-p4.md` — PUMP DB foundation (DB-404 through DB-411 + DB-421).
 
