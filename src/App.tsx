@@ -9,6 +9,7 @@ import { Member360Page } from './pages/members/Member360Page';
 import { MemberRolesPage } from './pages/members/MemberRolesPage';
 import { ApprovalsPage } from './pages/approvals/ApprovalsPage';
 import { MembershipTypesPage } from './pages/settings/MembershipTypesPage';
+import { OrganisationSettingsPage } from './pages/settings/OrganisationSettingsPage';
 import { SubOrganisationsPage } from './pages/settings/SubOrganisationsPage';
 
 export const APP_NAME = 'TEAM';
@@ -29,7 +30,7 @@ const NAV_ITEMS: NavigationItem[] = [
     children: [
       { id: 'settings-membership-types', label: 'Membership Types', href: '/settings/membership-types' },
       { id: 'settings-organisations', label: 'Organisations', href: '/settings/organisations' },
-      { id: 'settings-org', label: 'Org Settings', href: '/settings/org' },
+      { id: 'settings-org', label: 'Organisation settings', href: '/settings/org' },
     ],
   },
 ];
@@ -201,6 +202,10 @@ function App() {
           <Route
             path="settings/organisations"
             element={<SubOrganisationsPage />}
+          />
+          <Route
+            path="settings/org"
+            element={<OrganisationSettingsPage />}
           />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
