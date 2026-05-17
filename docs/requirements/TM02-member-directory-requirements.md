@@ -10,7 +10,7 @@ Depends on:      TEAM-01 (app shell, ToastProvider, AuthenticatedShell, navItems
 Backend impact:  Schema changes (upstream platform: extend team_member_request_type enum with 'join'/'transfer'; extend team_member_request_status enum with 'on_hold'; update app_submit_member_request, app_resolve_member_request, app_withdraw_member_request RPCs accordingly — see §15 implementation gate)
 Frontend impact: UI
 Routes owned:    /members
-QA pack:         docs/test-packs/TEAM-02-qa-pack.md
+QA pack:         docs/test-packs/TM02-qa-pack.md
 ```
 
 ---
@@ -489,7 +489,7 @@ Planned platform contract for this slice (see §15 implementation gate):
 | `organisation_id` | uuid | NO | — |
 | (plus min/max age columns, audit columns) | per dev schema | — | — |
 
-### Dev-db verification (project: `rkytnffgmwnnmewevqgp`)
+### Dev-db catalogue snapshot (historic capture preview dev ref; MCP `execute_sql` uses `yihzsfcceciimdoiibif` — [`npm run mcp:verification`](../../package.json))
 
 - Confirm `core_member.organisation_id` is `NOT NULL` (DB-309) and `core_member.deleted_at` exists.
 - Confirm `pace_membership_status` enum values match the six listed above (no `Cancelled`).
@@ -568,83 +568,107 @@ Planned platform contract for this slice (see §15 implementation gate):
 
 ## §11 Acceptance criteria
 
-**AC-01 — Page entry, authenticated, has org, has read permission.**
+- [ ] **AC-01 — Page entry, authenticated, has org, has read permission.**
+
 Given a user is authenticated, has an org, and has `read:page.members`, when they navigate to `/members`, then the page renders the title "Members" and the Members tab is selected by default with active and suspended members of the current org listed and the Pending tab visible alongside. (Traces F-01, F-03, F-04, F-15.)
 
-**AC-02 — Members tab default sort.**
+- [ ] **AC-02 — Members tab default sort.**
+
 Given the Members tab has rows with last names "Brown", "Adams", "Carter" (each with distinct first names), when the page loads, then the rows render in the order Adams, Brown, Carter under the **Name** column. (Traces F-16, F-33, BR-04.)
 
-**AC-03 — Members tab empty state.**
+- [ ] **AC-03 — Members tab empty state.**
+
 Given a user enters `/members` for an org that has zero active or suspended members, when the page loads, then the Members tab renders the empty state heading "No active or suspended members yet." and description "New members appear here once approved via /approvals." with no CTA. (Traces F-11.)
 
-**AC-04 — Pending tab visible and populated.**
+- [ ] **AC-04 — Pending tab visible and populated.**
+
 Given the current org has at least one Provisional `core_member` with an open `team_member_request` of `request_type IN ('join','transfer')` and `status IN ('pending','on_hold')`, when the user clicks the Pending tab, then the Pending tab renders rows for those members with columns Name, Membership #, Membership type, Requested, and Request type. (Traces F-04, F-21, F-22, F-23, F-24.)
 
-**AC-05 — Pending tab empty state.**
+- [ ] **AC-05 — Pending tab empty state.**
+
 Given the current org has zero Provisional members with open join or transfer requests, when the user clicks the Pending tab, then the Pending tab renders the empty state heading "No pending members." and description "New join requests appear here once submitted via your org signup form." with no CTA. (Traces F-12.)
 
-**AC-06 — Provisional member without open request is excluded.**
+- [x] **AC-06 — Provisional member without open request is excluded.**
+
 Given the current org has a Provisional `core_member` row with no matching open `team_member_request`, when the user views the Pending tab, then that member does not appear in the list. (Traces F-49, BR-03.)
 
-**AC-07 — Search filters in-memory.**
+- [ ] **AC-07 — Search filters in-memory.**
+
 Given the Members tab has multiple rows and the user types "smit" into the search input, when the search executes, then only rows whose last name, first name, preferred name, email, or membership number contains "smit" (case-insensitive) remain visible; clearing the input restores all rows. (Traces F-31, BR-05.)
 
-**AC-08 — Membership-type filter (Members tab only).**
+- [x] **AC-08 — Membership-type filter (Members tab only).**
+
 Given the Members tab has multiple rows assigned to different membership types, when the user selects a specific type from the membership-type filter, then only rows with that `membership_type_id` remain visible; selecting "All" restores the unfiltered list. The Pending tab does not surface this filter. (Traces F-32.)
 
-**AC-09 — Pagination.**
+- [ ] **AC-09 — Pagination.**
+
 Given the Members tab has 60 rows, when the page loads with `initialPageSize = 25`, then page 1 shows the first 25 rows, page 2 shows rows 26–50, and page 3 shows rows 51–60; changing the page size dropdown to 50 collapses pagination to two pages. (Traces F-34.)
 
-**AC-10 — Row click navigates to Member 360.**
+- [x] **AC-10 — Row click navigates to Member 360.**
+
 Given a user has the Members tab visible in normal mode, when they click a row, then the app navigates to `/members/:memberId` where `:memberId` is the clicked row's `core_member.id`. (Traces F-26, BR-06.)
 
-**AC-11 — Permission denied — read.**
+- [x] **AC-11 — Permission denied — read.**
+
 Given a user is authenticated and has org context but lacks `read:page.members`, when they navigate to `/members`, then `<AccessDenied />` renders with copy "You do not have permission to view this page." inside the `AuthenticatedShell` chrome and no tab, table, or toolbar renders. (Traces F-14, F-36.)
 
-**AC-12 — Error state on list query failure.**
+- [ ] **AC-12 — Error state on list query failure.**
+
 Given the Members list query fails, when the error is returned, then the Members tab renders an inline `Alert` with `variant="destructive"`, title "Could not load members", a description sourced from `HandleSupabaseError`, and a Retry button alongside; clicking Retry re-runs the query. (Traces F-13.)
 
-**AC-13 — Org switch refetches both lists.**
+- [ ] **AC-13 — Org switch refetches both lists.**
+
 Given the user has the Members tab visible for org A, when they switch to org B in the org context selector, then the Members list refetches against org B and the user sees org B's data (or the Members empty state). (Traces F-42, BR-01, BR-11.)
 
-**AC-14 — Picker mode entry hides Pending tab.**
+- [ ] **AC-14 — Picker mode entry hides Pending tab.**
+
 Given a user navigates to `/members` with `location.state.intent === 'commsManualPick'` set, when the page renders, then a sticky banner reads "Selecting members for a comms send — 0 selected", a sticky bottom action bar shows Done (disabled) and Cancel, and only the Members tab is visible. (Traces F-04, F-07, F-44, BR-08.)
 
-**AC-15 — Picker mode hydration when org matches.**
+- [x] **AC-15 — Picker mode hydration when org matches.**
+
 Given an existing `pace:team:comms:manual-pick` payload in `sessionStorage` whose `organisationId === selectedOrganisation.id` and `memberIds` contains three ids matching rows in the current org, when the user enters picker mode, then those three rows are pre-selected (their checkboxes ticked) and the counter reads "3 selected". (Traces F-08, BR-07.)
 
-**AC-16 — Picker mode does not hydrate when org mismatch.**
+- [x] **AC-16 — Picker mode does not hydrate when org mismatch.**
+
 Given an existing `pace:team:comms:manual-pick` payload whose `organisationId` differs from `selectedOrganisation.id`, when the user enters picker mode, then `selectedIds` is empty and the counter reads "0 selected". (Traces F-48, BR-07.)
 
-**AC-17 — Picker mode Done writes payload and navigates.**
+- [x] **AC-17 — Picker mode Done writes payload and navigates.**
+
 Given the user is in picker mode with three rows selected, when they click Done, then `sessionStorage['pace:team:comms:manual-pick']` is updated to `{ organisationId: <currentOrgId>, memberIds: [<id1>, <id2>, <id3>], updatedAt: <ms> }` and the app navigates to `/communications`. (Traces F-29, BR-10.)
 
-**AC-18 — Picker mode Cancel does not write payload.**
+- [x] **AC-18 — Picker mode Cancel does not write payload.**
+
 Given the user is in picker mode with rows selected and a prior payload already in `sessionStorage`, when they click Cancel, then the app navigates to `/communications` and `sessionStorage['pace:team:comms:manual-pick']` is unchanged from its prior value. (Traces F-30, BR-10.)
 
-**AC-19 — Picker empty selection blocks Done.**
+- [x] **AC-19 — Picker empty selection blocks Done.**
+
 Given the user is in picker mode with `selectedIds.length === 0`, when they look at the action bar, then Done is disabled and the helper copy "Select at least one member." is visible. (Traces F-44, BR-09.)
 
-**AC-20 — Picker soft cap warning.**
+- [x] **AC-20 — Picker soft cap warning.**
+
 Given the user is in picker mode and selects 700 members, when the selection updates, then the banner reads "Large audience — Confirm you intend to message 700 members." and the Done button remains enabled. (Traces F-45, BR-09.)
 
-**AC-21 — Picker hard cap blocks Done.**
+- [x] **AC-21 — Picker hard cap blocks Done.**
+
 Given the user is in picker mode and selects 2001 members, when the selection updates, then the banner switches to destructive variant with title "Selection too large" and description "Reduce selection to at most 2000 members." and Done is disabled. (Traces F-46, BR-09.)
 
-**AC-22 — URL-only picker entry does not activate picker mode.**
+- [x] **AC-22 — URL-only picker entry does not activate picker mode.**
+
 Given a user navigates directly to `/members?pick=comms` without `location.state.intent === 'commsManualPick'`, when the page renders, then picker mode is not active — both Members and Pending tabs are visible, no banner, no sticky action bar. (Traces F-47, BR-07.)
 
-**AC-23 — Org switch in picker mode clears selection and toasts.**
+- [x] **AC-23 — Org switch in picker mode clears selection and toasts.**
+
 Given the user is in picker mode with three rows selected for org A, when they switch the org context to org B, then `selectedIds` is reset to `[]`, the lists refetch against org B, and a `default`-variant toast renders with copy "Selection cleared — organisation changed." (Traces F-43, BR-11.)
 
-**AC-24 — Cross-org leakage prevention.**
+- [ ] **AC-24 — Cross-org leakage prevention.**
+
 Given a member exists in org B but not in org A, when the user is signed in with org A selected, then no SELECT against `core_member`, `core_person`, or `team_member_request` returns the org-B row, regardless of search input or filter combination. (Traces F-50, BR-12.)
 
 ---
 
 ## §12 Verification
 
-- **MCP test — RLS authority.** Against dev-db (`rkytnffgmwnnmewevqgp`), as a user with org-admin access on org A, run a SELECT on `core_member` that does not include an `organisation_id` filter. Confirm only org A's rows are returned (RLS enforces isolation). Repeat with the slice's defensive `organisation_id = :orgA` filter present and confirm the same row set.
+- **MCP test — RLS authority.** Against MCP verification project (`yihzsfcceciimdoiibif`; [`npm run mcp:verification`](../../package.json); [`docs/delivery/mcp-verification-preflight-queries.md`](../delivery/mcp-verification-preflight-queries.md)), as a user with org-admin access on org A, run a SELECT on `core_member` that does not include an `organisation_id` filter. Confirm only org A's rows are returned (RLS enforces isolation). Repeat with the slice's defensive `organisation_id = :orgA` filter present and confirm the same row set.
 - **MCP test — `pace_membership_status` enum.** Confirm the enum has exactly six values: `Provisional`, `Active`, `Suspended`, `Lapsed`, `Resigned`, `Revoked` (no `Cancelled`).
 - **MCP test — `team_member_request` planned contract.** Confirm `team_member_request_type` enum has been extended with `'join'` and `'transfer'`. Confirm `team_member_request_status` enum has been extended with `'on_hold'`. If either is missing, the slice is blocked (see §15).
 - **MCP test — RPC contract.** Confirm `app_submit_member_request`, `app_resolve_member_request`, `app_withdraw_member_request` accept the new enum values where applicable. Smoke-test by invoking each RPC with a known payload and verifying no enum-mismatch error.
@@ -679,7 +703,7 @@ Given a member exists in org B but not in org A, when the user is signed in with
 - Do not author the `team_member_request` enum extension migration or the related RPC updates from inside this slice. Those are upstream platform work; the slice depends on them (§15).
 - Do not put member ids in the URL on Done — write them to `sessionStorage` only.
 - Do not clear `sessionStorage['pace:team:comms:manual-pick']` on Cancel — TEAM-13 reads-and-clears on `/communications` mount.
-- Do not query production database during build or test. All MCP verification targets dev-db only (`rkytnffgmwnnmewevqgp`).
+- Do not query production database during build or test. All MCP catalogue checks use verified-contract project `yihzsfcceciimdoiibif` ([`npm run mcp:verification`](../../package.json)); preview `SUPABASE_PROJECT_REF` remains for browser/app connectivity only.
 - Do not pass a `scope` prop to `PagePermissionGuard`.
 - Do not import from internal `packages/core/src/*` paths — use published sub-paths only.
 
@@ -689,7 +713,7 @@ Given a member exists in org B but not in org A, when the user is signed in with
 
 - All 24 acceptance criteria (AC-01 through AC-24) verified via the slice's QA pack.
 - **Implementation blocked until:**
-  - **(a)** `team_member_request_type` enum is extended with `'join'` and `'transfer'` on dev (`rkytnffgmwnnmewevqgp`).
+  - **(a)** `team_member_request_type` enum is extended with `'join'` and `'transfer'` on verified-contract project `yihzsfcceciimdoiibif` (backend-ready MCP target).
   - **(b)** `team_member_request_status` enum is extended with `'on_hold'` on dev.
   - **(c)** RPC contract updates for `app_submit_member_request`, `app_resolve_member_request`, and `app_withdraw_member_request` to accept and surface the new enum values have landed on dev (no compatibility alias is expected for the removed legacy resolver).
   The v6 slice does not author the migration. Until items (a), (b), and (c) are confirmed via Supabase MCP against dev, this slice cannot be marked Done.

@@ -8,6 +8,9 @@ import type { ReactNode } from 'react';
 import * as React from 'react';
 import { SubOrganisationsPage } from './SubOrganisationsPage';
 
+const DUPLICATE_NAME_MESSAGE =
+  'An organisation with this name already exists. Names must be unique across the platform.';
+
 let selectedOrganisation: { id: string; display_name?: string; name?: string } | null = {
   id: 'org-1',
   display_name: 'Parent Org',
@@ -91,6 +94,8 @@ vi.mock('@solvera/pace-core/components', () => {
     children: (methods: {
       watch: (name: keyof T) => unknown;
       setValue: (name: keyof T, value: unknown) => void;
+      clearErrors: (name: keyof T) => void;
+      setError: (name: keyof T, options: { type?: string; message?: string }) => void;
       formState: { isSubmitting: boolean; errors: Record<string, unknown> };
     }) => ReactNode;
   }) {
@@ -100,6 +105,8 @@ vi.mock('@solvera/pace-core/components', () => {
       setValue: (name: keyof T, value: unknown) => {
         setValues((previous) => ({ ...previous, [name]: value }));
       },
+      clearErrors: () => undefined,
+      setError: () => undefined,
       formState: {
         isSubmitting: false,
         isValid: mockIsValid,
@@ -325,11 +332,8 @@ describe('SubOrganisationsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Create sub-organisation' }));
 
     await waitFor(() => {
-      expect(
-        screen.getAllByText('An organisation with this name already exists. Names must be unique across the platform.').length
-      ).toBeGreaterThan(0);
+      expect(screen.getAllByText(DUPLICATE_NAME_MESSAGE)).toHaveLength(1);
     });
-    expect(screen.getAllByText('An organisation with this name already exists. Names must be unique across the platform.').length).toBe(2);
 
     expect(
       toastMock.mock.calls.some(

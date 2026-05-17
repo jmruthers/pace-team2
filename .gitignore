@@ -20,6 +20,9 @@ audit/*.md
 # Test coverage
 coverage/
 
+# TS build artefacts (sometimes emitted at repo root)
+/tsconfig.tsbuildinfo
+
 # IDE / OS
 .idea/
 .vscode/

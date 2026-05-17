@@ -10,7 +10,7 @@ Depends on:      TEAM-01 (app shell, ToastProvider, AuthenticatedShell, navItems
 Backend impact:  Schema changes (upstream platform: extend team_member_request_type enum with 'join'/'transfer'; extend team_member_request_status enum with 'on_hold'; add columns target_organisation_id, source_organisation_id, membership_type_id, applicant_member_number, review_notes to team_member_request; update app_submit_member_request RPC to accept request_type and insert provisional core_member; update app_resolve_member_request RPC to accept 'on_hold' and execute member-side effects atomically — see §15 implementation gate)
 Frontend impact: UI
 Routes owned:    /approvals; /approvals/:requestId
-QA pack:         docs/test-packs/TEAM-05-qa-pack.md
+QA pack:         docs/test-packs/TM05-qa-pack.md
 ```
 
 ---
@@ -718,7 +718,7 @@ This slice has one mutation path: `app_resolve_member_request` RPC.
 - `team_member_request_status` — `'pending'`, `'on_hold'`, `'approved'`, `'rejected'`, `'withdrawn'`. **Live enum has all values except `'on_hold'`; extension is part of the §15 implementation gate.**
 - `pace_membership_status` — `Provisional`, `Active`, `Suspended`, `Lapsed`, `Resigned`, `Revoked` (live; six values).
 
-### Dev-db verification (project: `rkytnffgmwnnmewevqgp`)
+### Dev-db catalogue snapshot (historic capture preview dev ref; MCP `execute_sql` uses `yihzsfcceciimdoiibif` — [`npm run mcp:verification`](../../package.json))
 
 - Confirm `team_member_request_type` enum has been extended with `'join'` and `'transfer'`.
 - Confirm `team_member_request_status` enum has been extended with `'on_hold'`.
@@ -818,94 +818,124 @@ This slice has one mutation path: `app_resolve_member_request` RPC.
 
 ## §11 Acceptance criteria
 
-**AC-01 — Page entry, authenticated, has org, has read permission.**
+- [ ] **AC-01 — Page entry, authenticated, has org, has read permission.**
+
 Given a user is authenticated, has an org, and has `read:page.approvals`, when they navigate to `/approvals`, then the page renders the title "Approvals" and the Open tab is selected by default with `pending` and `on_hold` join/transfer requests of the current org listed and the Closed tab visible alongside. (Traces F-01, F-03, F-04, F-24.)
 
-**AC-02 — Open tab default sort.**
+- [ ] **AC-02 — Open tab default sort.**
+
 Given the Open tab has rows submitted at distinct times across 2026-04-30, 2026-05-01, 2026-05-02, when the page loads, then the rows render with the 2026-04-30 row first, the 2026-05-01 row second, and the 2026-05-02 row third under the **Submitted** column. (Traces F-27, F-61, BR-14.)
 
-**AC-03 — Open tab empty state.**
+- [ ] **AC-03 — Open tab empty state.**
+
 Given a user enters `/approvals` for an org that has zero pending or on_hold join/transfer requests, when the page loads, then the Open tab renders the empty state heading "No requests waiting for review." and description "New join and transfer requests appear here once submitted via your org signup form." with a text link "Configure org signup form" pointing to `/forms`. (Traces F-13.)
 
-**AC-04 — Closed tab default sort.**
+- [ ] **AC-04 — Closed tab default sort.**
+
 Given the Closed tab has rows resolved at distinct times across 2026-04-30, 2026-05-01, 2026-05-02, when the user clicks the Closed tab, then the rows render with the 2026-05-02 row first, the 2026-05-01 row second, and the 2026-04-30 row third under the **Resolved** column. (Traces F-34, F-61, BR-14.)
 
-**AC-05 — Closed tab empty state.**
+- [ ] **AC-05 — Closed tab empty state.**
+
 Given the current org has zero closed join/transfer requests, when the user clicks the Closed tab, then the Closed tab renders the empty state heading "No closed requests yet." and description "Resolved requests appear here for audit." with no CTA. (Traces F-14.)
 
-**AC-06 — Search filters in-memory.**
+- [ ] **AC-06 — Search filters in-memory.**
+
 Given the Open tab has multiple rows and the user types "smit" into the search input, when the search executes, then only rows whose applicant full name or `applicant_member_number` contains "smit" (case-insensitive) remain visible; clearing the input restores all rows. (Traces F-59, BR-15.)
 
-**AC-07 — Request-type filter.**
+- [ ] **AC-07 — Request-type filter.**
+
 Given the Open tab has rows with `request_type` values "join" and "transfer", when the user selects "Transfer" from the request-type filter pill, then only rows with `request_type='transfer'` remain visible; selecting "All" restores the unfiltered list. (Traces F-60, BR-15.)
 
-**AC-08 — Pagination.**
+- [ ] **AC-08 — Pagination.**
+
 Given the Open tab has 60 rows, when the page loads with `initialPageSize=25`, then page 1 shows the first 25 rows, page 2 shows rows 26–50, and page 3 shows rows 51–60; changing the page size dropdown to 50 collapses pagination to two pages. (Traces F-62.)
 
-**AC-09 — Row click navigates to review panel.**
+- [x] **AC-09 — Row click navigates to review panel.**
+
 Given a user has the Open tab visible and the viewport is at `md+`, when they click a row, then the URL changes to `/approvals/:requestId` where `:requestId` is the clicked row's `team_member_request.id`, the queue list stays visible on the left, and the review panel renders on the right with the request's applicant and form responses. (Traces F-58, F-68, BR-09.)
 
-**AC-10 — Review panel left column displays applicant + request groups.**
+- [ ] **AC-10 — Review panel left column displays applicant + request groups.**
+
 Given the user has navigated to `/approvals/:requestId` for a transfer request from "Jane Smith" submitted 2026-05-01 14:30 with target org "Acme Choir" and source org "Beta Choir" and membership type "Senior" and applicant member number "AC-001", when the review panel renders, then the left column shows the **Applicant** group with name "Jane Smith" and email displayed, and the **Request** group with type badge "Transfer", submitted "1 May 2026 at 14:30", target organisation "Acme Choir", source organisation "Beta Choir", membership type "Senior", applicant member number "AC-001", and a status badge "Pending". (Traces F-38, F-39, F-40.)
 
-**AC-11 — Review panel right column displays form responses.**
+- [ ] **AC-11 — Review panel right column displays form responses.**
+
 Given the user has navigated to `/approvals/:requestId` for a request whose `core_form_responses` row exists with three `core_form_response_values` rows for fields "Date of birth", "Phone", and "Marketing opt-in", when the review panel renders, then the right column shows a heading "Form responses" followed by three rows: "Date of birth → 1985-03-15", "Phone → +61 4 1234 5678", "Marketing opt-in → true" (or equivalent rendering of each value type). (Traces F-43, BR-11.)
 
-**AC-12 — Review panel right column empty state.**
+- [ ] **AC-12 — Review panel right column empty state.**
+
 Given the user has navigated to `/approvals/:requestId` for a request whose `core_form_responses` table has no row for `workflow_subject_id=:requestId`, when the review panel renders, then the right column shows heading "No form configured for this request type." and description "Configure your org signup form at /forms." with a text link to `/forms`. (Traces F-16, F-44.)
 
-**AC-13 — Approve happy path with applicant-supplied member number.**
+- [ ] **AC-13 — Approve happy path with applicant-supplied member number.**
+
 Given the user has `update:page.approvals` AND the request has `applicant_member_number='AC-001'` AND `status='pending'`, when they click Approve, then a `ConfirmationDialog` opens with title "Approve request?", description "Jane Smith will become an active member with member number AC-001.", and a primary "Approve" button. When the user clicks Approve, then `app_resolve_member_request(:requestId, 'approved', null, null)` is called, on success the dialog closes, the slice navigates to `/approvals`, the Open + Closed + Open count query keys for the current org are invalidated, and a `'success'`-variant toast renders with copy "Request approved. Jane Smith is now an active member." (Traces F-50, F-54, BR-04, BR-19.)
 
-**AC-14 — Approve happy path requiring member-number input.**
+- [ ] **AC-14 — Approve happy path requiring member-number input.**
+
 Given the request has `applicant_member_number=NULL` AND `status='pending'`, when the user clicks Approve, then a composed `Dialog` opens with title "Approve request?" and a body containing a required `<Input label="Member number">` (helper "Required. Must be unique within this organisation."). The "Approve" button is disabled while the input is empty. When the user types "AC-002" and clicks Approve, then `app_resolve_member_request(:requestId, 'approved', null, 'AC-002')` is called, on success the dialog closes, the slice navigates to `/approvals`, query keys are invalidated, and a success toast renders. (Traces F-51, F-54, BR-04, BR-08, BR-19.)
 
-**AC-15 — Reject happy path with required notes.**
+- [ ] **AC-15 — Reject happy path with required notes.**
+
 Given the request has `status='pending'`, when the user clicks Reject, then a composed `Dialog` opens with title "Reject request?" and a body containing a required `<Textarea label="Reason for rejection (visible to admins only)">` (helper "At least 10 characters."). The "Reject" button is disabled while the trimmed length is less than 10. When the user types "Application incomplete after follow-up" (longer than 10 chars) and clicks Reject, then `app_resolve_member_request(:requestId, 'rejected', 'Application incomplete after follow-up', null)` is called, on success the dialog closes, the slice navigates to `/approvals`, query keys are invalidated, and a `'success'`-variant toast renders with copy "Request rejected." (Traces F-52, F-55, BR-05, BR-19.)
 
-**AC-16 — Put-on-hold happy path with optional note.**
+- [ ] **AC-16 — Put-on-hold happy path with optional note.**
+
 Given the request has `status='pending'`, when the user clicks "Put on hold", then a composed `Dialog` opens with title "Put request on hold?" and a body containing an optional `<Textarea label="Note (optional)">` (helper "Visible to admins only."). The "Put on hold" button is enabled by default. When the user clicks "Put on hold" without typing, then `app_resolve_member_request(:requestId, 'on_hold', null, null)` is called, on success the dialog closes, the slice navigates to `/approvals`, the Open + Open count query keys are invalidated (Closed list is not affected), and a `'success'`-variant toast renders with copy "Request placed on hold." (Traces F-53, F-56, BR-06, BR-19.)
 
-**AC-17 — Reject blocked by insufficient note length.**
+- [x] **AC-17 — Reject blocked by insufficient note length.**
+
 Given the request has `status='pending'` AND the user has typed "too short" (8 chars) into the Reject dialog's textarea, when they look at the dialog footer, then the "Reject" button is disabled. (Traces F-52, BR-05.)
 
-**AC-18 — Stale resolve recovery.**
+- [x] **AC-18 — Stale resolve recovery.**
+
 Given two admins have the Open tab open, admin A has clicked Approve on request R, the RPC has succeeded, and admin B then clicks Approve on the same request R, when admin B's RPC call returns, then the RPC raises `'Resolvable request not found'`, the slice surfaces a destructive toast "This request has already been resolved by another admin. Refreshing the queue.", invalidates the Open + Closed + Open count query keys for the current org, and navigates back to `/approvals`. (Traces F-20, BR-10.)
 
-**AC-19 — Permission denied — read.**
+- [ ] **AC-19 — Permission denied — read.**
+
 Given a user is authenticated and has org context but lacks `read:page.approvals`, when they navigate to `/approvals`, then `<AccessDenied />` renders with copy "You do not have permission to view this page." inside the `AuthenticatedShell` chrome and no tab, table, toolbar, or review panel renders. (Traces F-23, F-64.)
 
-**AC-20 — Permission denied — update.**
+- [x] **AC-20 — Permission denied — update.**
+
 Given a user has `read:page.approvals` but lacks `update:page.approvals`, when they navigate to `/approvals/:requestId` for a `pending` request, then the queue list and the review panel (header strip + left column + right column) render normally, the action rail is hidden, and no Approve / Reject / Put on hold buttons appear. (Traces F-65.)
 
-**AC-21 — Closed-tab read-only header strip.**
+- [x] **AC-21 — Closed-tab read-only header strip.**
+
 Given the user has navigated to `/approvals/:requestId` for a request with `status='approved'` resolved by "Alice Reviewer" on 2026-05-01, when the review panel renders, then the action rail does NOT render and a read-only `<Alert variant="default">` strip renders below the subtitle with title "Approved by Alice Reviewer on 1 May 2026" and description containing the `resolution_note` text (or "No note recorded." when null/empty). (Traces F-46, F-66, F-75.)
 
-**AC-22 — Withdrawn request with deleted member row.**
+- [ ] **AC-22 — Withdrawn request with deleted member row.**
+
 Given a request has `status='withdrawn'` AND `subject_member_id IS NULL` (the FK ON DELETE SET NULL fired when Portal deleted the provisional `core_member`), when the user navigates to `/approvals/:requestId`, then the review panel renders the left column (Applicant + Request groups read from `subject_person_id`) and the right column (form responses) normally; the "View member 360" link is suppressed. (Traces F-42, F-76, BR-12.)
 
-**AC-23 — Cross-link to Member 360 — visible.**
+- [x] **AC-23 — Cross-link to Member 360 — visible.**
+
 Given a request has `subject_member_id` non-null AND the joined `core_member.deleted_at IS NULL`, when the review panel renders, then a `<Button variant="outline">View member 360 →</Button>` renders below the Request group; clicking it navigates to `/members/:memberId` using `core_member.id`. (Traces F-41, F-69, BR-12.)
 
-**AC-24 — Error state on list query failure.**
+- [ ] **AC-24 — Error state on list query failure.**
+
 Given the Open list query fails, when the error is returned, then the Open tab renders an inline `Alert` with `variant="destructive"`, title "Could not load requests", a description sourced from `HandleSupabaseError`, and a Retry button alongside; clicking Retry re-runs the query. (Traces F-17.)
 
-**AC-25 — Org switch with detail open.**
+- [ ] **AC-25 — Org switch with detail open.**
+
 Given the user is on `/approvals/:requestId` for org A, when they switch the org context to org B and `:requestId` does not belong to org B, then the slice navigates to `/approvals` for org B and renders a `'default'`-variant toast with copy "Switched organisations. Showing approvals for {newOrgName}." (Traces F-73, BR-16.)
 
-**AC-26 — Unknown / wrong-org request id.**
+- [ ] **AC-26 — Unknown / wrong-org request id.**
+
 Given the user navigates directly to `/approvals/:requestId` for a `:requestId` that does not exist in the current org's `team_member_request` rows, when the review-panel SELECT returns zero rows, then the slice navigates to `/approvals` and renders a `'default'`-variant toast with copy "Request not found in this organisation." (Traces F-74, BR-13.)
 
-**AC-27 — Mobile responsive layout.**
+- [x] **AC-27 — Mobile responsive layout.**
+
 Given the viewport width is 600px (below `md`) AND the user is on `/approvals` with no `:requestId`, when the page renders, then the queue list renders in a single column with no review panel. When the user clicks a row, then the URL changes to `/approvals/:requestId`, the queue list is hidden, and the review panel renders alone. (Traces F-58, BR-09.)
 
-**AC-28 — Hybrid layout at md+.**
+- [x] **AC-28 — Hybrid layout at md+.**
+
 Given the viewport width is 1024px (`lg`) AND the user is on `/approvals` with no `:requestId`, when the page renders, then the queue list renders on the left column (~360–480px) and the right column shows the empty state heading "Select a request to review" and description "Click a row in the queue to open the review panel." (Traces F-15, BR-09.)
 
-**AC-29 — Cross-org leakage prevention.**
+- [ ] **AC-29 — Cross-org leakage prevention.**
+
 Given a request exists in org B but not in org A, when the user is signed in with org A selected, then no SELECT against `team_member_request`, `core_person`, `core_member`, `core_organisations`, or `core_form_responses` returns the org-B row, regardless of search input or filter combination. (Traces F-79, BR-20.)
 
-**AC-30 — Open count nav badge updates on resolve.**
+- [ ] **AC-30 — Open count nav badge updates on resolve.**
+
 Given the open-count query at key `['approvals', 'open-count', selectedOrganisation.id]` returns `5` for the current org, when the user resolves one pending request via Approve, then on RPC success the slice invalidates the open-count key, the count query refetches, and the new returned value reflects the post-resolve count (`4` if no `on_hold` rows are excluded as per BR-18 — i.e. one fewer pending). (Traces F-77, BR-18.)
 
 ---
@@ -920,7 +950,7 @@ Given the open-count query at key `['approvals', 'open-count', selectedOrganisat
 - **MCP test — `app_resolve_member_request` permission-denied.** Invoke the RPC as a user without org-admin access for the target org; confirm the RPC raises `'Permission denied'`.
 - **MCP test — `app_resolve_member_request` member-number uniqueness.** Invoke the RPC with `p_status='approved'` and a `p_member_number` that already exists in the org; confirm the RPC raises a duplicate error.
 - **MCP test — `core_form_responses` link convention.** Insert a fixture row with `workflow_subject_type='team_member_request'` and `workflow_subject_id=<test request id>`; confirm a SELECT joining to `core_form_response_values` and `core_form_fields` returns the expected `(label, value)` pairs.
-- **MCP test — RLS authority.** Against dev-db (`rkytnffgmwnnmewevqgp`), as a user with org-admin access on org A, run a SELECT on `team_member_request` that does not include an `organisation_id` filter. Confirm only org A's rows are returned.
+- **MCP test — RLS authority.** Against MCP verification project (`yihzsfcceciimdoiibif`; [`npm run mcp:verification`](../../package.json); [`docs/delivery/mcp-verification-preflight-queries.md`](../delivery/mcp-verification-preflight-queries.md)), as a user with org-admin access on org A, run a SELECT on `team_member_request` that does not include an `organisation_id` filter. Confirm only org A's rows are returned.
 - **MCP test — `rbac_app_pages` seeding.** Confirm a row exists with `page_name='approvals'`, `app_id=data_get_app_id('TEAM')`, `scope_type='organisation'`.
 - **In-app demo flow — happy path Approve (member number supplied).** Sign in as a TEAM org-admin. Visit `/approvals`. Click a `pending` row whose `applicant_member_number` is supplied. In the review panel, click Approve. Confirm the `ConfirmationDialog` opens with the description listing the applicant's name and member number. Click Approve. Confirm the slice navigates to `/approvals`, the success toast appears, and the row no longer appears in the Open tab (it is now in the Closed tab as Approved).
 - **In-app demo flow — happy path Approve (member number entered).** Click a `pending` row whose `applicant_member_number` is NULL. In the review panel, click Approve. Confirm the composed Dialog opens with the Member-number Input. Type a unique member number. Click Approve. Confirm the success toast and tab transition.
@@ -957,7 +987,7 @@ Given the open-count query at key `['approvals', 'open-count', selectedOrganisat
 - All resolve mutations must go via `app_resolve_member_request` RPC. Direct `.from('team_member_request').update(...)` and `.delete(...)` calls are forbidden, even though RLS would technically permit them for resolvers. The slice does not write `core_member` from the client.
 - Do not author the migration extending `team_member_request_type` or `team_member_request_status` enums, adding the planned-contract columns, or updating the RPC behaviour. Those are upstream platform work; the slice depends on them (§15).
 - Do not implement org form authoring, external-validation configuration, request submission, or request withdrawal in this slice.
-- Do not query production database during build or test. All MCP verification targets dev-db only (`rkytnffgmwnnmewevqgp`).
+- Do not query production database during build or test. All MCP catalogue checks use verified-contract project `yihzsfcceciimdoiibif` ([`npm run mcp:verification`](../../package.json)); preview `SUPABASE_PROJECT_REF` remains for browser/app connectivity only.
 - Do not pass a `scope` prop to `PagePermissionGuard`.
 - Do not import from internal `packages/core/src/*` paths — use published sub-paths only.
 - Do not import any third-party spinner icon — use `<LoadingSpinner size="sm" />` for in-button mid-flight indication.
@@ -968,7 +998,7 @@ Given the open-count query at key `['approvals', 'open-count', selectedOrganisat
 
 - All 30 acceptance criteria (AC-01 through AC-30) verified via the slice's QA pack.
 - **Implementation blocked until:**
-  - **(a)** `team_member_request_type` enum is extended with `'join'` and `'transfer'` on dev (`rkytnffgmwnnmewevqgp`).
+  - **(a)** `team_member_request_type` enum is extended with `'join'` and `'transfer'` on verified-contract project `yihzsfcceciimdoiibif` (backend-ready MCP target).
   - **(b)** `team_member_request_status` enum is extended with `'on_hold'` on dev.
   - **(c)** `team_member_request` table extended with columns `target_organisation_id` (uuid NOT NULL, FK `core_organisations.id`), `source_organisation_id` (uuid NULL, FK `core_organisations.id`), `membership_type_id` (uuid NULL, FK `core_membership_type.id`), `applicant_member_number` (text NULL), and `review_notes` (text NULL) on dev.
   - **(d)** `app_resolve_member_request` RPC accepts `p_status='on_hold'` and a `p_member_number` parameter, and executes member-side effects atomically server-side per BR-04 / BR-05 / BR-06 (Approve → set `core_member.membership_status='Active'` and assign member number; transfer-Approve → also set source-org `core_member.membership_status='Resigned'`; Reject → DELETE provisional `core_member` row; On-hold → no `core_member` change).

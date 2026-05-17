@@ -66,6 +66,7 @@ const baseRequest: ApprovalRequestRow = {
   createdAt: null,
   resolvedAt: null,
   targetOrganisationId: null,
+  targetOrganisationName: null,
   sourceOrganisationId: null,
   membershipTypeId: null,
   membershipTypeName: null,

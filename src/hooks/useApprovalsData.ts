@@ -61,8 +61,35 @@ const REQUEST_SELECT = [
   'subject_member:core_member!subject_member_id(id, deleted_at)',
   'membership_type:core_membership_type(id, name)',
   'source_org:core_organisations!source_organisation_id(id, name)',
+  'target_org:core_organisations!target_organisation_id(id, name)',
   'resolver_person:core_person!team_member_request_resolved_by_fkey(id, first_name, last_name, preferred_name)',
 ].join(', ');
+
+/** Pending approvals count for nav (same query key as TEAM-05 open-count invalidation). */
+export function useApprovalsOpenCount(organisationId: string | null): number {
+  const secureSupabase = useSecureSupabase() as SupabaseLike | null;
+
+  const openCountQuery = useQuery({
+    queryKey: ['approvals', 'open-count', organisationId],
+    enabled: organisationId != null && secureSupabase != null,
+    queryFn: async (): Promise<{ count: number }> => {
+      if (organisationId == null || secureSupabase == null) {
+        return { count: 0 };
+      }
+      const { count, error } = (await applyOpenCountFilters(
+        secureSupabase.from('team_member_request').select('id', { count: 'exact', head: true }),
+        organisationId
+      )) as { count: number | null; error: unknown };
+
+      if (error != null) {
+        throw error;
+      }
+      return { count: count ?? 0 };
+    },
+  });
+
+  return openCountQuery.data?.count ?? 0;
+}
 
 export function useApprovalsData(organisationId: string | null, requestTypeFilter: ApprovalRequestTypeFilter) {
   const secureSupabase = useSecureSupabase() as SupabaseLike | null;

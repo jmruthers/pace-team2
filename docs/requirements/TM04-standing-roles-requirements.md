@@ -10,7 +10,7 @@ Depends on:      TEAM-01 (app shell, ToastProvider, AuthenticatedShell, navItems
 Backend impact:  Read contract only at v1 (mutations on core_member_role use the live check_user_is_org_admin(organisation_id) RLS gate already in place on dev — no migration required for slice mutations). Implementation gate on a planned per-org UNIQUE migration on core_role_type — see §15 / §17.
 Frontend impact: UI
 Routes owned:    /members/:memberId/roles
-QA pack:         docs/test-packs/TEAM-04-qa-pack.md
+QA pack:         docs/test-packs/TM04-qa-pack.md
 ```
 
 ---
@@ -566,7 +566,7 @@ There is **no `unit_id` column** on `core_member_role`. There is **no `deleted_a
 | `last_name` | text | NO | name composition (BR-2) |
 | `preferred_name` | text | YES | name composition (BR-2) |
 
-### Dev-db verification (project: `rkytnffgmwnnmewevqgp`)
+### Dev-db catalogue snapshot (historic capture preview dev ref; MCP `execute_sql` uses `yihzsfcceciimdoiibif` — [`npm run mcp:verification`](../../package.json))
 
 Every verification step here targets dev-db only.
 
@@ -659,71 +659,91 @@ There is no Portal CTA on TEAM-04 and no acting-user-is-target check; standard `
 
 ## §11 Acceptance criteria
 
-**AC-01 — Page entry, authenticated, has org, has read permission, member resolves, role history loads.**
+- [ ] **AC-01 — Page entry, authenticated, has org, has read permission, member resolves, role history loads.**
+
 Given a user is authenticated, has an org, has `read:page.member-roles`, and navigates to `/members/:memberId/roles` for a member of the current org with two existing roles (one active, one ended), when the page loads, then the page header renders with a "← Back to Member 360" button, a heading composed as the member's full name (BR-2) followed by " — Standing roles", an "Add role" button on the right, and below the header a single-card role-history `DataTable` with rows for the two roles in the columns Role, Start date, End date, Status, Actions. (Traces F-01, F-02, F-04, F-05, F-21–F-26.)
 
-**AC-02 — Default sort, status badges, and date format.**
+- [ ] **AC-02 — Default sort, status badges, and date format.**
+
 Given the member has two roles (Role A active since 2026-01-15; Role B ended 2025-12-31), when the role-history table renders, then the row for Role A appears first (default sort `start_date desc`); Role A's End date column shows em-dash "—" and its Status column shows a success-toned "Active" badge; Role B's End date column shows "31 Dec 2025" and its Status column shows a muted-toned "Ended" badge. (Traces F-23, F-24, F-25, BR-5, BR-6.)
 
-**AC-03 — Role name fallback.**
+- [ ] **AC-03 — Role name fallback.**
+
 Given a role-history row's `core_role_type` join returns null (role-type row deleted server-side), when the row renders, then its Role column shows an em-dash "—". (Traces F-22, BR-4.)
 
-**AC-04 — Add role happy path.**
+- [ ] **AC-04 — Add role happy path.**
+
 Given the user has `useResourcePermissions('member-roles').canUpdate === true` and the org has at least one `core_role_type` row, when the user clicks "Add role" in the page header, the Add-role modal opens with focus on the Role type select, the Start date defaulted to today, and Submit disabled; when they choose a role type that is not currently held active by the member and click Submit, the slice runs `INSERT INTO core_member_role (member_id, role_id, organisation_id, start_date)` with the four populated values, the modal closes, the role-history table refreshes with the new active row at the top, and a `success` toast renders with copy "Role added." (Traces F-28, F-29, F-31, BR-7, BR-10.)
 
-**AC-05 — Add role active-uniqueness pre-validation.**
+- [ ] **AC-05 — Add role active-uniqueness pre-validation.**
+
 Given the member already has an active role of type "Leader", when the user opens the Add-role modal and selects "Leader" in the Role type select, then the helper text under the role-type select shows "This member already has an active role of this type." and the Submit button is disabled. (Traces F-30, BR-8.)
 
-**AC-06 — Add role active-uniqueness DB race.**
+- [x] **AC-06 — Add role active-uniqueness DB race.**
+
 Given the user opens the Add-role modal and selects a role type that is not currently held active (per the in-memory check) but a concurrent admin commits a duplicate active row before this Submit, when the user clicks Submit, the INSERT fails with the `core_member_role_active_unique` violation, the modal stays open with values intact, and a `destructive` toast renders with copy "This member already has an active role of this type. Refresh the list and try again." (Traces F-17, BR-9.)
 
-**AC-07 — Add role failure (general).**
+- [ ] **AC-07 — Add role failure (general).**
+
 Given the user clicks Submit in the Add-role modal, when the INSERT fails for a reason other than active-uniqueness (for example RLS deny), then the modal stays open with values intact and a `destructive` toast renders with the normalised `HandleSupabaseError` message. (Traces F-16, BR-10.)
 
-**AC-08 — Add role disabled when no role types configured.**
+- [x] **AC-08 — Add role disabled when no role types configured.**
+
 Given the org has zero `core_role_type` rows, when the page loads with `canUpdate === true`, then the "Add role" header button renders disabled with helper text "No role types configured for this organisation. Contact your administrator." rendered below the button. (Traces F-13, F-39, BR-19.)
 
-**AC-09 — End role happy path.**
+- [ ] **AC-09 — End role happy path.**
+
 Given the user has `canUpdate === true` and the member has a role with `end_date IS NULL` and `start_date = "2026-01-15"`, when the user clicks the End-role row action, the End-role dialog (composed from the `Dialog` family) opens with title "End role?", a date picker defaulted to today, and a description that updates as the date changes; when they accept the default end date (today, e.g. "5 May 2026") and click "End role", the slice runs `UPDATE core_member_role SET end_date = '2026-05-05' WHERE id = row.id AND organisation_id = ... AND end_date IS NULL`, the dialog closes, the table refreshes (the row's End date column now shows "5 May 2026" and the Status column flips to "Ended"), and a `success` toast renders with copy "Role ended." (Traces F-33, F-35, BR-11.)
 
-**AC-10 — End role date validity.**
+- [ ] **AC-10 — End role date validity.**
+
 Given the user opens the End-role dialog for a row with `start_date = "2026-01-15"`, when they pick an end date of "2025-12-31" (earlier than the start date), then the helper text under the date picker shows "End date must be on or after start date." and the Confirm button is disabled. (Traces F-34, BR-12.)
 
-**AC-11 — End role failure.**
+- [x] **AC-11 — End role failure.**
+
 Given the user confirms the End-role dialog, when the UPDATE fails (for example RLS deny), then the dialog closes and a `destructive` toast renders with the normalised `HandleSupabaseError` message; the row is not mutated. (Traces F-18, BR-11.)
 
-**AC-12 — Member-not-found UX.**
+- [x] **AC-12 — Member-not-found UX.**
+
 Given a user navigates to `/members/:memberId/roles` for an id that does not exist, is deleted, or belongs to another organisation, when the page renders, then the page replaces its content with the heading "Member not found", description "We couldn't find this member in your current organisation.", and a "← Back to members" button that navigates to `/members`. (Traces F-11, BR-1.)
 
-**AC-13 — Org-mismatch on org switch.**
+- [x] **AC-13 — Org-mismatch on org switch.**
+
 Given the user is on `/members/:memberId/roles` for a member of org A, when they switch the org context to org B (and the member does not exist in org B), then the page replaces its content with a destructive `Alert` titled "This member is not in the current organisation", description "Switch back, or return to the members directory.", and a "Back to members" button navigating to `/members`. (Traces F-20, BR-14.)
 
-**AC-14 — Permission denied (read).**
+- [ ] **AC-14 — Permission denied (read).**
+
 Given a user is authenticated and has org context but lacks `read:page.member-roles`, when they navigate to `/members/:memberId/roles`, then `<AccessDenied />` renders inside the `AuthenticatedShell` chrome with copy "You do not have permission to view this page." (Traces F-19, F-37.)
 
-**AC-15 — Permission denied (update).**
+- [x] **AC-15 — Permission denied (update).**
+
 Given the user has `read:page.member-roles` but `useResourcePermissions('member-roles').canUpdate === false`, when the page renders, then the role-history table renders with all read-only columns but no End-role row triggers, and the "Add role" header button is hidden. (Traces F-26, F-28, F-38, BR-15.)
 
-**AC-16 — Empty role-history.**
+- [ ] **AC-16 — Empty role-history.**
+
 Given the member has zero `core_member_role` rows, when the page loads, then the role-history table renders its empty state with heading "No roles recorded for this member yet." and sub-line "Use Add role to record this member's first standing role." (Traces F-12.)
 
-**AC-17 — Role-history fetch error.**
+- [ ] **AC-17 — Role-history fetch error.**
+
 Given the role-history query fails, when the page is rendered, then the role-history card area is replaced inline by a destructive `Alert` titled "Could not load roles" with the normalised error message and a Retry button; the page header (Back, member name, Add role) continues to render above. (Traces F-15.)
 
-**AC-18 — Initial loading is full-page; role-history loading is per-table.**
+- [ ] **AC-18 — Initial loading is full-page; role-history loading is per-table.**
+
 Given the user navigates to `/members/:memberId/roles`, when the initial member query is in flight, then a full-page `<LoadingSpinner />` renders inside the `PaceMain` content area; once the member resolves, the page header renders immediately and the role-history `DataTable` uses its built-in `isLoading` indication until the role-history query completes. (Traces F-08, F-09.)
 
-**AC-19 — Cross-org leakage prevention.**
+- [ ] **AC-19 — Cross-org leakage prevention.**
+
 Given a member exists in org B but not in org A, when the user is signed in with org A selected and navigates to `/members/<orgB-member-id>/roles`, then the member fetch returns zero rows (RLS deny + defensive filter) and the page renders the "Member not found" UX. (Traces F-48, F-49, BR-13.)
 
-**AC-20 — Back to Member 360 button.**
+- [ ] **AC-20 — Back to Member 360 button.**
+
 Given the page has loaded, when the user clicks the "← Back to Member 360" button at top-left of the page header, then the app navigates to `/members/:memberId`. (Traces F-05, F-41.)
 
 ---
 
 ## §12 Verification
 
-- **MCP test — RLS authority on `core_member_role` mutations.** Against dev-db (`rkytnffgmwnnmewevqgp`), as a user with `org_admin` on org A, run `INSERT INTO core_member_role (member_id, role_id, organisation_id, start_date) VALUES (<orgA-member-id>, <orgA-role-type-id>, <orgA-org-id>, '2026-05-05')` and confirm success; repeat as a user without `org_admin` and confirm RLS deny. Same drill for `UPDATE core_member_role SET end_date = '2026-05-05' WHERE id = <row-id>`.
+- **MCP test — RLS authority on `core_member_role` mutations.** Against MCP verification project (`yihzsfcceciimdoiibif`; [`npm run mcp:verification`](../../package.json); [`docs/delivery/mcp-verification-preflight-queries.md`](../delivery/mcp-verification-preflight-queries.md)), as a user with `org_admin` on org A, run `INSERT INTO core_member_role (member_id, role_id, organisation_id, start_date) VALUES (<orgA-member-id>, <orgA-role-type-id>, <orgA-org-id>, '2026-05-05')` and confirm success; repeat as a user without `org_admin` and confirm RLS deny. Same drill for `UPDATE core_member_role SET end_date = '2026-05-05' WHERE id = <row-id>`.
 - **MCP test — `core_member_role_active_unique` enforcement.** Against dev-db, attempt to insert two rows with the same `(member_id, role_id, organisation_id)` and `end_date IS NULL`. Confirm the second INSERT fails with the unique-violation error.
 - **MCP test — `valid_date_range` CHECK enforcement.** Against dev-db, attempt to UPDATE a role-history row with `end_date < start_date`. Confirm the CHECK rejects the row.
 - **MCP test — `core_member_role` schema sanity.** Confirm via `information_schema.columns` that `core_member_role` has no `unit_id` column and no `deleted_at` column.
@@ -756,7 +776,7 @@ Otherwise, n/a — standard PDLC quality gates apply.
 - The slice does not author the planned `core_role_type` per-org UNIQUE migration. The migration is upstream platform work; the slice cites the planned constraint per §15 / §17.
 - Do not implement role-type CRUD. The slice consumes `core_role_type` Select-only.
 - Do not implement hard delete on `core_member_role`. End-role (`end_date`) is the only "remove" path.
-- Do not query production database during build or test. All MCP verification targets dev-db only (`rkytnffgmwnnmewevqgp`).
+- Do not query production database during build or test. All MCP catalogue checks use verified-contract project `yihzsfcceciimdoiibif` ([`npm run mcp:verification`](../../package.json)); preview `SUPABASE_PROJECT_REF` remains for browser/app connectivity only.
 - Do not pass a `scope` prop to `PagePermissionGuard`.
 - Do not import from internal `packages/core/src/*` paths — use published sub-paths only.
 - Do not introduce a `unit_id` payload on Add-role INSERTs. The column does not exist on live dev.
@@ -785,7 +805,7 @@ Otherwise, n/a — standard PDLC quality gates apply.
 - **Do not pass a `scope` prop to `PagePermissionGuard`.** Scope is resolved internally from `OrganisationServiceProvider`.
 - **Do not patch audit columns** (`created_at`, `updated_at`, `created_by`, `updated_by`) from the client. Server defaults / triggers populate these.
 - **Do not import from internal `packages/core/src/*` paths.** Use published sub-paths only.
-- **Do not run any verification or smoke test against production.** Dev-db only (`rkytnffgmwnnmewevqgp`).
+- **Do not run any verification or smoke test against production.** Non-prod only: MCP catalogue queries use verified-contract project `yihzsfcceciimdoiibif` ([`npm run mcp:verification`](../../package.json)); browser/runtime uses `SUPABASE_PROJECT_REF`.
 - **Do not introduce optimistic locking or `updated_at` watermark checks.** Concurrency is last-write-wins for v1.
 - **Do not surface an inline role-type create form** inside the Add-role modal in v1. The Role type select is select-only; creation lives in the future role-type CRUD slice.
 

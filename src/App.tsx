@@ -11,7 +11,7 @@ import { ApprovalsPage } from './pages/approvals/ApprovalsPage';
 import { MembershipTypesPage } from './pages/settings/MembershipTypesPage';
 import { OrganisationSettingsPage } from './pages/settings/OrganisationSettingsPage';
 import { SubOrganisationsPage } from './pages/settings/SubOrganisationsPage';
-
+import { CommunicationsPage } from './pages/communications/CommunicationsPage';
 export const APP_NAME = 'TEAM';
 
 const NAV_ITEMS: NavigationItem[] = [
@@ -132,18 +132,7 @@ function NotFoundPage() {
   );
 }
 
-function CommunicationsPlaceholder() {
-  usePaceMain({ printTitle: 'Communications' });
 
-  return (
-    <main>
-      <section>
-        <h1>Communications</h1>
-        <p>Communications page is delivered in TEAM-13.</p>
-      </section>
-    </main>
-  );
-}
 
 function App() {
   return (
@@ -189,11 +178,7 @@ function App() {
           />
           <Route
             path="communications"
-            element={(
-              <PagePermissionGuard pageName="CommsLog" operation="read" fallback={<AccessDenied />}>
-                <CommunicationsPlaceholder />
-              </PagePermissionGuard>
-            )}
+            element={<CommunicationsPage />}
           />
           <Route
             path="settings/membership-types"

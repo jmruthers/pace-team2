@@ -17,8 +17,12 @@ export interface ResolveErrorOutcome {
   keepDialogOpen: boolean;
 }
 
-function buildResolveSuccessTitle(status: ResolveRequestPayload['status']): string {
+function buildResolveSuccessTitle(status: ResolveRequestPayload['status'], applicantDisplayName?: string | null): string {
   if (status === 'approved') {
+    const name = applicantDisplayName?.trim();
+    if (name != null && name.length > 0) {
+      return `Request approved. ${name} is now an active member.`;
+    }
     return 'Request approved.';
   }
   if (status === 'rejected') {
@@ -127,7 +131,7 @@ export function useResolveMemberRequest(organisationId: string | null, requestId
         await Promise.all(targets.map((target) => queryClient.invalidateQueries({ queryKey: target })));
       }
       toast({
-        title: buildResolveSuccessTitle(payload.status),
+        title: buildResolveSuccessTitle(payload.status, payload.applicantDisplayNameForToast),
         variant: 'success',
       });
       onNavigateToList();

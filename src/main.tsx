@@ -4,13 +4,18 @@ import { BrowserRouter } from 'react-router-dom';
 import { UnifiedAuthProvider } from '@solvera/pace-core';
 import { InactivityWarningModal, SessionRestorationLoader } from '@solvera/pace-core/components';
 import { useUnifiedAuthContext, OrganisationServiceProvider } from '@solvera/pace-core/providers';
-import { setupRBAC } from '@solvera/pace-core/rbac';
+import { createGetAppIdResolver, setupRBAC } from '@solvera/pace-core/rbac';
 import { QueryRetryHandler, queryErrorHandler } from '@solvera/pace-core/utils';
 import { supabaseClient } from './lib/supabase';
 import App, { APP_NAME } from './App';
 import './app.css';
 
-setupRBAC(supabaseClient, { appName: APP_NAME });
+const resolveTeamAppId = createGetAppIdResolver(supabaseClient);
+
+setupRBAC(supabaseClient, {
+  appName: APP_NAME,
+  getAppId: resolveTeamAppId,
+});
 
 const queryClient = new QueryClient({
   defaultOptions: {

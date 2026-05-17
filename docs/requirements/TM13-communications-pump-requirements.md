@@ -10,7 +10,7 @@ Depends on:      TEAM-01 (app shell, ToastProvider, AuthenticatedShell, navigati
 Backend impact:  Read contract only (consumer of CR23 PUMP Edge functions and pace-core comms package; no schema changes authored by this slice). Implementation gated on platform PUMP Edge deployment, gateway config seeding, and template fixture seeding — see §15.
 Frontend impact: UI
 Routes owned:    /communications
-QA pack:         docs/test-packs/TEAM-13-qa-pack.md
+QA pack:         docs/test-packs/TM13-qa-pack.md
 ```
 
 ---
@@ -155,7 +155,7 @@ If `selectedOrganisation` somehow resolves to `null` after step 3 (a race during
 - **F-45** **Preview / Edit toggle.** Click toggles between body-edit mode (textareas + merge-field toolbar) and preview mode (`MessagePreview` component). The button label flips between "Preview" (when in edit mode) and "Edit" (when in preview mode). Switching does not modify the draft.
 - **F-46** **Merge-field button.** Click on a button in the merge-field toolbar inserts that field's `token` (e.g. `{{first_name}}`) at the cursor position of the most recently focused field (subject, body_html, or body_text).
 - **F-47** **Send test.** Click on "Send test" in the CardFooter calls `adapter.sendTest(...)` with a `CommSendTestRequest` built from the current draft (no `pool`, no `system_key`, no `system_recipient`, no `bypass_suppression`). PUMP Edge dispatches the message to the signed-in user's contact for the chosen channel. On success, a `'success'`-variant toast renders with copy "Test message sent." On failure, a `'destructive'`-variant toast renders with the error message. The draft remains unchanged either way.
-- **F-48** **Schedule.** First click on the "Schedule" button in the CardFooter expands the datetime-local input below the button and changes its label to "Confirm schedule". Second click (now "Confirm schedule") calls `adapter.schedule(...)` with a `CommScheduleRequest` containing the assembled `CommSendRequest` plus `scheduled_at` (the datetime-local value as ISO 8601). On success, the composer collapses the schedule input, calls `onScheduleComplete(message_id)`, and a `'success'`-variant toast renders with copy "Message scheduled for {datetime}." The draft is reset for the current channel and the operator remains on `/communications`. On failure, a `'destructive'`-variant toast renders with the error and the draft remains unchanged.
+- **F-48** **Schedule.** First click on the "Schedule" button in the CardFooter expands the datetime-local input below the button and changes its label to "Confirm schedule". Second click (now "Confirm schedule") calls `adapter.schedule(...)` with a `CommScheduleRequest` containing the assembled `CommSendRequest` plus `scheduled_at` (the datetime-local value as ISO 8601). On success, the composer collapses the schedule input and clears its local datetime state, calls `onScheduleComplete({ messageId, scheduledAtIso })` (where `scheduledAtIso` is the same merged string passed to Edge), and a `'success'`-variant toast renders with copy "Message scheduled for {datetime}." The draft is reset for the current channel and the operator remains on `/communications`. On failure, a `'destructive'`-variant toast renders with the error and the draft remains unchanged.
 - **F-49** **Send now.** Click on "Send now" in the CardFooter calls `adapter.send(...)` with a `CommSendRequest` containing the current pool descriptor and draft. The composer-internal gating (validation, strict-template, unresolved-tokens) runs before the adapter call; failures call `onSendError` which the slice routes to a destructive toast (F-17). On success, `onSendComplete(result)` fires and the slice renders a `'success'`-variant toast with copy "Message sent to {result.total_recipients} recipients." When `result.suppression_skipped > 0`, the toast description appends " {result.suppression_skipped} skipped (suppression)." When `result.warnings.length > 0`, the toast description appends " Some recipients had unresolved tokens; check delivery in PUMP." The slice then resets the draft body fields to empty for the current channel (the channel value and the pre-filled sender identity carry through to the next compose) and remains on `/communications`.
 - **F-50** **Cancel.** Click on "Cancel" in the CardFooter (only renders because the slice supplies `onCancel`) calls `navigate('/')`. The draft is discarded; nothing is persisted.
 
@@ -410,7 +410,7 @@ Default duration 5000 ms. Notifications appear in an `aside[role="region"]` over
 - Output: `navigate('/')`. The draft is discarded.
 
 **BR-16 — Send / Schedule success — toast and reset.**
-- Input: `onSendComplete(result)` or `onScheduleComplete(message_id)` fires after a successful adapter call.
+- Input: `onSendComplete(result)` or `onScheduleComplete({ messageId, scheduledAtIso })` fires after a successful adapter call.
 - Output:
   - Send: `'success'`-variant toast "Message sent to {result.total_recipients} recipients." plus appended " {M} skipped (suppression)." when `result.suppression_skipped > 0`, plus appended " Some recipients had unresolved tokens; check delivery in PUMP." when `result.warnings.length > 0`. Reset draft body fields (subject, body_html, body_text, template_id) to empty for the current channel; the channel value and the pre-filled sender identity carry through to the next compose. Remain on `/communications`.
   - Schedule: `'success'`-variant toast "Message scheduled for {scheduled_at}." Schedule control collapses (handled internally by the composer). Reset draft body fields to empty for the current channel; the channel value and pre-filled sender identity carry through to the next compose. Remain on `/communications`.
@@ -499,7 +499,7 @@ Returns one row with fields matching `EffectivePumpSenderIdentity`: `organisatio
 
 The PUMP Edge functions write to `pump_message`, `pump_message_recipient`, `pump_delivery_event`, and consult `pump_suppression`, `pump_organisation_templates`, `pump_system_templates`, `pump_org_settings`, `pump_gateway_config`. TEAM-13 never reads or writes these tables directly.
 
-### Dev-db verification (project: `rkytnffgmwnnmewevqgp`)
+### Dev-db catalogue snapshot (historic capture preview dev ref; MCP `execute_sql` uses `yihzsfcceciimdoiibif` — [`npm run mcp:verification`](../../package.json))
 
 - Confirm `pump_get_effective_sender_identity(uuid, text, uuid)` exists and returns the expected shape. Smoke-test with `selectedOrganisation.id` and null context.
 - Confirm `core_membership_type.is_active NOT NULL DEFAULT true`.
@@ -660,7 +660,7 @@ Given any successful send or schedule from this slice, when the request reaches 
 
 ## §12 Verification
 
-- **MCP test — `pump_get_effective_sender_identity`.** Against dev-db (`rkytnffgmwnnmewevqgp`), call the RPC with a known org id and `null` source context. Confirm the return shape matches `EffectivePumpSenderIdentity` (organisationId, sourceContextType, sourceContextId, senderName, fromAddress, replyToAddress, senderPhone, resolvedFrom, resolvedOrganisationId, canSendEmail, canSendSms).
+- **MCP test — `pump_get_effective_sender_identity`.** Against MCP verification project (`yihzsfcceciimdoiibif`; [`npm run mcp:verification`](../../package.json); [`docs/delivery/mcp-verification-preflight-queries.md`](../delivery/mcp-verification-preflight-queries.md)), call the RPC with a known org id and `null` source context. Confirm the return shape matches `EffectivePumpSenderIdentity` (organisationId, sourceContextType, sourceContextId, senderName, fromAddress, replyToAddress, senderPhone, resolvedFrom, resolvedOrganisationId, canSendEmail, canSendSms).
 - **MCP test — `core_membership_type` for chip row.** Confirm `SELECT id, name FROM core_membership_type WHERE organisation_id = :orgId AND is_active = true ORDER BY name` returns at least one row for the demo org.
 - **MCP test — `rbac_app_pages` `CommsLog` row.** Confirm a row exists with `page_name = 'CommsLog'`, `app_id = data_get_app_id('PUMP')`, `scope_type = 'organisation'`.
 - **MCP test — Edge function deployment.** Run `list_edge_functions` and confirm the presence of `pump-resolve-pool`, `pump-send`, `pump-schedule`, `pump-send-test`, `pump-load-templates`, `pump-load-merge-fields`. If any are missing, see §15 — implementation is gated.
@@ -701,7 +701,7 @@ Given any successful send or schedule from this slice, when the request reaches 
 - Cast `core_membership_type.id` (integer) to string before placing it in `OrgMembersPool.filters.member_type_ids`.
 - Read-once-and-clear `sessionStorage['pace:team:comms:manual-pick']` on `/communications` mount. Always remove the key after reading, regardless of whether the payload was applied.
 - Write a fresh sessionStorage payload before every navigation to the picker (so the picker can hydrate the prior selection).
-- Do not query production database during build or test. All MCP verification targets dev-db only (`rkytnffgmwnnmewevqgp`).
+- Do not query production database during build or test. All MCP catalogue checks use verified-contract project `yihzsfcceciimdoiibif` ([`npm run mcp:verification`](../../package.json)); preview `SUPABASE_PROJECT_REF` remains for browser/app connectivity only.
 
 ---
 
@@ -709,7 +709,7 @@ Given any successful send or schedule from this slice, when the request reaches 
 
 - All 25 acceptance criteria (AC-01 through AC-25) verified via the slice's QA pack.
 - **Implementation blocked until:**
-  - **(a)** PUMP Edge functions `pump-resolve-pool`, `pump-send`, `pump-schedule`, `pump-send-test`, `pump-load-templates`, and `pump-load-merge-fields` are deployed on dev (`rkytnffgmwnnmewevqgp`).
+  - **(a)** PUMP Edge functions `pump-resolve-pool`, `pump-send`, `pump-schedule`, `pump-send-test`, `pump-load-templates`, and `pump-load-merge-fields` are deployed on verified-contract project `yihzsfcceciimdoiibif` (backend-ready MCP target).
   - **(b)** `pump_gateway_config` is seeded with at least one row per channel for the dev environment so `pump-send` can dispatch.
   - **(c)** `pump_organisation_templates` is seeded with at least one fixture row per org per channel so the composer's templates section populates for demo.
   The v6 slice does not author the Edge function bodies. Until items (a), (b), and (c) are confirmed via Supabase MCP and a manual smoke-send succeeds, this slice cannot be marked Done.

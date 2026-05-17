@@ -460,6 +460,55 @@ describe('OrganisationSettingsPage', () => {
     });
   });
 
+  it('reverts financial fields when Cancel is clicked', async () => {
+    const user = userEvent.setup();
+    useOrganisationSettingsDataMock.mockReturnValue(
+      buildDataState({
+        hasExistingRow: true,
+        organisationSettings: {
+          id: 'settings-1',
+          organisationId: 'org-1',
+          joiningFee: 25,
+          recurringFee: 10,
+          feeRecurrenceDays: 30,
+          taxRate: 10,
+          baseCurrency: 'AUD',
+          bankAccountName: 'Operating account',
+          bankBsb: '123-456',
+          bankAccountNumber: '12345678',
+        },
+      })
+    );
+    renderPage();
+
+    const joiningInput = screen.getByDisplayValue('25');
+    await user.clear(joiningInput);
+    await user.type(joiningInput, '99');
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('25')).toBeTruthy();
+    });
+  });
+
+  it('shows destructive toast for generic save failures', async () => {
+    const user = userEvent.setup();
+    saveOrganisationSettingsMock.mockRejectedValue(new Error('upstream timeout'));
+    renderPage();
+
+    await user.type(screen.getAllByPlaceholderText('0.00')[0], '1');
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(toastMock).toHaveBeenCalledWith({
+        title: 'Could not save organisation settings',
+        description: 'upstream timeout',
+        variant: 'destructive',
+      });
+    });
+  });
+
   it('shows org-switch toast when user has unsaved edits', async () => {
     const user = userEvent.setup();
     const rendered = renderPage();

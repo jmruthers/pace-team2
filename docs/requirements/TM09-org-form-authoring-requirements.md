@@ -10,7 +10,7 @@ Depends on:      TEAM-01 (app shell, ToastProvider, AuthenticatedShell, navItems
 Backend impact:  Schema changes (upstream platform: extend core_forms_workflow_type_check to permit 'org_signup'; add partial unique index core_forms_primary_org_signup_per_org_unique; deliver planned-contract app_submit_member_request signature accepting p_request_type + provisional core_member creation; seed core_field_list with org_signup person/contact/address fields; seed rbac_app_pages row for pageName='forms' under TEAM app — see §15 implementation gates)
 Frontend impact: UI
 Routes owned:    /forms; /forms/new; /forms/:formId
-QA pack:         docs/test-packs/TEAM-09-qa-pack.md
+QA pack:         docs/test-packs/TM09-qa-pack.md
 ```
 
 ---
@@ -655,7 +655,7 @@ All writes go via `useSecureSupabase().from(...)` against the live `check_user_i
 | `core_form_responses` | SELECT (count, head-only) | `useSecureSupabase()` |
 | `core_organisations` | (indirect — read via `OrganisationServiceProvider` context, not directly queried) | `useOrganisationsContext()` |
 
-### `core_forms` columns (dev DB snapshot, project `rkytnffgmwnnmewevqgp`)
+### `core_forms` columns (historic dev DB snapshot; MCP catalogue checks use `yihzsfcceciimdoiibif` via [`npm run mcp:verification`](../../package.json))
 
 | Column | Type | Nullable | Default | Notes |
 |--------|------|----------|---------|-------|
@@ -717,7 +717,7 @@ Index: `core_form_fields_form_id_field_key_key UNIQUE (form_id, field_key)` — 
 
 `core_field_list` (post-DB-414 rename) carries `core_form_availability` boolean plus `friendly_field_name`, `field_description`, etc. The shared `data_core_field_list_core_form()` SECURITY DEFINER function returns rows where `core_form_availability=true`. Used by the planned shared field-catalogue picker (Q-UX-4 §15 gate); not consumed directly by this slice in v1. The architecture's post-build platform-data tasks include seeding `core_field_list` with org_signup person/contact/address fields (Q-DB-6 §15 gate).
 
-### Dev-db verification (project: `rkytnffgmwnnmewevqgp`)
+### Dev-db catalogue snapshot (historic capture preview dev ref; MCP `execute_sql` uses `yihzsfcceciimdoiibif` — [`npm run mcp:verification`](../../package.json))
 
 - Confirm `core_forms_workflow_type_check` permits `'org_signup'` (Q-DB-2 implementation gate).
 - Confirm partial unique index `core_forms_primary_org_signup_per_org_unique` exists with the expected WHERE clause (Q-DB-4 implementation gate).
@@ -972,7 +972,7 @@ Given a form exists in org B but not in org A, when the user is signed in with o
 - All mutations on `core_forms` and `core_form_fields` are direct DML via `useSecureSupabase`. Do not invent an RPC orchestrator; the live RLS gate is the authorisation surface.
 - Do not author the migration extending `core_forms_workflow_type_check`, the partial unique index `core_forms_primary_org_signup_per_org_unique`, the planned-contract `app_submit_member_request` signature, the `core_field_list` seed, or the `rbac_app_pages` row for `pageName='forms'` under TEAM. Those are upstream platform / platform-data work; the slice depends on them (§15).
 - Do not implement form submission, form rendering for participants, response display, audience binding, or conditional visibility authoring in this slice.
-- Do not query production database during build or test. All MCP verification targets dev-db only (`rkytnffgmwnnmewevqgp`).
+- Do not query production database during build or test. All MCP catalogue checks use verified-contract project `yihzsfcceciimdoiibif` ([`npm run mcp:verification`](../../package.json)); preview `SUPABASE_PROJECT_REF` remains for browser/app connectivity only.
 - Do not pass a `scope` prop to `PagePermissionGuard`.
 - Do not import from internal `packages/core/src/*` paths — use published sub-paths only.
 - Do not import any third-party spinner icon — use `<LoadingSpinner size="sm" />` for in-button mid-flight indication.
@@ -982,7 +982,7 @@ Given a form exists in org B but not in org A, when the user is signed in with o
 ## §15 Done criteria
 
 - All 33 acceptance criteria (AC-01 through AC-33) verified via the slice's QA pack.
-- **Implementation blocked until** the following platform-side prerequisites land on dev (`rkytnffgmwnnmewevqgp`):
+- **Implementation blocked until** the following platform-side prerequisites land on verified-contract project `yihzsfcceciimdoiibif` (backend-ready MCP target):
   1. **Q-DB-2 — `core_forms_workflow_type_check` extension.** The CHECK constraint must permit `'org_signup'`. Without this, no INSERT/UPDATE with `workflow_type='org_signup'` succeeds.
   2. **Q-DB-4 — Primary org_signup partial unique index.** Partial unique index `core_forms_primary_org_signup_per_org_unique UNIQUE (organisation_id) WHERE workflow_type = 'org_signup' AND is_primary_entrypoint AND is_active AND status = 'published'` must land on dev. Without it, multiple primary `org_signup` forms could coexist for one organisation.
   3. **Q-DB-5 — `app_submit_member_request` planned-contract.** Signature must accept `app_submit_member_request(p_organisation_id uuid, p_request_type team_member_request_type, p_form_response_id uuid DEFAULT NULL, p_membership_type_id uuid DEFAULT NULL, p_subject_person_id uuid DEFAULT NULL) RETURNS jsonb` (return shape `{ request_id, member_id }`). The platform-DB authors the RPC body that creates `team_member_request` row + provisional `core_member` row atomically when `request_type IN ('join','transfer')`. Cross-slice with TEAM-02 + TEAM-05; already shared platform backlog item.

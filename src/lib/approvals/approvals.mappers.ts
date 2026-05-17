@@ -84,6 +84,25 @@ export function getPersonDisplayName(row: ApprovalRequestRow): string {
   return 'Unknown applicant';
 }
 
+/** TM05 F-39 — initials seed uses preferred_name ?? first_name with last_name. */
+export function getApprovalApplicantAvatarName(row: ApprovalRequestRow): string {
+  const preferred = row.subjectPreferredName?.trim() ?? '';
+  const first = row.subjectFirstName?.trim() ?? '';
+  const last = row.subjectLastName?.trim() ?? '';
+  const given = preferred.length > 0 ? preferred : first;
+  const compound = `${given} ${last}`.trim();
+  if (compound.length > 0) {
+    return compound;
+  }
+  return getPersonDisplayName(row);
+}
+
+export function hasDistinctApprovalPreferredName(row: ApprovalRequestRow): boolean {
+  const preferred = row.subjectPreferredName?.trim() ?? '';
+  const first = row.subjectFirstName?.trim() ?? '';
+  return preferred.length > 0 && first.length > 0 && preferred !== first;
+}
+
 export function getResolverDisplayName(row: ApprovalRequestRow): string {
   const firstName = row.resolverPreferredName ?? row.resolverFirstName ?? '';
   const lastName = row.resolverLastName ?? '';
@@ -105,12 +124,37 @@ export function requestTypeLabel(type: ApprovalRequestType): string {
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
+export function formatRequestSubmittedAt(iso: string | null): string {
+  if (iso == null || iso.trim() === '') {
+    return '—';
+  }
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
+    return '—';
+  }
+  const datePart = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'long', year: 'numeric' }).format(d);
+  const timePart = new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+  return `${datePart} at ${timePart}`;
+}
+
+export function formatResolvedDateHeading(iso: string | null): string {
+  if (iso == null || iso.trim() === '') {
+    return 'unknown date';
+  }
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
+    return 'unknown date';
+  }
+  return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'long', year: 'numeric' }).format(d);
+}
+
 // eslint-disable-next-line complexity
 export function mapRequestRow(raw: Record<string, unknown>): ApprovalRequestRow {
   const subjectPerson = asObject(raw.subject_person as JoinedPerson | JoinedPerson[] | null);
   const subjectMember = asObject(raw.subject_member as JoinedMember | JoinedMember[] | null);
   const membershipType = asObject(raw.membership_type as JoinedMembershipType | JoinedMembershipType[] | null);
   const sourceOrg = asObject(raw.source_org as JoinedOrganisation | JoinedOrganisation[] | null);
+  const targetOrg = asObject(raw.target_org as JoinedOrganisation | JoinedOrganisation[] | null);
   const resolverPerson = asObject(raw.resolver_person as JoinedPerson | JoinedPerson[] | null);
 
   return {
@@ -121,6 +165,7 @@ export function mapRequestRow(raw: Record<string, unknown>): ApprovalRequestRow 
     createdAt: (raw.created_at as string | null) ?? null,
     resolvedAt: (raw.resolved_at as string | null) ?? null,
     targetOrganisationId: (raw.target_organisation_id as string | null) ?? null,
+    targetOrganisationName: targetOrg?.name ?? null,
     sourceOrganisationId: (raw.source_organisation_id as string | null) ?? null,
     membershipTypeId: (raw.membership_type_id as string | null) ?? null,
     membershipTypeName: membershipType?.name ?? null,

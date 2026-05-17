@@ -10,7 +10,7 @@ Depends on:      TEAM-01 (app shell, ToastProvider, AuthenticatedShell, navItems
 Backend impact:  Read contract only (two SECURITY DEFINER RPCs authored by platform: app_org_event_summaries(p_organisation_id uuid) and app_org_event_attendees(p_organisation_id uuid, p_event_id uuid). The v6 slice cites the planned contracts; platform-DB engineers author the RPC bodies. Implementation is gated on both RPCs landing on dev — see §15).
 Frontend impact: UI
 Routes owned:    /events; /events/:eventId
-QA pack:         docs/test-packs/TEAM-10-qa-pack.md
+QA pack:         docs/test-packs/TM10-qa-pack.md
 ```
 
 ---
@@ -606,7 +606,7 @@ UNIQUE constraint: `(event_id, person_id)` — one application per person per ev
 | `last_name` | text | NO |
 | `preferred_name` | text | YES |
 
-### Dev-db verification (project: `rkytnffgmwnnmewevqgp`)
+### Dev-db catalogue snapshot (historic capture preview dev ref; MCP `execute_sql` uses `yihzsfcceciimdoiibif` — [`npm run mcp:verification`](../../package.json))
 
 Every verification step here targets dev-db only.
 
@@ -761,7 +761,7 @@ Given an event exists for org B but org A has no presence, when the user is sign
 
 ## §12 Verification
 
-- **MCP test — `app_org_event_summaries` exists and is `SECURITY DEFINER`.** Against dev-db (`rkytnffgmwnnmewevqgp`), confirm the function exists (`pg_proc`), `prosecdef = true`, and the argument list is `(p_organisation_id uuid)`. **If absent, the slice is blocked — see §15.**
+- **MCP test — `app_org_event_summaries` exists and is `SECURITY DEFINER`.** Against MCP verification project (`yihzsfcceciimdoiibif`; [`npm run mcp:verification`](../../package.json); [`docs/delivery/mcp-verification-preflight-queries.md`](../delivery/mcp-verification-preflight-queries.md)), confirm the function exists (`pg_proc`), `prosecdef = true`, and the argument list is `(p_organisation_id uuid)`. **If absent, the slice is blocked — see §15.**
 - **MCP test — `app_org_event_attendees` exists and is `SECURITY DEFINER`.** Against dev-db, confirm the function exists (`pg_proc`), `prosecdef = true`, and the argument list is `(p_organisation_id uuid, p_event_id uuid)`. **If absent, the slice is blocked — see §15.**
 - **MCP test — `app_org_event_summaries` return shape.** Invoke the RPC with a known org id and confirm the row shape contains `event_id (uuid)`, `event_name (varchar)`, `event_date (date)`, `event_days (integer)`, `event_venue (varchar)`, `members_registered_count (integer)`.
 - **MCP test — `app_org_event_attendees` return shape.** Invoke the RPC with a known org id and event id and confirm the row shape contains `member_id (uuid)`, `person_id (uuid)`, `first_name (text)`, `last_name (text)`, `preferred_name (text)`, `application_status (text)`, `event_id (uuid)`, `event_name (varchar)`, `event_date (date)`, `event_days (integer)`, `event_venue (varchar)`.
@@ -798,7 +798,7 @@ Given an event exists for org B but org A has no presence, when the user is sign
 - Do not implement any insert, update, or delete from this slice. Both surfaces are read-only.
 - Do not consume `useResourcePermissions('events')` — `<PagePermissionGuard>` is the sole permission gate for this surface.
 - Do not author the SECURITY DEFINER RPC bodies (`app_org_event_summaries`, `app_org_event_attendees`) from inside this slice. Those are upstream platform-DB work; the slice depends on them (§15).
-- Do not query production database during build or test. All MCP verification targets dev-db only (`rkytnffgmwnnmewevqgp`).
+- Do not query production database during build or test. All MCP catalogue checks use verified-contract project `yihzsfcceciimdoiibif` ([`npm run mcp:verification`](../../package.json)); preview `SUPABASE_PROJECT_REF` remains for browser/app connectivity only.
 - Do not pass a `scope` prop to `PagePermissionGuard`.
 - Do not import from internal `packages/core/src/*` paths — use published sub-paths only.
 
@@ -808,7 +808,7 @@ Given an event exists for org B but org A has no presence, when the user is sign
 
 - All 24 acceptance criteria (AC-01 through AC-24) verified via the slice's QA pack.
 - **Implementation blocked until:**
-  - **(a)** `app_org_event_summaries(p_organisation_id uuid)` RPC lands on dev (`rkytnffgmwnnmewevqgp`) with the documented return shape (per §7), is `SECURITY DEFINER`, joins `core_events` + `base_application` + `core_member` + `core_person` server-side, scopes reads to the requesting org's presence, excludes draft applications (`base_application.status != 'draft'`), and bypasses the `rbac_select_core_events` cross-org gap by running as definer.
+  - **(a)** `app_org_event_summaries(p_organisation_id uuid)` RPC lands on verified-contract project `yihzsfcceciimdoiibif` (backend-ready MCP target) with the documented return shape (per §7), is `SECURITY DEFINER`, joins `core_events` + `base_application` + `core_member` + `core_person` server-side, scopes reads to the requesting org's presence, excludes draft applications (`base_application.status != 'draft'`), and bypasses the `rbac_select_core_events` cross-org gap by running as definer.
   - **(b)** `app_org_event_attendees(p_organisation_id uuid, p_event_id uuid)` RPC lands on dev with the documented return shape (per §7), is `SECURITY DEFINER`, joins the same tables server-side, applies the same status / org-membership / draft exclusions, and returns `[]` when no rows match (interpreted by the slice as Event-not-found).
   - The v6 slice does not author the RPC bodies. Until items (a) and (b) are confirmed via Supabase MCP against dev, this slice cannot be marked Done.
 - Post-build RBAC seeding reminder noted in TEAM-01: `rbac_app_pages` must include the row for `page_name = 'events'` with `scope_type = 'organisation'` for the TEAM app before release.
@@ -832,7 +832,7 @@ Given an event exists for org B but org A has no presence, when the user is sign
 - Do not consume `useResourcePermissions('events')` — `PagePermissionGuard` alone gates this surface.
 - Do not pass a `scope` prop to `PagePermissionGuard`.
 - Do not introduce optimistic locking, watermark checks, or local caching beyond what `useSecureSupabase()` and `DataTable` provide.
-- Do not run any verification or smoke test against production. Dev-db only (`rkytnffgmwnnmewevqgp`).
+- Do not run any verification or smoke test against production. Non-prod only: MCP catalogue queries use verified-contract project `yihzsfcceciimdoiibif` ([`npm run mcp:verification`](../../package.json)); browser/runtime uses `SUPABASE_PROJECT_REF`.
 - Do not author the SECURITY DEFINER RPC bodies from inside this slice — that is platform-DB work.
 
 ---

@@ -10,7 +10,7 @@ Depends on:      TEAM-01 (app shell, ToastProvider, AuthenticatedShell, navItems
 Backend impact:  Read + write contracts (no schema changes); platform-DB seed correction prerequisite — see §15
 Frontend impact: UI
 Routes owned:    /reports
-QA pack:         docs/test-packs/TEAM-11-qa-pack.md
+QA pack:         docs/test-packs/TM11-qa-pack.md
 ```
 
 ---
@@ -535,7 +535,7 @@ This slice publishes no symbols for other slices to import. The reporting UX liv
 
 `id (uuid PK)`, `name (text)`, `description (text)`, `event_id (uuid, nullable)`, `organisation_id (uuid NOT NULL)`, `created_by (uuid NOT NULL)`, `is_private (boolean NOT NULL)`, `selected_fields (jsonb NOT NULL)`, `filters (jsonb NOT NULL)`, `created_at (timestamptz NOT NULL)`, `updated_at (timestamptz NOT NULL)`, `updated_by (uuid)`, `domain_id (text, nullable)`, `app_id (text, nullable)`, `sort_config (jsonb NOT NULL)`, `column_config (jsonb NOT NULL)`. All DB-319 additions are live on dev.
 
-### Dev-db verification (project: `rkytnffgmwnnmewevqgp`)
+### Dev-db catalogue snapshot (historic capture preview dev ref; MCP `execute_sql` uses `yihzsfcceciimdoiibif` — [`npm run mcp:verification`](../../package.json))
 
 - Confirm `core_field_list` has rows where `report_availability = true` AND `report_domains @> ARRAY['participant']` (bare domain id). **HARD PREREQUISITE:** until the seed correction in §15 lands, this query returns zero rows on dev today (rows are tagged with explore-key strings — `'team.participant'` / `'base.participant'` — and not the bare `'participant'`). Without the re-seed, zero fields render in TEAM-11.
 - Confirm `core_report_template` has `domain_id (text)` and `app_id (text)` columns and the `sort_config` / `column_config` jsonb columns.
@@ -728,7 +728,7 @@ Given templates exist for org B but the user is signed in with org A selected, w
 
 ## §12 Verification
 
-- **MCP test — `core_field_list` re-seed.** Against dev-db (`rkytnffgmwnnmewevqgp`), confirm at least one row exists with `report_availability = true` AND `report_domains @> ARRAY['participant']` (bare domain id). If zero rows match, the §15 prerequisite has not landed and the slice cannot render fields.
+- **MCP test — `core_field_list` re-seed.** Against MCP verification project (`yihzsfcceciimdoiibif`; [`npm run mcp:verification`](../../package.json); [`docs/delivery/mcp-verification-preflight-queries.md`](../delivery/mcp-verification-preflight-queries.md)), confirm at least one row exists with `report_availability = true` AND `report_domains @> ARRAY['participant']` (bare domain id). If zero rows match, the §15 prerequisite has not landed and the slice cannot render fields.
 - **MCP test — `core_report_template` columns.** Confirm `domain_id`, `app_id`, `sort_config`, `column_config` are present.
 - **MCP test — RLS authority.** As a user with org-admin access on org A, run a SELECT on `core_report_template` without an `organisation_id` filter; confirm only org A rows return. Repeat with the slice's defensive `organisation_id = :orgA` filter and confirm the same row set.
 - **MCP test — `rbac_app_pages` lower-case row.** Confirm a row exists for `page_name = 'reports'` (lower-case), `app_id = data_get_app_id('TEAM')`, `scope_type = 'organisation'` after the post-build seeding pass.
@@ -767,7 +767,7 @@ Given templates exist for org B but the user is signed in with org A selected, w
 - Do not introduce a TEAM-side PII / sensitive-column allowlist — catalogue ownership is the data platform's.
 - Do not pass a `scope` prop to `PagePermissionGuard`.
 - Do not import from internal `packages/core/src/*` paths — use published subpaths only.
-- Do not query production database during build or test. All MCP verification targets dev-db only (`rkytnffgmwnnmewevqgp`).
+- Do not query production database during build or test. All MCP catalogue checks use verified-contract project `yihzsfcceciimdoiibif` ([`npm run mcp:verification`](../../package.json)); preview `SUPABASE_PROJECT_REF` remains for browser/app connectivity only.
 
 ---
 

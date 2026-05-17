@@ -10,7 +10,7 @@ Depends on:      TEAM-01 (app shell, ToastProvider, AuthenticatedShell, navItems
 Backend impact:  Schema changes (upstream platform: RBAC-checked INSERT/UPDATE RLS policies on core_org_settings)
 Frontend impact: UI
 Routes owned:    /settings/org
-QA pack:         docs/test-packs/TEAM-08-qa-pack.md
+QA pack:         docs/test-packs/TM08-qa-pack.md
 ```
 
 ---
@@ -401,7 +401,7 @@ Authorisation is enforced server-side by RBAC-checked INSERT and UPDATE RLS poli
 
 The slice does not read or write `member_validation_config`, audit columns (`created_at`, `updated_at`, `created_by`, `updated_by`), or any column on `core_organisations`.
 
-### Dev-db verification (project: `rkytnffgmwnnmewevqgp`)
+### Dev-db catalogue snapshot (historic capture preview dev ref; MCP `execute_sql` uses `yihzsfcceciimdoiibif` — [`npm run mcp:verification`](../../package.json))
 
 Verified 2026-05-04 via Supabase MCP:
 
@@ -510,55 +510,72 @@ A canonical `rbac_app_pages` row for `pageName = 'org-settings'` (with `scope_ty
 
 ## §11 Acceptance criteria
 
-**AC-01 — Page entry, authenticated org admin with `read`**
+- [ ] **AC-01 — Page entry, authenticated org admin with `read`**
+
 Given a user is authenticated and has `read:page.org-settings` on their current organisation, when they navigate to `/settings/org`, then the page renders with the heading "Organisation settings" and a Financial card containing the eight financial fields.
 
-**AC-02 — First-time create defaults**
+- [x] **AC-02 — First-time create defaults**
+
 Given the current organisation has no `core_org_settings` row, when the page loads, then the Base currency field shows "AUD", every other field is empty, and the Save button is shown only if the user has `create:page.org-settings`.
 
-**AC-03 — Saved row pre-populated**
+- [x] **AC-03 — Saved row pre-populated**
+
 Given the current organisation has a `core_org_settings` row with `joining_fee = 25.00`, `recurring_fee = 10.00`, `fee_recurrence_days = 30`, `tax_rate = 10.00`, `base_currency = 'AUD'`, and bank-account fields populated, when the page loads, then every field reflects the stored value (currency / tax fields rendered with up to two decimal places; `fee_recurrence_days` rendered as an integer).
 
-**AC-04 — Save — happy path (UPDATE)**
+- [x] **AC-04 — Save — happy path (UPDATE)**
+
 Given a user with `update:page.org-settings` on a row that already exists, when they change `recurring_fee` to `12.50` and click Save, then the upsert succeeds, a success toast "Organisation settings saved." appears, and the form re-populates with `recurring_fee = 12.50`.
 
-**AC-05 — Save — happy path (INSERT)**
+- [ ] **AC-05 — Save — happy path (INSERT)**
+
 Given a user with `create:page.org-settings` on an organisation that has no row yet, when they fill `base_currency = 'NZD'`, leave all other fields empty, and click Save, then the upsert succeeds, a success toast "Organisation settings saved." appears, and the form re-populates with the inserted row (Base currency "NZD"; all optional fields empty / NULL).
 
-**AC-06 — Validation — `tax_rate` out of range**
+- [x] **AC-06 — Validation — `tax_rate` out of range**
+
 Given a user enters `tax_rate = 150`, when they attempt to Save, then submit is blocked, an inline destructive `Alert` with title "Please fix the errors below." appears at the top of the Financial card, the `Tax rate (%)` field shows "Tax rate must be between 0 and 100, with at most two decimal places.", and the Save button is disabled.
 
-**AC-07 — Validation — `bank_bsb` pattern**
+- [x] **AC-07 — Validation — `bank_bsb` pattern**
+
 Given a user enters `bank_bsb = 12-34567`, when they attempt to Save, then submit is blocked and the BSB field shows "BSB must be six digits, optionally with a hyphen (e.g. 123-456)."
 
-**AC-08 — Server-side `base_currency` rejection (23514)**
+- [x] **AC-08 — Server-side `base_currency` rejection (23514)**
+
 Given the client somehow sends an invalid `base_currency` value (e.g. via the "Other" path before client validation tightens), when the server returns Postgres 23514, then the dialog stays in its edited state, an inline destructive `Alert` with title "Currency must be a 3-letter ISO code, e.g. AUD." appears at the top of the Financial card, and the Save button re-enables.
 
-**AC-09 — Cancel reverts local edits**
+- [x] **AC-09 — Cancel reverts local edits**
+
 Given a user has changed `joining_fee` and `bank_account_name` from their loaded values, when they click Cancel, then both fields revert to the values from the most recent SELECT (or to the F-04 defaults if no row exists yet), validation state is cleared, and the Save button returns to its default state.
 
-**AC-10 — Permission denied — page**
+- [ ] **AC-10 — Permission denied — page**
+
 Given a user is authenticated but lacks `read:page.org-settings`, when they navigate to `/settings/org`, then `<AccessDenied />` is rendered inside PaceMain with copy "You do not have permission to view this page.", and the shell header and footer remain visible.
 
-**AC-11 — Permission denied — Save hidden (no row exists)**
+- [x] **AC-11 — Permission denied — Save hidden (no row exists)**
+
 Given a user has `read` but lacks `create:page.org-settings` and the current organisation has no `core_org_settings` row, when the page loads, then the Save button is not rendered; the Cancel button and the form fields remain rendered.
 
-**AC-12 — Permission denied — Save hidden (row exists)**
+- [x] **AC-12 — Permission denied — Save hidden (row exists)**
+
 Given a user has `read` but lacks `update:page.org-settings` and the current organisation already has a saved `core_org_settings` row, when the page loads, then the Save button is not rendered; the Cancel button and the form fields remain rendered.
 
-**AC-13 — Org-context switch discards edits**
+- [x] **AC-13 — Org-context switch discards edits**
+
 Given the user has touched form fields and a Save has not yet been issued, when the user switches the current organisation via the header org selector, then the form is silently reset to the new organisation's loaded row (or first-time defaults), a default-variant toast "Editing cancelled — organisation changed." appears, and no Save call is issued for either organisation.
 
-**AC-14 — Network failure on Save**
+- [x] **AC-14 — Network failure on Save**
+
 Given a user submits Save and the server returns a non-23514 server error (network or 5xx), when the error fires, then the form's edited values stay on screen, the Save button re-enables, and a destructive toast "Could not save organisation settings" with the normalised error message appears.
 
-**AC-15 — RLS denial on Save (42501)**
+- [x] **AC-15 — RLS denial on Save (42501)**
+
 Given a user submits Save and the server returns Postgres 42501 / PostgREST RLS denial (e.g. an `rbac_app_pages` row for `org-settings` not yet seeded), when the error fires, then the form's edited values stay on screen, the Save button re-enables, and a destructive toast "Could not save organisation settings" with the normalised error message appears.
 
-**AC-16 — Loading state**
+- [x] **AC-16 — Loading state**
+
 Given the initial SELECT is in flight, when the page first renders, then the Financial card header shows the title "Financial" and the card body shows a centred `<LoadingSpinner />` with no Save / Cancel buttons rendered.
 
-**AC-17 — Empty optional fields persist as NULL**
+- [x] **AC-17 — Empty optional fields persist as NULL**
+
 Given the user clears `bank_account_name`, `bank_bsb`, and `bank_account_number` on a row that previously had values for all three, when they Save, then the upsert payload sends `null` for each (not empty strings), and a subsequent SELECT confirms each column is SQL NULL.
 
 ---
@@ -573,7 +590,7 @@ Given the user clears `bank_account_name`, `bank_bsb`, and `bank_account_number`
 - Confirm the Save button is conditioned on `useResourcePermissions('org-settings').canCreate` when the SELECT returned `null`, and on `.canUpdate` when the SELECT returned a row.
 - Confirm Cancel reverts every field to the most-recently-loaded values.
 - Confirm the org-context switch handler fires the default-variant toast and resets the form.
-- Against dev-db (`rkytnffgmwnnmewevqgp`):
+- Against MCP verification project (`yihzsfcceciimdoiibif`; [`npm run mcp:verification`](../../package.json); [`docs/delivery/mcp-verification-preflight-queries.md`](../delivery/mcp-verification-preflight-queries.md)):
   - Confirm RBAC-checked INSERT and UPDATE policies on `public.core_org_settings` for `pageName` `org-settings` are present and use `data_check_rbac_permission_with_context(... , data_get_app_id('TEAM'))`.
   - Confirm `rbac_app_pages` has a row for `pageName = 'org-settings'` with `scope_type = 'organisation'` and the TEAM `app_id` (post-build seeding may handle this; if absent, the slice's Save affordance will be hidden because `useResourcePermissions` returns false — note as a known seeding gap, not a code defect).
 - Manually verify that an INSERT with an invalid `base_currency` value (e.g. lower-case `'usd'`) returns Postgres 23514 and that the slice surfaces the inline `Alert` from §4 F-12.
@@ -620,7 +637,7 @@ n/a — standard PDLC quality gates apply.
 - Do not hand-roll a permission-string check; route everything through `useResourcePermissions` and `PagePermissionGuard`.
 - Do not import from internal `packages/core/src/*` paths.
 - Do not author RLS policies in this slice. Replacing the prior `check_user_is_org_admin(organisation_id)` policies on `core_org_settings` with RBAC-checked equivalents is upstream platform work.
-- Do not use the production database during development or testing — dev-db (`rkytnffgmwnnmewevqgp`) only.
+- Do not use the production database during development or testing — use non-prod from `.env` for app connectivity; MCP §12 audits use verified-contract project `yihzsfcceciimdoiibif` ([`npm run mcp:verification`](../../package.json)).
 - Do not render this surface for non-admin members of the organisation. TEAM is admin-only by design.
 
 ---

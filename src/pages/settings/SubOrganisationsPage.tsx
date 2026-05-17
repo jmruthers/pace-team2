@@ -39,6 +39,17 @@ import {
   toUpdateSubOrganisationInput,
 } from '@/lib/settings/subOrganisations.validation';
 
+const DUPLICATE_NAME_MESSAGE =
+  'An organisation with this name already exists. Names must be unique across the platform.';
+
+type SubOrgEditorFormHandle = {
+  setError: (
+    field: keyof SubOrganisationFormValues,
+    opts: { type?: string; message?: string },
+  ) => void;
+  clearErrors: (field?: keyof SubOrganisationFormValues) => void;
+};
+
 interface SubOrganisationEditorState {
   mode: 'create' | 'edit';
   row: SubOrganisationRow | null;
@@ -88,6 +99,7 @@ function SubOrganisationsPageContent() {
   const [editorState, setEditorState] = useState<SubOrganisationEditorState | null>(null);
   const [duplicateNameError, setDuplicateNameError] = useState<string | null>(null);
   const previousOrganisationIdRef = useRef<string | null | undefined>(undefined);
+  const editorFormRef = useRef<SubOrgEditorFormHandle | null>(null);
 
   const permissionsLoading = permissions.isLoading === true;
   const canCreate = permissions.canCreate && !permissionsLoading;
@@ -96,6 +108,7 @@ function SubOrganisationsPageContent() {
 
   const closeEditor = () => {
     setDuplicateNameError(null);
+    editorFormRef.current?.clearErrors('name');
     setEditorState(null);
   };
 
@@ -123,16 +136,7 @@ function SubOrganisationsPageContent() {
     });
   }, [editorState, selectedOrganisation?.id]);
 
-  const tableRows = useMemo(
-    () =>
-      subOrganisations.map((row) => ({
-        ...row,
-        statusLabel: row.isActive ? 'Active' : 'Inactive',
-      })),
-    [subOrganisations]
-  );
-
-  const columns = useMemo<DataTableColumn<(SubOrganisationRow & { statusLabel: string })>[]>(
+  const columns = useMemo<DataTableColumn<SubOrganisationRow>[]>(
     () => [
       {
         id: 'name',
@@ -149,18 +153,18 @@ function SubOrganisationsPageContent() {
         searchable: true,
       },
       {
-        id: 'status',
-        accessorKey: 'statusLabel',
+        id: 'is_active',
+        accessorKey: 'isActive',
         header: 'Status',
         sortable: true,
-        searchable: true,
+        searchable: false,
         enableColumnFilter: true,
         filterType: 'select',
         filterSelectOptions: [
-          { value: 'Active', label: 'Active' },
-          { value: 'Inactive', label: 'Inactive' },
+          { value: 'true', label: 'Active' },
+          { value: 'false', label: 'Inactive' },
         ],
-        cell: ({ row }) => row.statusLabel,
+        cell: ({ row }) => (row.isActive ? 'Active' : 'Inactive'),
       },
     ],
     []
@@ -171,7 +175,7 @@ function SubOrganisationsPageContent() {
       canUpdate
         ? [{
           label: 'Edit',
-          onClick: (row) => {
+          onClick: (row: SubOrganisationRow) => {
             setDuplicateNameError(null);
             setEditorState({ mode: 'edit', row });
           },
@@ -221,7 +225,7 @@ function SubOrganisationsPageContent() {
           </CardHeader>
           <CardContent>
             <DataTable
-              data={tableRows}
+              data={subOrganisations}
               columns={columns}
               rbac={{ pageName: 'organisations' }}
               title="Sub-organisations"
@@ -268,6 +272,7 @@ function SubOrganisationsPageContent() {
                   }
 
                   setDuplicateNameError(null);
+                  editorFormRef.current?.clearErrors('name');
 
                   try {
                     if (editorState?.mode === 'edit' && editorState.row != null) {
@@ -290,7 +295,11 @@ function SubOrganisationsPageContent() {
                   } catch (error: unknown) {
                     const mutationError = error as SubOrganisationMutationError;
                     if (mutationError?.code === '23505') {
-                      setDuplicateNameError('An organisation with this name already exists. Names must be unique across the platform.');
+                      setDuplicateNameError(DUPLICATE_NAME_MESSAGE);
+                      editorFormRef.current?.setError('name', {
+                        type: 'server',
+                        message: DUPLICATE_NAME_MESSAGE,
+                      });
                       return;
                     }
                     toast({
@@ -302,6 +311,7 @@ function SubOrganisationsPageContent() {
                 }}
               >
                 {(methods) => {
+                  editorFormRef.current = methods;
                   const hasFieldErrors = Object.keys(methods.formState.errors ?? {}).length > 0;
                   const showValidationAlert = methods.formState.isSubmitted && hasFieldErrors;
                   const disableControls = savePending || methods.formState.isSubmitting;
@@ -337,12 +347,12 @@ function SubOrganisationsPageContent() {
                             disabled={editorState?.mode === 'edit' || disableControls}
                             onChange={(value) => {
                               setDuplicateNameError(null);
+                              methods.clearErrors('name');
                               field.onChange(value);
                             }}
                           />
                         )}
                       />
-                      {duplicateNameError != null ? <p role="alert">{duplicateNameError}</p> : null}
                       <p>
                         {editorState?.mode === 'edit'
                           ? 'Internal names cannot be changed after create.'

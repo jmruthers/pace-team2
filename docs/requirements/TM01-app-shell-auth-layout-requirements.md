@@ -10,7 +10,7 @@ Depends on:      None
 Backend impact:  None
 Frontend impact: UI
 Routes owned:    /login; /; *
-QA pack:         docs/test-packs/TEAM-01-qa-pack.md
+QA pack:         docs/test-packs/TM01-qa-pack.md
 ```
 
 ---
@@ -52,7 +52,7 @@ TEAM-01 does **not** own:
 
 **APP_NAME constant.** `APP_NAME = 'TEAM'` is declared as a named export constant in `src/App.tsx` and imported (not redeclared) in `main.tsx`. Both `setupRBAC` and `UnifiedAuthProvider` receive `APP_NAME`.
 
-**setupRBAC call ordering.** `setupRBAC(supabaseClient, { appName: APP_NAME })` is called at module level in `main.tsx`, before `createRoot(...)`. It must not be called inside a component, hook, or effect.
+**setupRBAC call ordering.** Before `setupRBAC(...)`, initialise `resolveTeamAppId` with `createGetAppIdResolver(supabaseClient)`. Call `setupRBAC(supabaseClient, { appName: APP_NAME, getAppId: resolveTeamAppId })` at module level in `main.tsx`, before `createRoot(...)`. It must not be called inside a component, hook, or effect.
 
 **Provider stack.**
 ```
@@ -374,7 +374,7 @@ Each tile is a clickable card:
 
 **BR-05 — setupRBAC ordering**
 - Input: `main.tsx` module loads.
-- Output: `setupRBAC(supabaseClient, { appName: 'TEAM' })` executes before any React component mounts. The RBAC engine is initialised before any `PagePermissionGuard` evaluates.
+- Output: `resolveTeamAppId` is assigned from `createGetAppIdResolver(supabaseClient)`, then `setupRBAC(supabaseClient, { appName: 'TEAM', getAppId: resolveTeamAppId })` executes before any React component mounts. The RBAC engine is initialised before any `PagePermissionGuard` evaluates.
 
 **BR-06 — Home page permission check**
 - Input: authenticated user with org context navigates to `/`.
@@ -437,7 +437,7 @@ None — TEAM-01 does not expose or consume typed entity IDs.
 | `rbac_app_pages` | Read | RBAC engine (PagePermissionGuard) |
 | `rbac_organisation_roles` | Read | RBAC engine (permission resolution) |
 
-### Dev-db verification (project: `rkytnffgmwnnmewevqgp`)
+### Dev-db catalogue snapshot (historic capture preview dev ref; MCP `execute_sql` uses `yihzsfcceciimdoiibif` — [`npm run mcp:verification`](../../package.json))
 
 - Confirm `rbac_apps` row: `name = 'TEAM'`, `is_active = true`.
 - Confirm or note absence of `rbac_app_pages` row for `pageName = 'home'` and `app_id` matching TEAM. Absence during early build is expected — do not invent a workaround or substitute local permission logic.
@@ -556,65 +556,83 @@ All other TEAM routes define their own `PagePermissionGuard` configurations in T
 
 ## §11 Acceptance criteria
 
-**AC-01 — Unauthenticated redirect**
+- [x] **AC-01 — Unauthenticated redirect**
+
 Given a user is not authenticated, when they navigate to `/`, then they are redirected to `/login` and no TEAM admin content is visible.
 
-**AC-02 — Successful login**
+- [x] **AC-02 — Successful login**
+
 Given a user on `/login` enters valid credentials, when they submit the sign-in form, then they are authenticated and redirected to `/`.
 
-**AC-03 — Login error — bad credentials**
+- [x] **AC-03 — Login error — bad credentials**
+
 Given a user on `/login` enters invalid credentials, when they submit the sign-in form, then an inline error message is displayed and no redirect occurs.
 
-**AC-04 — Home page — authenticated with org**
+- [x] **AC-04 — Home page — authenticated with org**
+
 Given a user is authenticated and has an org membership, when they navigate to `/`, then the home page renders showing the org name and navigation shortcut tiles within the app chrome.
 
-**AC-05 — No organisation assigned**
+- [x] **AC-05 — No organisation assigned**
+
 Given a user is authenticated but has no org membership, when they navigate to any authenticated route, then the shell renders "No organisation assigned. Please contact your administrator." and no feature content is visible.
 
-**AC-06 — Permission denied on home**
+- [x] **AC-06 — Permission denied on home**
+
 Given a user is authenticated with an org but lacks `read:page.home` permission, when they navigate to `/`, then `AccessDenied` is displayed within PaceMain and the header and footer remain visible.
 
-**AC-07 — Session restoration**
+- [x] **AC-07 — Session restoration**
+
 Given a user has a valid session token, when the app loads, then `SessionRestorationLoader` shows a loading spinner until restoration completes, after which the user sees the app without re-entering credentials.
 
-**AC-08 — Inactivity warning appears**
+- [ ] **AC-08 — Inactivity warning appears**
+
 Given a user has been idle for 28 minutes (30-minute timeout minus 2-minute warning), when the idle timer fires, then `InactivityWarningModal` appears with a visible countdown in seconds.
 
-**AC-09 — Stay signed in**
+- [ ] **AC-09 — Stay signed in**
+
 Given `InactivityWarningModal` is showing, when the user clicks "Stay signed in", then the modal closes, the idle timer resets, and the session continues.
 
-**AC-10 — Idle logout**
+- [ ] **AC-10 — Idle logout**
+
 Given `InactivityWarningModal` is showing and the user takes no action for 2 minutes, when the warning period expires, then the user is signed out and redirected to `/login`.
 
-**AC-11 — Catch-all for unbuilt route**
-Given a user navigates to a route not yet implemented (e.g. `/members` before TEAM-02 is built), when they arrive, then the NotFound page renders without an unhandled error.
+- [x] **AC-11 — Catch-all for unbuilt route**
 
-**AC-12 — App chrome on all authenticated pages**
+Given a user navigates to a route not yet implemented (e.g. `/events` before the slice is built), when they arrive, then the NotFound page renders without an unhandled error.
+
+- [x] **AC-12 — App chrome on all authenticated pages**
+
 Given a user is authenticated with org context, when they view any authenticated route, then the TEAM logo, navigation menu trigger, org context selector, and user menu are visible in the header.
 
-**AC-13 — All nav items in dropdown**
+- [x] **AC-13 — All nav items in dropdown**
+
 Given a user opens the navigation menu, when the dropdown is shown, then all 9 top-level nav items (Home, Members, Approvals, Events, Communications, Forms, Reports, Moderation, Settings) are visible, and Settings reveals its 3 sub-items.
 
-**AC-14 — Sign out**
+- [x] **AC-14 — Sign out**
+
 Given a user is authenticated, when they sign out via the user menu, then their session is cleared and they are redirected to `/login`.
 
-**AC-15 — Change password — success**
+- [ ] **AC-15 — Change password — success**
+
 Given a user is authenticated and opens the change-password dialog via the user menu, when they submit a valid new password, then the password is updated and the dialog closes with no redirect.
 
-**AC-16 — Change password — error**
+- [ ] **AC-16 — Change password — error**
+
 Given a user is authenticated and opens the change-password dialog, when they submit a password that fails validation (e.g. too short), then an inline error message is displayed within the form and the dialog remains open.
 
-**AC-17 — `npm run validate` passes**
+- [x] **AC-17 — `npm run validate` passes**
+
 Given the TEAM-01 implementation is complete, when `npm run validate` runs, then it exits with code 0 with no TypeScript errors and no lint errors.
 
-**AC-18 — Toast notifications mountable from any authenticated route**
+- [ ] **AC-18 — Toast notifications mountable from any authenticated route**
+
 Given a user is authenticated and inside the `AuthenticatedShell`, when any descendant component calls `toast({ title, description, variant })` from `@solvera/pace-core/components`, then a notification renders as an overlay anchored to the bottom-right of the viewport without throwing a "must be called within a ToastProvider" error, and the notification auto-dismisses after its `duration` (default 5000 ms).
 
 ---
 
 ## §12 Verification
 
-- Confirm `setupRBAC(supabaseClient, { appName: APP_NAME })` appears at module level in `main.tsx`, not inside a component, hook, or effect.
+- Confirm `createGetAppIdResolver`, `resolveTeamAppId`, and `setupRBAC(supabaseClient, { appName: APP_NAME, getAppId: resolveTeamAppId })` appear at module level in `main.tsx`, not inside a component, hook, or effect.
 - Confirm `APP_NAME` is exported from `src/App.tsx` and imported (not redeclared) in `main.tsx`.
 - Confirm `AppProviders` bridge calls `useUnifiedAuthContext()` and passes `user` and `session` to `OrganisationServiceProvider` — not sourced from any other mechanism.
 - Confirm `AuthenticatedShell` is implemented as a React Router layout route (renders `<Outlet />`), located at `src/components/layout/AuthenticatedShell.tsx`.
@@ -623,7 +641,7 @@ Given a user is authenticated and inside the `AuthenticatedShell`, when any desc
 - Confirm `EventServiceProvider` is absent from the provider stack.
 - Confirm all 9 top-level nav items (and Settings children) are present in the `navItems` array.
 - Confirm `/logos/TEAM_logo_square.svg` exists in the public directory. If absent, note as a known asset gap and raise with the product team — do not block build on this.
-- Against dev-db (`rkytnffgmwnnmewevqgp`): confirm `rbac_apps` row `name = 'TEAM'` is active.
+- Against MCP verification project (`yihzsfcceciimdoiibif`; [`npm run mcp:verification`](../../package.json); [`docs/delivery/mcp-verification-preflight-queries.md`](../delivery/mcp-verification-preflight-queries.md)): confirm `rbac_apps` row `name = 'TEAM'` is active.
 
 ---
 
@@ -636,7 +654,7 @@ n/a — standard PDLC quality gates apply.
 ## §14 Build execution rules
 
 - `APP_NAME` must be declared as `export const APP_NAME = 'TEAM'` in `src/App.tsx`. Import it in `main.tsx`. Do not redeclare it elsewhere.
-- `setupRBAC` must be called at module level in `main.tsx`, before `createRoot(...)`. Not inside a component, hook, or effect.
+- `setupRBAC` must be called at module level in `main.tsx`, before `createRoot(...)`, with `getAppId` provided via `resolveTeamAppId` from `createGetAppIdResolver(supabaseClient)`. Not inside a component, hook, or effect.
 - `AppProviders` bridge is defined in `main.tsx`. Do not create a separate file for it. Do not export it.
 - `AuthenticatedShell` is created at `src/components/layout/AuthenticatedShell.tsx`. It is used as a React Router layout route (renders `<Outlet />`). It is the only component that checks `isLoading`, the no-org state, and hosts the change-password dialog. Do not implement any of these checks in `App.tsx`, individual page components, or `main.tsx`.
 - Do not add `EventServiceProvider` — TEAM is not event-scoped.
@@ -648,7 +666,7 @@ n/a — standard PDLC quality gates apply.
 
 ## §15 Done criteria
 
-- All 17 acceptance criteria (AC-01 through AC-17) verified.
+- All 18 acceptance criteria (AC-01 through AC-18) verified via the QA pack (`docs/test-packs/TM01-qa-pack.md`).
 - `@solvera/pace-core` sub-path imports (`/components`, `/providers`, `/rbac`, `/hooks`) confirmed resolving in `npm run validate` output.
 - Post-build RBAC seeding reminder documented in the QA pack: 12 canonical `rbac_app_pages` rows to be added and 7 legacy rows to be removed before release.
 

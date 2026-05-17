@@ -33,6 +33,7 @@ const REQUEST_SELECT = [
   'subject_member:core_member!subject_member_id(id, deleted_at)',
   'membership_type:core_membership_type(id, name)',
   'source_org:core_organisations!source_organisation_id(id, name)',
+  'target_org:core_organisations!target_organisation_id(id, name)',
   'resolver_person:core_person!team_member_request_resolved_by_fkey(id, first_name, last_name, preferred_name)',
 ].join(', ');
 

@@ -45,6 +45,7 @@ export function buildMemberColumns(options: MemberColumnOptions): DataTableColum
       accessorKey: 'lastName',
       header: 'Name',
       sortable: true,
+      searchable: true,
       cell: ({ row }) => renderPrimaryActionCell(row, getMemberDisplayName(row), pickerMode, onPrimaryAction),
     },
     {
@@ -70,6 +71,7 @@ export function buildMemberColumns(options: MemberColumnOptions): DataTableColum
       accessorKey: 'membershipNumber',
       header: 'Membership #',
       sortable: true,
+      searchable: true,
       cell: ({ row }) =>
         renderPrimaryActionCell(row, formatMembershipNumber(row.membershipNumber), pickerMode, onPrimaryAction),
     },
@@ -108,6 +110,7 @@ export function buildPendingColumns(options: PendingColumnOptions): DataTableCol
       accessorKey: 'lastName',
       header: 'Name',
       sortable: true,
+      searchable: true,
       cell: ({ row }) => renderPrimaryActionCell(row, getMemberDisplayName(row), false, onPrimaryAction),
     },
     {
@@ -133,6 +136,7 @@ export function buildPendingColumns(options: PendingColumnOptions): DataTableCol
       accessorKey: 'membershipNumber',
       header: 'Membership #',
       sortable: true,
+      searchable: true,
       cell: ({ row }) => renderPrimaryActionCell(row, formatMembershipNumber(row.membershipNumber), false, onPrimaryAction),
     },
     {

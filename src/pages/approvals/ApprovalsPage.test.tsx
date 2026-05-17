@@ -45,9 +45,11 @@ vi.mock('@solvera/pace-core/components', () => ({
   DataTable: ({
     columns,
     data,
+    onRowActivate,
   }: {
     columns: Array<{ cell?: (info: { row: ApprovalRequestRow; getValue: () => unknown; index: number }) => ReactNode }>;
     data: ApprovalRequestRow[];
+    onRowActivate?: (row: ApprovalRequestRow) => void;
   }) => {
     if (data.length === 0) {
       return <section />;
@@ -59,9 +61,10 @@ vi.mock('@solvera/pace-core/components', () => ({
       index: 0,
     });
     return (
-    <section>
-      {renderedCell ?? null}
-    </section>
+      <section>
+        <button type="button" aria-label="Activate queue row" onClick={() => onRowActivate?.(data[0]!)} />
+        {renderedCell ?? null}
+      </section>
     );
   },
   Select: ({ children }: { children: ReactNode }) => <section>{children}</section>,
@@ -84,6 +87,7 @@ const row: ApprovalRequestRow = {
   createdAt: null,
   resolvedAt: null,
   targetOrganisationId: null,
+  targetOrganisationName: null,
   sourceOrganisationId: null,
   membershipTypeId: null,
   membershipTypeName: null,
@@ -157,7 +161,7 @@ describe('ApprovalsPage route and layout behavior', () => {
       </MemoryRouter>
     );
 
-    await user.click(screen.getByRole('button', { name: 'Ava Adams' }));
+    await user.click(screen.getByRole('button', { name: 'Activate queue row' }));
     expect(screen.getByTestId('location').textContent).toBe('/approvals/req-1');
   });
 

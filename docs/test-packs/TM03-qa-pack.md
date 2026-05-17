@@ -12,35 +12,35 @@
 
 | scenario_id | requirement_ref | route_or_screen | steps | expected_result | result | notes |
 |---|---|---|---|---|---|---|
-| S-01 | AC-01 | `/members/:memberId` | Open Member 360 for current-org member with read permission. | Sections and identity content render in required order. | Pass | Covered by `src/pages/members/Member360Page.tsx` structure + tests. |
-| S-02 | AC-02 | Identity card | Open member with `canUpdate` false and true variants. | Identity is read-only; Unlock appears only when `canUpdate` is true. | Pass | `Member360Page.test.tsx` + permissions gating in component. |
-| S-03 | AC-03 | Identity edit | Unlock, edit first/last name, click Save. | Person/member updates succeed, edit mode closes, success toast appears. | Pass | Save path verified in component + `useMember360Data.test.ts`. |
-| S-04 | AC-04 | Identity edit | Unlock and click Cancel without edits. | Edit mode exits without confirmation dialog. | Pass | SaveActions cancel clean-path in `Member360Page.tsx`. |
-| S-05 | AC-05 | Identity edit | Unlock, modify field, click Cancel and test both dialog actions. | Discard resets/exits; Continue editing keeps form open. | Pass | `Member360Page.test.tsx` dirty cancel scenario + discard dialog flow. |
-| S-06 | AC-06 | Identity edit | Clear required first name and save. | Save blocked with required error message. | Pass | `member360.validation.test.ts`. |
-| S-07 | AC-07 | Identity edit | Set date of birth to future date and save. | Save blocked with DOB-future validation error. | Pass | `member360.validation.test.ts`. |
-| S-08 | AC-08 | Identity edit | Set Valid from after Valid to and save. | Save blocked with valid-range error. | Pass | `member360.validation.test.ts`. |
-| S-09 | AC-09 | Identity edit | Force `core_person` update failure on save. | Destructive toast renders; form remains open/dirty; member update not attempted. | Pass | `useMember360Data.test.ts` short-circuit on `core_person` failure. |
-| S-10 | AC-10 | `/members/:memberId` | Navigate to unknown/deleted/other-org member id. | Member-not-found page renders with back-to-members action. | Pass | `Member360Page.test.tsx` member-not-found scenario. |
-| S-11 | AC-11 | `/members/:memberId` | Open member in org A, then switch to org B where member absent. | Org-mismatch destructive alert renders with back action. | Pass | `Member360Page.test.tsx` org-mismatch scenario. |
-| S-12 | AC-12 | `/members/:memberId` | Open route without `read:page.members`. | `AccessDenied` renders in shell. | Pass | Route-level `PagePermissionGuard` in `src/App.tsx`. |
-| S-13 | AC-13 | Additional contacts | Load member with contacts and open View details. | Contacts table renders; read-only details dialog shows required fields. | Pass | Contacts table + dialog in `Member360Page.tsx`. |
-| S-14 | AC-14 | Additional contacts | Load member with zero contacts. | Additional contacts empty state renders. | Pass | Empty-state configuration in `Member360Page.tsx`. |
-| S-15 | AC-15 | Member cards | On active card, click Deactivate and confirm. | Confirmation dialog appears; card deactivates; success toast renders. | Pass | Deactivate confirmation + success path in `Member360Page.tsx`; failure test also present. |
-| S-16 | AC-16 | Member cards | On inactive card, click Reactivate. | Reactivation occurs directly; success toast renders. | Pass | Reactivate action in `Member360Page.tsx`. |
-| S-17 | AC-17 | Applications | Load member with draft and non-draft applications. | Draft excluded; non-draft rows and badge tones render correctly. | Pass | Query filter `.neq('status','draft')` in `useMember360Data.ts`. |
-| S-18 | AC-18 | Applications | Use member with no non-draft apps or no BASE permission. | Applications empty state renders. | Pass | `Member360Page.test.tsx` applications empty-state scenario. |
-| S-19 | AC-19 | Standing roles section | Click View roles button. | Navigates to `/members/:memberId/roles`. | Pass | Standing roles button in `Member360Page.tsx`. |
-| S-20 | AC-20 | Portal CTA | As non-target user with `member-profile` update, click Edit in Portal. | Opens portal edit URL in new tab with required URL shape. | Pass | `Member360Page.test.tsx` portal edit launch args. |
-| S-21 | AC-21 | Portal CTA | As non-target user with read-only `member-profile`, click View in Portal. | Opens portal view URL in new tab with required URL shape. | Pass | `Member360Page.test.tsx` portal view launch args. |
-| S-22 | AC-22 | Portal CTA | Open page as acting user matching target member. | Portal CTA is hidden regardless of permissions. | Pass | `Member360Page.test.tsx` acting-user-is-target scenario. |
-| S-23 | AC-23 | `/members/:memberId` | Click Back to members button. | Navigates to `/members`. | Pass | Back button route behavior implemented in `Member360Page.tsx`. |
-| S-24 | AC-24 | `/members/:memberId` | Load page from cold state and observe loading transitions. | Full-page loading first, then section-level loading for contacts/cards/apps. | Pass | Loading behavior in `Member360Page.tsx` + query loading props. |
-| S-25 | AC-25 | `/members/:memberId` | With org A selected, open org B member id. | Returns member-not-found UX; no cross-org leakage. | Pass | Org filters in hook + not-found/org-mismatch handling + tests. |
+| S-01 | AC-01 | `/members/:memberId` | Open Member 360 for current-org member with read permission. | Sections and identity content render in required order. | [Pass/Fail] |  |
+| S-02 | AC-02 | Identity card | Open member with `canUpdate` false and true variants. | Identity is read-only; Unlock appears only when `canUpdate` is true. | [Pass/Fail] |  |
+| S-03 | AC-03 | Identity edit | Unlock, edit first/last name, click Save. | Person/member updates succeed; edit mode closes; success toast appears. | [Pass/Fail] |  |
+| S-04 | AC-04 | Identity edit | Unlock and click Cancel without edits. | Edit mode exits without confirmation dialog. | [Pass/Fail] |  |
+| S-05 | AC-05 | Identity edit | Unlock, modify a field, click Cancel; exercise Discard and Continue editing. | Discard resets and exits; Continue editing keeps form open. | [Pass/Fail] |  |
+| S-06 | AC-06 | Identity edit | Clear required first name and save. | Save blocked with required error message. | [Pass/Fail] |  |
+| S-07 | AC-07 | Identity edit | Set date of birth to a future date and save. | Save blocked with DOB-in-future validation error. | [Pass/Fail] |  |
+| S-08 | AC-08 | Identity edit | Set Valid from after Valid to and save. | Save blocked with valid-range error. | [Pass/Fail] |  |
+| S-09 | AC-09 | Identity edit | Submit save when person update fails (simulated or forced failure). | Destructive toast; form stays open with edits; member row not updated. | [Pass/Fail] |  |
+| S-10 | AC-10 | `/members/:memberId` | Navigate to unknown, deleted, or other-org member id. | Member-not-found experience renders with back-to-members action. | [Pass/Fail] |  |
+| S-11 | AC-11 | `/members/:memberId` | Open member in org A; switch org selector to org B where member is absent. | Org-mismatch alert renders with back action. | [Pass/Fail] |  |
+| S-12 | AC-12 | `/members/:memberId` | Open route without `read:page.members`. | `AccessDenied` renders inside shell. | [Pass/Fail] | Post-build: `rbac_app_pages` row for `members` under TEAM. |
+| S-13 | AC-13 | Additional contacts | Load member with contacts; open View details on a row. | Contacts table renders; read-only details dialog shows required fields. | [Pass/Fail] |  |
+| S-14 | AC-14 | Additional contacts | Load member with zero contacts. | Additional contacts empty state renders. | [Pass/Fail] |  |
+| S-15 | AC-15 | Member cards | On active card, click Deactivate and confirm. | Confirmation dialog; card deactivates; success toast. | [Pass/Fail] |  |
+| S-16 | AC-16 | Member cards | On inactive card, click Reactivate. | Reactivates without confirmation; success toast. | [Pass/Fail] |  |
+| S-17 | AC-17 | Applications | Load member with draft and non-draft applications. | Draft excluded; non-draft rows and badge tones match requirement. | [Pass/Fail] |  |
+| S-18 | AC-18 | Applications | Member with no non-draft apps or without BASE permission. | Applications empty state renders. | [Pass/Fail] |  |
+| S-19 | AC-19 | Standing roles section | Click View roles. | Navigates to `/members/:memberId/roles`. | [Pass/Fail] |  |
+| S-20 | AC-20 | Portal CTA | As non-target user with Portal update permission, click Edit in Portal. | New tab opens to portal edit URL with required shape. | [Pass/Fail] |  |
+| S-21 | AC-21 | Portal CTA | As non-target user with Portal read-only, click View in Portal. | New tab opens to portal view URL with required shape. | [Pass/Fail] |  |
+| S-22 | AC-22 | Portal CTA | Open page when acting user is the target member. | Portal CTA hidden. | [Pass/Fail] |  |
+| S-23 | AC-23 | `/members/:memberId` | Click Back to members. | Navigates to `/members`. | [Pass/Fail] |  |
+| S-24 | AC-24 | `/members/:memberId` | Cold load page; observe loading states. | Full-page loading then section-level loading for contacts/cards/apps. | [Pass/Fail] |  |
+| S-25 | AC-25 | `/members/:memberId` | With org A selected, open id for org B member. | Member-not-found UX; no cross-org data shown. | [Pass/Fail] |  |
 
 ## Test run summary
 
-- overall result: Pass
+- overall result: [Pass | Fail]
 - failed scenarios: -
 - defect links: N/A
-- retest needed: No
+- retest needed: [Yes/No]

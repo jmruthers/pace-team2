@@ -2,10 +2,10 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useSecureSupabase } from '@solvera/pace-core/rbac';
 import { HandleSupabaseError } from '@solvera/pace-core/utils';
+import { useActiveOrganisationMembershipTypes } from '@/hooks/useActiveOrganisationMembershipTypes';
 import type {
   MemberDirectoryRow,
   MembershipStatus,
-  MembershipTypeOption,
   PendingDirectoryRow,
   TeamMemberRequestMatchRecord,
 } from '../lib/members/memberDirectory.types';
@@ -121,29 +121,7 @@ export function useMemberDirectoryData(
   membershipTypeFilter: number | null
 ) {
   const secureSupabase = useSecureSupabase() as SupabaseLike | null;
-
-  const memberTypesQuery = useQuery({
-    queryKey: ['membership-types', organisationId, 'active-only'],
-    enabled: organisationId != null && secureSupabase != null,
-    queryFn: async (): Promise<MembershipTypeOption[]> => {
-      if (organisationId == null || secureSupabase == null) {
-        return [];
-      }
-      const { data, error } = (await secureSupabase
-        .from('core_membership_type')
-        .select('id, name')
-        .eq('organisation_id', organisationId)
-        .eq('is_active', true)
-        .order('name', { ascending: true })) as {
-          data: Array<{ id: number; name: string }>;
-          error: unknown;
-        };
-      if (error != null) {
-        throw error;
-      }
-      return (data ?? []).map((row) => ({ id: row.id, name: row.name }));
-    },
-  });
+  const { memberTypes } = useActiveOrganisationMembershipTypes(organisationId);
 
   const membersQuery = useQuery({
     queryKey: ['members', 'active', organisationId, membershipTypeFilter ?? 'all'],
@@ -260,7 +238,7 @@ export function useMemberDirectoryData(
   }, [pendingQuery.error, pendingQuery.isError]);
 
   return {
-    memberTypes: memberTypesQuery.data ?? [],
+    memberTypes,
     members: membersQuery.data ?? [],
     pendingMembers: pendingQuery.data ?? [],
     membersLoading: membersQuery.isLoading,

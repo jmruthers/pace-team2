@@ -35,6 +35,7 @@ vi.mock('@solvera/pace-core/components', () => ({
   Alert: ({ children }: { children: ReactNode }) => <section>{children}</section>,
   AlertTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
   AlertDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
+  Avatar: ({ name }: { name: string }) => <span data-testid="avatar">{name}</span>,
   Badge: ({ children }: { children: ReactNode }) => <span>{children}</span>,
   Button: ({ children }: { children: ReactNode }) => <button type="button">{children}</button>,
   Card: ({ children }: { children: ReactNode }) => <section>{children}</section>,
@@ -53,6 +54,7 @@ const baseRequest: ApprovalRequestRow = {
   createdAt: null,
   resolvedAt: null,
   targetOrganisationId: null,
+  targetOrganisationName: null,
   sourceOrganisationId: null,
   membershipTypeId: null,
   membershipTypeName: null,
@@ -109,7 +111,13 @@ describe('ApprovalReviewPanel access and visibility', () => {
   it('hides action rail when request is not pending', () => {
     useResourcePermissionsMock.mockReturnValue({ canUpdate: true });
     useApprovalRequestDetailMock.mockReturnValue({
-      request: { ...baseRequest, status: 'approved' as const },
+      request: {
+        ...baseRequest,
+        status: 'approved' as const,
+        resolvedAt: '2026-05-01T00:00:00.000Z',
+        resolverFirstName: 'Alice',
+        resolverLastName: 'Reviewer',
+      },
       requestLoading: false,
       requestErrorMessage: null,
       formResponses: [],
@@ -126,7 +134,7 @@ describe('ApprovalReviewPanel access and visibility', () => {
     );
 
     expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull();
-    expect(screen.getByText('Read-only request')).toBeTruthy();
+    expect(screen.getByText(/Approved by Alice Reviewer on/u)).toBeTruthy();
   });
 
   it('shows member 360 link only when subject member exists and is not deleted', () => {
@@ -152,7 +160,7 @@ describe('ApprovalReviewPanel access and visibility', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('link', { name: 'View member 360' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /View member 360/u })).toBeTruthy();
 
     useApprovalRequestDetailMock.mockReturnValue({
       request: {
@@ -175,6 +183,6 @@ describe('ApprovalReviewPanel access and visibility', () => {
       </MemoryRouter>
     );
 
-    expect(screen.queryByRole('link', { name: 'View member 360' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /View member 360/u })).toBeNull();
   });
 });

@@ -35,9 +35,12 @@ vi.mock('@solvera/pace-core/providers', () => ({
   }),
 }));
 
+let allowMembersPageRead = true;
+
 vi.mock('@solvera/pace-core/rbac', () => ({
   AccessDenied: () => <p>Denied</p>,
-  PagePermissionGuard: ({ children }: { children: ReactNode }) => <>{children}</>,
+  PagePermissionGuard: ({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) =>
+    allowMembersPageRead ? <>{children}</> : <>{fallback ?? null}</>,
   useResourcePermissions: (resource: string) => {
     if (resource === 'members') {
       return { canUpdate: memberPermissionCanUpdate, canRead: true };
@@ -234,11 +237,13 @@ function baseHookState() {
   };
 }
 
-function renderPage() {
+function renderPage(initialPath = '/members/member-1') {
   return render(
-    <MemoryRouter initialEntries={['/members/member-1']}>
+    <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
         <Route path="/members/:memberId" element={<Member360Page />} />
+        <Route path="/members/:memberId/roles" element={<article>Standing roles route</article>} />
+        <Route path="/members" element={<article>Members directory route</article>} />
       </Routes>
     </MemoryRouter>
   );
@@ -252,6 +257,7 @@ describe('Member360Page', () => {
     memberPermissionCanUpdate = true;
     portalPermissionCanRead = true;
     portalPermissionCanUpdate = true;
+    allowMembersPageRead = true;
     formIsDirty = false;
     launchMemberProfileMock.mockReset();
     toastMock.mockReset();
@@ -369,5 +375,31 @@ describe('Member360Page', () => {
     renderPage();
 
     expect(screen.getByText('No applications recorded.')).toBeTruthy();
+  });
+
+  it('navigates to standing roles route when View roles is clicked', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /View roles/u }));
+
+    expect(screen.getByText('Standing roles route')).toBeTruthy();
+  });
+
+  it('navigates to members directory when Back to members is clicked', async () => {
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(screen.getByRole('button', { name: /Back to members/u }));
+
+    expect(screen.getByText('Members directory route')).toBeTruthy();
+  });
+
+  it('shows access denied fallback when members page guard denies read', () => {
+    allowMembersPageRead = false;
+    renderPage();
+
+    expect(screen.getByText('Denied')).toBeTruthy();
+    expect(screen.queryByText(/Ava Adams/)).toBeNull();
   });
 });

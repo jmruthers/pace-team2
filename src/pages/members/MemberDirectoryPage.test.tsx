@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { MemberDirectoryPage } from './MemberDirectoryPage';
@@ -108,26 +108,24 @@ vi.mock('@/lib/members/memberDirectory.columns', () => ({
   buildPendingColumns: () => [],
 }));
 
-vi.mock('@/hooks/useMemberDirectoryData', () => ({
-  useMemberDirectoryData: (...args: unknown[]) => {
-    useMemberDirectoryDataMock(...args);
-    return {
-      memberTypes: [{ id: 1, name: 'Adult' }],
-    members: [
-      {
-        id: 'member-1',
-        personId: 'person-1',
-        membershipNumber: 'A001',
-        membershipStatus: 'Active',
-        membershipTypeId: 1,
-        membershipTypeName: 'Adult',
-        organisationId: 'org-1',
-        firstName: 'Ava',
-        lastName: 'Adams',
-        preferredName: null,
-        email: 'ava@example.com',
-      },
-    ],
+const sampleMemberRow = {
+  id: 'member-1',
+  personId: 'person-1',
+  membershipNumber: 'A001',
+  membershipStatus: 'Active',
+  membershipTypeId: 1,
+  membershipTypeName: 'Adult',
+  organisationId: 'org-1',
+  firstName: 'Ava',
+  lastName: 'Adams',
+  preferredName: null,
+  email: 'ava@example.com',
+};
+
+function createMemberDirectoryDataReturn(overrides: Record<string, unknown> = {}) {
+  return {
+    memberTypes: [{ id: 1, name: 'Adult' }],
+    members: [sampleMemberRow],
     pendingMembers: [],
     membersLoading: false,
     pendingLoading: false,
@@ -135,7 +133,17 @@ vi.mock('@/hooks/useMemberDirectoryData', () => ({
     pendingErrorMessage: null,
     refetchMembers: vi.fn(),
     refetchPending: vi.fn(),
-    };
+    ...overrides,
+  };
+}
+
+let resolveMemberDirectoryData: () => ReturnType<typeof createMemberDirectoryDataReturn> = () =>
+  createMemberDirectoryDataReturn();
+
+vi.mock('@/hooks/useMemberDirectoryData', () => ({
+  useMemberDirectoryData: (...args: unknown[]) => {
+    useMemberDirectoryDataMock(...args);
+    return resolveMemberDirectoryData();
   },
 }));
 
@@ -173,6 +181,7 @@ describe('MemberDirectoryPage picker mode', () => {
     cleanup();
     allowPageRead = true;
     currentOrganisation = { id: 'org-1' };
+    resolveMemberDirectoryData = () => createMemberDirectoryDataReturn();
     useMemberDirectoryDataMock.mockReset();
     window.sessionStorage.clear();
     vi.mocked(toast).mockClear();
@@ -274,5 +283,40 @@ describe('MemberDirectoryPage picker mode', () => {
     expect(lastCall).toBeDefined();
     expect(lastCall?.[0]).toBe('org-1');
     expect(lastCall?.[1]).toBe(1);
+  });
+});
+
+describe('MemberDirectoryPage members fetch error', () => {
+  beforeEach(() => {
+    cleanup();
+    allowPageRead = true;
+    currentOrganisation = { id: 'org-1' };
+    useMemberDirectoryDataMock.mockReset();
+    window.sessionStorage.clear();
+    vi.mocked(toast).mockClear();
+  });
+
+  it('renders Retry and calls refetchMembers when Retry is clicked', async () => {
+    const user = userEvent.setup();
+    const refetchMembers = vi.fn();
+    resolveMemberDirectoryData = () =>
+      createMemberDirectoryDataReturn({
+        membersErrorMessage: 'Query failed',
+        members: [],
+        refetchMembers,
+      });
+
+    renderRoute('/members');
+
+    expect(screen.getByText('Could not load members')).toBeTruthy();
+    expect(screen.getByText('Query failed')).toBeTruthy();
+
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+
+    expect(refetchMembers).toHaveBeenCalled();
+  });
+
+  afterEach(() => {
+    resolveMemberDirectoryData = () => createMemberDirectoryDataReturn();
   });
 });

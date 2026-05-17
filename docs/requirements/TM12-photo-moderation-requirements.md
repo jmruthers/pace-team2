@@ -10,7 +10,7 @@ Depends on:      TEAM-01 (app shell, ToastProvider, AuthenticatedShell, navItems
 Backend impact:  Schema changes (upstream platform: RBAC-checked SELECT + DELETE RLS policies on core_file_references; recommended data_moderation_photo_list RPC). The slice does not author the migration.
 Frontend impact: UI
 Routes owned:    /moderation/photos
-QA pack:         docs/test-packs/TEAM-12-qa-pack.md
+QA pack:         docs/test-packs/TM12-qa-pack.md
 ```
 
 ---
@@ -463,7 +463,7 @@ The RBAC-checked SELECT and DELETE policies on `core_file_references` are upstre
 | `files` | Private (5 MB limit) | `is_public = false` rows: signed URL via `useFileDisplay`; storage delete via `deleteAttachment`. |
 | `public-files` | Public (10 MB limit) | `is_public = true` rows: public URL via `useFileDisplay`; storage delete via `deleteAttachment`. |
 
-### Dev-db verification (project: `rkytnffgmwnnmewevqgp`)
+### Dev-db catalogue snapshot (historic capture preview dev ref; MCP `execute_sql` uses `yihzsfcceciimdoiibif` — [`npm run mcp:verification`](../../package.json))
 
 Verified 2026-05-04 via Supabase MCP:
 
@@ -641,7 +641,7 @@ Given two moderators click Remove on the same row at the same time, when the sec
 - Confirm the bucket passed to `useFileDisplay` and to the `AttachmentLifecycleAdapter` is selected per row by `row.is_public ? 'public-files' : 'files'`.
 - Confirm the row Remove action and the Preview dialog Remove button are conditioned on `useResourcePermissions('moderation-photos').canDelete`.
 - Confirm the Preview dialog never shows `file_path`; only the row `id`, member name, and metadata fields listed in AC-06.
-- Against dev-db (`rkytnffgmwnnmewevqgp`):
+- Against MCP verification project (`yihzsfcceciimdoiibif`; [`npm run mcp:verification`](../../package.json); [`docs/delivery/mcp-verification-preflight-queries.md`](../delivery/mcp-verification-preflight-queries.md)):
   - Confirm the RBAC-checked SELECT policy on `public.core_file_references` for `read:page.moderation-photos` is present and uses `data_check_rbac_permission_with_context(... , data_get_app_id('TEAM'))`.
   - Confirm the RBAC-checked DELETE policy on `public.core_file_references` for `delete:page.moderation-photos` is present and uses the same helper.
   - Confirm the `data_moderation_photo_list(p_organisation_id uuid)` RPC exists and returns the joined row shape described in §7 (including `member_display_name`, `created_by_display_name`).

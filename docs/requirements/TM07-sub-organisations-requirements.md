@@ -10,7 +10,7 @@ Depends on:      TEAM-01 (app shell, ToastProvider, AuthenticatedShell, navItems
 Backend impact:  Schema changes (upstream platform: RBAC-checked INSERT/UPDATE RLS policies on core_organisations; AFTER INSERT trigger seeding core_organisation_app_access)
 Frontend impact: UI
 Routes owned:    /settings/organisations
-QA pack:         docs/test-packs/TEAM-07-qa-pack.md
+QA pack:         docs/test-packs/TM07-qa-pack.md
 ```
 
 ---
@@ -451,7 +451,7 @@ This slice does not publish any types, hooks, or services for other slices to im
 | `public.core_organisation_app_access` | n/a (server-side trigger only) | seeded by `AFTER INSERT` trigger; not read or written by this slice |
 | `public.org_ancestors` | n/a (server-side trigger only) | maintained by `trg_core_organisations_org_ancestors`; never read or written by this slice |
 
-### Dev-db verification (project: `rkytnffgmwnnmewevqgp`)
+### Dev-db catalogue snapshot (historic capture preview dev ref; MCP `execute_sql` uses `yihzsfcceciimdoiibif` — [`npm run mcp:verification`](../../package.json))
 
 Verified 2026-05-04 via Supabase MCP:
 
@@ -561,52 +561,68 @@ A canonical `rbac_app_pages` row for `pageName = 'organisations'` (with `scope_t
 
 ## §11 Acceptance criteria
 
-**AC-01 — Page entry, authenticated org admin with `read`**
+- [ ] **AC-01 — Page entry, authenticated org admin with `read`**
+
 Given a user is authenticated and has `read:page.organisations` on their current organisation, when they navigate to `/settings/organisations`, then the page renders with title "Sub-organisations" and a DataTable showing the direct children of the current organisation sorted by display name ascending.
 
-**AC-02 — Empty list**
+- [ ] **AC-02 — Empty list**
+
 Given the current organisation has zero direct children, when the page loads, then the DataTable shows the empty placeholder "No sub-organisations yet. Create one below." and the "+ New sub-organisation" button is visible (provided the user has create permission).
 
-**AC-03 — Create — happy path**
+- [x] **AC-03 — Create — happy path**
+
 Given a user has `create:page.organisations` and the editor is open with valid `Internal name`, `Display name`, and an empty `Description`, when they submit "Create sub-organisation", then the dialog closes, a success toast "Sub-organisation created." is shown, and a new row appears in the table at the correct alphabetical position by display name.
 
-**AC-04 — Create — duplicate name**
+- [x] **AC-04 — Create — duplicate name**
+
 Given a user submits Create with a `name` that already exists somewhere in `core_organisations`, when the server returns Postgres 23505, then the dialog stays open with an inline destructive `Alert` reading "An organisation with this name already exists. Names must be unique across the platform.", and the `name` field shows a matching field-level error.
 
-**AC-05 — Create — required field validation**
+- [x] **AC-05 — Create — required field validation**
+
 Given a user submits Create with empty `Internal name`, when the form validates, then submit is blocked, an inline destructive `Alert` "Please fix the errors below." appears at the top of the dialog body, and the `Internal name` field shows "Internal name is required."
 
-**AC-06 — Edit — happy path**
+- [x] **AC-06 — Edit — happy path**
+
 Given a user has `update:page.organisations` and opens Edit on a row, when they change `Display name` and submit "Save changes", then the dialog closes, a success toast "Sub-organisation updated." is shown, and the row's Display name column reflects the new value.
 
-**AC-07 — Edit — name read-only**
+- [x] **AC-07 — Edit — name read-only**
+
 Given a user opens Edit on a row, when the dialog renders, then the `Internal name` field is disabled and the helper text reads "Internal names cannot be changed after create."
 
-**AC-08 — Edit — deactivate (no cascade)**
+- [ ] **AC-08 — Edit — deactivate (no cascade)**
+
 Given a user toggles `Active` to off on the Edit dialog and submits, when the update completes, then the row's Status column shows "Inactive", and (verified separately) the child organisation's members and `core_organisation_app_access` rows are unchanged.
 
-**AC-09 — Permission denied — page**
+- [ ] **AC-09 — Permission denied — page**
+
 Given a user is authenticated but lacks `read:page.organisations`, when they navigate to `/settings/organisations`, then `<AccessDenied />` is shown inside PaceMain with copy "You do not have permission to view this page.", and the shell header and footer remain visible.
 
-**AC-10 — Permission denied — create button hidden**
+- [x] **AC-10 — Permission denied — create button hidden**
+
 Given a user lacks `create:page.organisations` but has `read`, when the page loads, then the "+ New sub-organisation" button is not rendered anywhere on the page.
 
-**AC-11 — Permission denied — edit action hidden**
+- [x] **AC-11 — Permission denied — edit action hidden**
+
 Given a user lacks `update:page.organisations` but has `read`, when the page loads, then no row's action menu shows an Edit action.
 
-**AC-12 — Org-context switch closes open editor**
+- [x] **AC-12 — Org-context switch closes open editor**
+
 Given the Edit dialog is open and a user switches the current organisation via the header org selector, when the org changes, then the dialog closes silently, a default-variant toast "Editing cancelled — organisation changed." appears, and the table refetches against the new parent organisation.
 
-**AC-13 — Sort, search, pagination**
+- [ ] **AC-13 — Sort, search, pagination**
+
 Given the table contains more than 25 child organisations, when the user uses the search input, sort headers, and pagination controls, then the search filters by `name` and `display_name` substring, sorts apply per column, and pagination defaults to 25 rows per page with options [10, 25, 50].
 
-**AC-14 — Status filter**
+- [ ] **AC-14 — Status filter**
+
 Given the table contains both active and inactive children, when the user reveals the column filter row and filters Status to Active, then only rows with `is_active === true` are shown; switching to Inactive shows only `is_active === false` rows.
 
-**AC-15 — Network failure on save**
+- [x] **AC-15 — Network failure on save**
+
 Given a user submits Create or Edit and the server returns a non-23505 error (network or 5xx), when the error fires, then the dialog stays open and a destructive toast "Could not save sub-organisation" with the normalised error message is shown.
 
-**AC-16 — Parent organisation indicator**
+- [ ] **AC-16 — Parent organisation indicator**
+
 Given a user opens the Edit dialog on a row, when the dialog renders, then a read-only "Parent organisation" row at the top of the body shows the parent organisation's display name (the current organisation's `display_name`), and no control to change `parent_id` is rendered.
 
 ---
@@ -619,7 +635,7 @@ Given a user opens the Edit dialog on a row, when the dialog renders, then a rea
 - Confirm the INSERT payload includes `name`, `display_name`, `description` (or `null`), and `parent_id` only — no `is_active`, no audit columns, no branding columns.
 - Confirm UPDATE payloads include only `display_name`, `description` (or `null`), `is_active` — no `name`, no `parent_id`.
 - Confirm the toolbar "+ New sub-organisation" button is conditioned on `useResourcePermissions('organisations').canCreate`; confirm the row Edit action is conditioned on `.canUpdate`.
-- Against dev-db (`rkytnffgmwnnmewevqgp`):
+- Against MCP verification project (`yihzsfcceciimdoiibif`; [`npm run mcp:verification`](../../package.json); [`docs/delivery/mcp-verification-preflight-queries.md`](../delivery/mcp-verification-preflight-queries.md)):
   - Confirm RBAC-checked INSERT and UPDATE policies on `public.core_organisations` for `pageName` `organisations` are present and use `data_check_rbac_permission_with_context(... , data_get_app_id('TEAM'))`.
   - Confirm the `AFTER INSERT` trigger on `public.core_organisations` seeds `public.core_organisation_app_access` for the new child from the parent.
   - Confirm `rbac_app_pages` has a row for `pageName = 'organisations'` with `scope_type = 'organisation'` and the TEAM `app_id` (post-build seeding may handle this; if absent, the slice's affordances will be hidden because `useResourcePermissions` returns false — note as a known seeding gap, not a code defect).

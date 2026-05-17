@@ -10,6 +10,7 @@ export interface ApprovalRequestRow extends Record<string, unknown> {
   createdAt: string | null;
   resolvedAt: string | null;
   targetOrganisationId: string | null;
+  targetOrganisationName: string | null;
   sourceOrganisationId: string | null;
   membershipTypeId: string | null;
   membershipTypeName: string | null;
@@ -40,4 +41,6 @@ export interface ResolveRequestPayload {
   status: 'approved' | 'rejected' | 'on_hold';
   reviewNotes?: string | null;
   memberNumber?: string | null;
+  /** Optional; used for approve success toast copy only (not sent to RPC). */
+  applicantDisplayNameForToast?: string | null;
 }

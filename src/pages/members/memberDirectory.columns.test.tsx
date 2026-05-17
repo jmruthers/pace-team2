@@ -85,14 +85,16 @@ describe('memberDirectory.columns', () => {
     expect(onPrimaryAction).toHaveBeenCalledWith(baseRow);
   });
 
-  it('includes required searchable person fields and removes membership column filter hook', () => {
+  it('includes BR-05 searchable fields including last name and membership number', () => {
     const columns = buildMemberColumns({
       pickerMode: false,
       onPrimaryAction: vi.fn(),
     });
 
     const searchableIds = columns.filter((column) => column.searchable === true).map((column) => column.id);
-    expect(searchableIds).toEqual(expect.arrayContaining(['firstName', 'preferredName', 'email']));
+    expect(searchableIds).toEqual(
+      expect.arrayContaining(['lastName', 'firstName', 'preferredName', 'email', 'membershipNumber'])
+    );
 
     const membershipTypeColumn = columns.find((column) => column.id === 'membershipTypeName');
     expect(membershipTypeColumn?.enableColumnFilter).not.toBe(true);

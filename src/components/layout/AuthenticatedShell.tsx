@@ -13,6 +13,7 @@ import {
 } from '@solvera/pace-core/components';
 import type { NavigationItem } from '@solvera/pace-core/components';
 import { useUnifiedAuth } from '@solvera/pace-core/hooks';
+import { useApprovalsOpenCount } from '@/hooks/useApprovalsData';
 
 interface AuthenticatedShellProps {
   appName: string;
@@ -23,6 +24,19 @@ export function AuthenticatedShell({ appName, navItems }: AuthenticatedShellProp
   const navigate = useNavigate();
   const { isLoading, user, selectedOrganisation, signOut, updatePassword } = useUnifiedAuth();
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const pendingApprovalsCount = useApprovalsOpenCount(selectedOrganisation?.id ?? null);
+
+  const navItemsWithApprovalsBadge = useMemo((): NavigationItem[] => {
+    return navItems.map((item) => {
+      if (item.id !== 'approvals') {
+        return item;
+      }
+      if (pendingApprovalsCount <= 0) {
+        return { ...item, label: 'Approvals' };
+      }
+      return { ...item, label: `Approvals (${pendingApprovalsCount})` };
+    });
+  }, [navItems, pendingApprovalsCount]);
 
   const userFullName = useMemo(() => {
     const metadataName = user?.user_metadata?.full_name;
@@ -33,7 +47,7 @@ export function AuthenticatedShell({ appName, navItems }: AuthenticatedShellProp
       return user.email;
     }
     return 'Authenticated user';
-  }, [user?.email, user?.user_metadata]);
+  }, [user]);
 
   const userEmail = user?.email ?? 'No email available';
 
@@ -57,7 +71,7 @@ export function AuthenticatedShell({ appName, navItems }: AuthenticatedShellProp
       <ToastProvider>
         <PaceAppLayout
           appName={appName}
-          navItems={navItems}
+          navItems={navItemsWithApprovalsBadge}
           userFullName={userFullName}
           userEmail={userEmail}
           onUserMenuSignOut={handleSignOut}
@@ -93,7 +107,7 @@ export function AuthenticatedShell({ appName, navItems }: AuthenticatedShellProp
     <ToastProvider>
       <PaceAppLayout
         appName={appName}
-        navItems={navItems}
+        navItems={navItemsWithApprovalsBadge}
         userFullName={userFullName}
         userEmail={userEmail}
         onUserMenuSignOut={handleSignOut}

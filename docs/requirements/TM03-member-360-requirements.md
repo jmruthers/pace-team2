@@ -10,7 +10,7 @@ Depends on:      TEAM-01 (app shell, ToastProvider, AuthenticatedShell, navItems
 Backend impact:  Read contract only (mutations on core_person, core_member, core_member_card use the live check_user_is_org_admin(organisation_id) RLS gate already in place on dev — no migration required for v1; Portal CTA wiring depends on the CR24 helper landing in pace-core2 — see §15)
 Frontend impact: UI
 Routes owned:    /members/:memberId
-QA pack:         docs/test-packs/TEAM-03-qa-pack.md
+QA pack:         docs/test-packs/TM03-qa-pack.md
 ```
 
 ---
@@ -803,7 +803,7 @@ UNIQUE constraint: `(event_id, person_id)` — one application per person per ev
 | `event_date` | date | YES |
 | `organisation_id` | uuid | NO |
 
-### Dev-db verification (project: `rkytnffgmwnnmewevqgp`)
+### Dev-db catalogue snapshot (historic capture preview dev ref; MCP `execute_sql` uses `yihzsfcceciimdoiibif` — [`npm run mcp:verification`](../../package.json))
 
 Every verification step here targets dev-db only.
 
@@ -907,86 +907,111 @@ Every verification step here targets dev-db only.
 
 ## §11 Acceptance criteria
 
-**AC-01 — Page entry, authenticated, has org, has read permission, member resolves.**
+- [ ] **AC-01 — Page entry, authenticated, has org, has read permission, member resolves.**
+
 Given a user is authenticated, has an org, has `read:page.members`, and navigates to `/members/:memberId` for a member of the current org, when the page loads, then the Member details card renders with the member's name as the heading, the membership status badge, the inline header-right Portal CTA region, the labelled-fields region with the twelve fields and the four contact-detail rows, followed by the Additional contacts section, Member cards section, Applications section, and Standing roles section in that order. (Traces F-01, F-02, F-04, F-20, F-21, F-22, F-54.)
 
-**AC-02 — Identity read-only.**
+- [ ] **AC-02 — Identity read-only.**
+
 Given the page has loaded for a member, when the user inspects the Member details card, then no field is editable; the Unlock button renders only when `useResourcePermissions('members').canUpdate === true`. (Traces F-21, F-27, F-64.)
 
-**AC-03 — Identity Unlock and Save happy path.**
+- [ ] **AC-03 — Identity Unlock and Save happy path.**
+
 Given the user has `useResourcePermissions('members').canUpdate === true` and clicks Unlock, when they change First name to "Jane", change Last name to "Doe", and click Save, then the slice runs `UPDATE core_person SET first_name='Jane', last_name='Doe', ... WHERE id = core_member.person_id` followed by `UPDATE core_member SET ... WHERE id = :memberId`, both succeed, the form closes, the Member details card refreshes with the new values, and a `success` toast renders with copy "Member saved." (Traces F-27, F-28, F-29, BR-G.)
 
-**AC-04 — Identity Cancel — clean.**
+- [ ] **AC-04 — Identity Cancel — clean.**
+
 Given the user has clicked Unlock and made no changes, when they click Cancel, then edit mode exits silently (no confirmation dialog). (Traces F-30, BR-D.)
 
-**AC-05 — Identity Cancel — dirty triggers Discard confirm.**
+- [x] **AC-05 — Identity Cancel — dirty triggers Discard confirm.**
+
 Given the user has clicked Unlock and changed at least one field, when they click Cancel, then a `ConfirmationDialog` opens with title "Discard unsaved changes?", description "Your edits will not be saved.", confirm "Discard" (destructive variant), cancel "Continue editing". Clicking Discard exits edit mode and resets fields; clicking "Continue editing" leaves the form in edit mode. (Traces F-31, BR-D.)
 
-**AC-06 — Identity field validation — required.**
+- [x] **AC-06 — Identity field validation — required.**
+
 Given the user is in edit mode, when they clear First name and click Save, then the form blocks submission and renders the error "First name is required." (Traces F-29, BR-E.)
 
-**AC-07 — Identity field validation — date_of_birth in future.**
+- [x] **AC-07 — Identity field validation — date_of_birth in future.**
+
 Given the user is in edit mode, when they enter a Date of birth one day in the future and click Save, then the form blocks submission and renders the error "Date of birth cannot be in the future." (Traces BR-E.)
 
-**AC-08 — Identity field validation — valid_to before valid_from.**
+- [x] **AC-08 — Identity field validation — valid_to before valid_from.**
+
 Given the user is in edit mode and has entered Valid from = "2026-05-01", when they enter Valid to = "2026-04-30" and click Save, then the form blocks submission and renders the error "Valid to must be on or after Valid from." (Traces BR-E.)
 
-**AC-09 — Identity Save error.**
+- [x] **AC-09 — Identity Save error.**
+
 Given the user is in edit mode and clicks Save, when the `core_person` UPDATE fails (for example RLS deny), then a `destructive` toast renders with the normalised `HandleSupabaseError` message, the form remains open and dirty, and no `core_member` UPDATE is attempted. (Traces F-16, BR-F.)
 
-**AC-10 — Member-not-found UX.**
+- [x] **AC-10 — Member-not-found UX.**
+
 Given a user navigates to `/members/:memberId` for an id that does not exist, is deleted, or belongs to another organisation, when the page renders, then the page replaces its content with the heading "Member not found", description "We couldn't find this member in your current organisation.", and a "← Back to members" button that navigates to `/members`. (Traces F-10, BR-A.)
 
-**AC-11 — Org-mismatch on org switch.**
+- [x] **AC-11 — Org-mismatch on org switch.**
+
 Given the user is on `/members/:memberId` for a member of org A, when they switch the org context to org B, then the page replaces its content with a destructive `Alert` titled "This member is not in the current organisation", description "Switch back, or return to the members directory.", and a "Back to members" button navigating to `/members`. (Traces F-19, BR-W.)
 
-**AC-12 — Permission denied — read.**
+- [ ] **AC-12 — Permission denied — read.**
+
 Given a user is authenticated and has org context but lacks `read:page.members`, when they navigate to `/members/:memberId`, then `<AccessDenied />` renders inside the `AuthenticatedShell` chrome with copy "You do not have permission to view this page." (Traces F-18, F-63.)
 
-**AC-13 — Additional contacts list and modal.**
+- [ ] **AC-13 — Additional contacts list and modal.**
+
 Given the member has at least one `core_contact` row with `core_contact.person_id = core_member.person_id`, when the page loads, then the Additional contacts section renders a `DataTable` with columns Name, Type, Tier, Actions, and clicking the View details action on a row opens a read-only `Dialog` showing the contact's name + type badge in the header and Tier, Phones, Email, Residential address, Postal address rows in the body, with a single Close button. (Traces F-33, F-37, F-39, BR-I.)
 
-**AC-14 — Additional contacts empty state.**
+- [ ] **AC-14 — Additional contacts empty state.**
+
 Given the member has zero `core_contact` rows, when the page loads, then the Additional contacts section renders the empty state with heading "No additional contacts recorded." and no CTA. (Traces F-11.)
 
-**AC-15 — Member cards Deactivate happy path.**
+- [ ] **AC-15 — Member cards Deactivate happy path.**
+
 Given the user has `useResourcePermissions('members').canUpdate === true` and the member has a card with `is_active === true` and `card_identifier = "PACE-12345"`, when the user clicks the Deactivate row action, the `ConfirmationDialog` opens with title "Deactivate card?", description "PACE-12345 will no longer scan as an active card. You can reactivate it later.", confirm "Deactivate" (destructive); when they click Confirm, the slice runs `UPDATE core_member_card SET is_active = false WHERE id = card.id`, the dialog closes, the cards section refreshes, and a `success` toast renders with copy "PACE-12345 deactivated." (Traces F-46, BR-N.)
 
-**AC-16 — Member cards Reactivate is direct.**
+- [ ] **AC-16 — Member cards Reactivate is direct.**
+
 Given the user has `canUpdate === true` and the member has a card with `is_active === false`, when the user clicks the Reactivate row action, then the slice runs `UPDATE core_member_card SET is_active = true WHERE id = card.id` directly with no confirmation dialog, and on success the cards section refreshes and a `success` toast renders with copy "{card_identifier} reactivated." (Traces F-47.)
 
-**AC-17 — Applications list with status filter.**
+- [ ] **AC-17 — Applications list with status filter.**
+
 Given the member has applications including one with `status = 'draft'` and three with `status IN ('submitted','approved','rejected')`, when the page loads, then the Applications section renders three rows (the draft excluded) in the columns Event name, Event date, Status, with status badges showing "Submitted" (default tone), "Approved" (success tone), "Rejected" (destructive tone). (Traces F-49, F-50, F-51, F-52, BR-O, BR-P.)
 
-**AC-18 — Applications empty state when no rows or no BASE permission.**
+- [x] **AC-18 — Applications empty state when no rows or no BASE permission.**
+
 Given either the member has zero non-draft applications in the current org, or the staff lacks BASE `read:page.applications` (so RLS returns zero rows), when the page loads, then the Applications section renders the empty state with heading "No applications recorded." (Traces F-13, BR-Q.)
 
-**AC-19 — Standing roles cross-slice link.**
+- [ ] **AC-19 — Standing roles cross-slice link.**
+
 Given the page has loaded, when the user looks at the bottom of the page, then a section heading "Standing roles" renders with a "View roles ›" outline button beneath; clicking the button navigates to `/members/:memberId/roles`. (Traces F-54, BR-V.)
 
-**AC-20 — Portal CTA — Edit in Portal.**
+- [x] **AC-20 — Portal CTA — Edit in Portal.**
+
 Given the acting user is NOT the target member, has `useResourcePermissions('member-profile').canUpdate === true`, and the CR24 helper is available, when the user clicks "Edit in Portal" on the Identity card, then the slice invokes `launchMemberProfile({ portalOrigin: import.meta.env.VITE_PORTAL_ORIGIN, mode: 'edit', memberId: core_member.id })`, which opens `{portalOrigin}/profile/edit/{memberId}` in a new tab with no `returnUrl` and no `organisation_id` query param. (Traces F-55, BR-R, BR-S, BR-U.)
 
-**AC-21 — Portal CTA — View in Portal.**
+- [x] **AC-21 — Portal CTA — View in Portal.**
+
 Given the acting user is NOT the target member, has `useResourcePermissions('member-profile').canRead === true` AND `canUpdate === false`, and the CR24 helper is available, when the user clicks "View in Portal", then the slice invokes `launchMemberProfile({ ..., mode: 'view', memberId: core_member.id })`, which opens `{portalOrigin}/profile/view/{memberId}` in a new tab. (Traces F-56, BR-R.)
 
-**AC-22 — Portal CTA hidden when acting user IS target.**
+- [x] **AC-22 — Portal CTA hidden when acting user IS target.**
+
 Given the acting user's id equals the target member's `core_person.user_id`, when the page loads, then no Portal CTA renders regardless of `useResourcePermissions('member-profile')` values. (Traces F-57, F-65, BR-Z.)
 
-**AC-23 — Back to members button.**
+- [ ] **AC-23 — Back to members button.**
+
 Given the page has loaded, when the user clicks the "← Back to members" button at top-left of the `PaceMain` content area, then the app navigates to `/members`. (Traces F-05.)
 
-**AC-24 — Initial loading is full-page; section loading is per-section.**
+- [ ] **AC-24 — Initial loading is full-page; section loading is per-section.**
+
 Given the user navigates to `/members/:memberId`, when the initial member query is in flight, then a full-page `<LoadingSpinner />` renders inside the `PaceMain` content area; once the member resolves, the page renders with each of the contacts / cards / applications sections showing its own section-level `<LoadingSpinner />` until that section's query completes. (Traces F-07, F-08.)
 
-**AC-25 — Cross-org leakage prevention.**
+- [ ] **AC-25 — Cross-org leakage prevention.**
+
 Given a member exists in org B but not in org A, when the user is signed in with org A selected and navigates to `/members/<orgB-member-id>`, then the member fetch returns zero rows (RLS deny + defensive filter) and the page renders the "Member not found" UX. (Traces F-74, F-75.)
 
 ---
 
 ## §12 Verification
 
-- **MCP test — RLS authority on `core_member` UPDATE.** Against dev-db (`rkytnffgmwnnmewevqgp`), as a user with `org_admin` on org A, run `UPDATE core_member SET membership_number = 'TEST-001' WHERE id = <orgA-member-id>` and confirm success; repeat as a user without `org_admin` and confirm the row count is zero (RLS deny).
+- **MCP test — RLS authority on `core_member` UPDATE.** Against MCP verification project (`yihzsfcceciimdoiibif`; [`npm run mcp:verification`](../../package.json); [`docs/delivery/mcp-verification-preflight-queries.md`](../delivery/mcp-verification-preflight-queries.md)), as a user with `org_admin` on org A, run `UPDATE core_member SET membership_number = 'TEST-001' WHERE id = <orgA-member-id>` and confirm success; repeat as a user without `org_admin` and confirm the row count is zero (RLS deny).
 - **MCP test — `core_contact.permission_type` shape.** Confirm via `pg_constraint` that `core_contact_permission_type_check` is `CHECK ((permission_type = ANY (ARRAY['full', 'notify', 'none'])))` and that the column is `text NOT NULL`. Confirm there is no Postgres enum named `core_contact_access_level` on dev.
 - **MCP test — `pace_membership_status` enum.** Confirm the enum has exactly six values: `Provisional`, `Active`, `Suspended`, `Lapsed`, `Resigned`, `Revoked`.
 - **MCP test — `core_contact_type` seed.** Confirm six rows: Parent / Guardian, Carer, Spouse/Partner, Family, Friend, Other.
@@ -1020,7 +1045,7 @@ Otherwise, n/a — standard PDLC quality gates apply.
 - Do not implement card insert / delete / identifier mutation. The Member cards surface is Deactivate / Reactivate only.
 - Do not implement event-registration detail editing or `base_event_registration` reads. Member 360 reads `base_application` only.
 - Do not implement self-service editing for the target member. When the acting user IS the target, all Portal CTAs are hidden; the target edits via Portal directly.
-- Do not query production database during build or test. All MCP verification targets dev-db only (`rkytnffgmwnnmewevqgp`).
+- Do not query production database during build or test. All MCP catalogue checks use verified-contract project `yihzsfcceciimdoiibif` ([`npm run mcp:verification`](../../package.json)); preview `SUPABASE_PROJECT_REF` remains for browser/app connectivity only.
 - Do not pass a `scope` prop to `PagePermissionGuard`.
 - Do not import from internal `packages/core/src/*` paths — use published sub-paths only.
 - Do not introduce a custom Portal URL builder. Use `buildMemberProfileLaunchUrl` / `launchMemberProfile` from `@solvera/pace-core/member-profile-launch`. If the helper has not shipped, gate the Portal CTA per §15 — do not roll a local equivalent.
@@ -1050,7 +1075,7 @@ Otherwise, n/a — standard PDLC quality gates apply.
 - **Do not pass a `scope` prop to `PagePermissionGuard`.** Scope is resolved internally from `OrganisationServiceProvider`.
 - **Do not patch audit columns** (`created_at`, `updated_at`, `created_by`, `updated_by`) from the client.
 - **Do not import from internal `packages/core/src/*` paths.** Use published sub-paths only.
-- **Do not run any verification or smoke test against production.** Dev-db only (`rkytnffgmwnnmewevqgp`).
+- **Do not run any verification or smoke test against production.** Non-prod only: MCP catalogue queries use verified-contract project `yihzsfcceciimdoiibif` ([`npm run mcp:verification`](../../package.json)); browser/runtime uses `SUPABASE_PROJECT_REF`.
 - **Do not introduce optimistic locking or `updated_at` watermark checks.** Concurrency is last-write-wins for v1.
 - **Do not show participant draft applications** (`base_application.status = 'draft'`) in the Applications section.
 

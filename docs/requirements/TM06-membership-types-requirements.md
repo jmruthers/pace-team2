@@ -10,7 +10,7 @@ Depends on:      TEAM-01
 Backend impact:  Read contract only (RLS INSERT/UPDATE policies on core_membership_type are upstream platform work — see §15 implementation gate)
 Frontend impact: UI
 Routes owned:    /settings/membership-types
-QA pack:         docs/test-packs/TEAM-06-qa-pack.md
+QA pack:         docs/test-packs/TM06-qa-pack.md
 ```
 
 ---
@@ -431,7 +431,7 @@ All writes go via `useSecureSupabase().from('core_membership_type')`. Authorisat
 
 - Primary key + the per-org uniqueness UNIQUE index above + `idx_pace_membership_type_organisation_id` (partial).
 
-### Dev-db verification (project: `rkytnffgmwnnmewevqgp`)
+### Dev-db catalogue snapshot (historic capture preview dev ref; MCP `execute_sql` uses `yihzsfcceciimdoiibif` — [`npm run mcp:verification`](../../package.json))
 
 - Confirm the column shape and constraints above via Supabase MCP `execute_sql` against the canonical dev project ID.
 - Confirm `is_active` is `NOT NULL DEFAULT true` (DB-317).
@@ -518,68 +518,87 @@ All writes go via `useSecureSupabase().from('core_membership_type')`. Authorisat
 
 ## §11 Acceptance criteria
 
-**AC-01 — Page entry, authenticated, has org, has read permission.**
+- [ ] **AC-01 — Page entry, authenticated, has org, has read permission.**
+
 Given a user is authenticated, has an org, and has `read:page.membership-types`, when they navigate to `/settings/membership-types`, then the page renders the title "Membership types" and the table of all membership types for the current org, regardless of `is_active`. (Traces F-01, F-02, F-04.)
 
-**AC-02 — Empty state.**
+- [ ] **AC-02 — Empty state.**
+
 Given a user enters `/settings/membership-types` for an org that has zero membership types, when the page loads, then the table renders the empty state heading "No membership types yet." and description "Create your first to start assigning members." with the **Create** button visible in the toolbar (assuming `canCreate === true`). (Traces F-07.)
 
-**AC-03 — Create membership type — happy path.**
+- [x] **AC-03 — Create membership type — happy path.**
+
 Given a user has `canCreate === true`, when they click **Create**, submit the DataTable create modal, then fill `name = "Junior"`, `min_age = 5`, `max_age = 12`, leave Active on, and submit in the slice editor dialog, then the editor closes, the new row appears in the list, and a success toast renders with copy "Membership type created." (Traces F-19, BR-04, BR-11.)
 
-**AC-04 — Edit membership type — happy path.**
+- [x] **AC-04 — Edit membership type — happy path.**
+
 Given a user has `canUpdate === true` and a saved row, when they open the Edit dialog, change `name`, and submit, then the dialog closes, the row's name updates in the list, and a success toast renders with copy "Membership type updated." (Traces F-20, BR-11.)
 
-**AC-05 — Duplicate name within current org.**
+- [x] **AC-05 — Duplicate name within current org.**
+
 Given a row named "Junior" already exists in the user's org, when the user tries to create another row with `name = "Junior"` (or "junior" — case-insensitive) and submits, then the dialog stays open, the **Name** field shows the inline error "A membership type with this name already exists in this organisation.", and no row is created. (Traces F-08, F-35, BR-03, BR-08.)
 
-**AC-06 — Min/max age validation.**
+- [x] **AC-06 — Min/max age validation.**
+
 Given a user fills `min_age = 18` and `max_age = 12`, when they submit the form, then the submit is blocked with the field-level error "Maximum age must be greater than or equal to minimum age." and no row is created or updated. (Traces F-36, BR-05.)
 
-**AC-07 — Age out of range.**
+- [x] **AC-07 — Age out of range.**
+
 Given a user fills `min_age = 200`, when they submit the form, then the submit is blocked with the field-level error "Minimum age must be between 0 and 120." (Traces BR-05.)
 
-**AC-08 — Deactivate row.**
+- [x] **AC-08 — Deactivate row.**
+
 Given a user has `canUpdate === true` and an active row, when they click Deactivate and confirm in the destructive confirmation dialog, then the row's `is_active` updates to `false`, the dialog closes, the row's badge changes to "Inactive", and a success toast renders with copy `"{name} deactivated."`. (Traces F-21, BR-10, BR-11.)
 
-**AC-09 — Deactivate cancelled.**
+- [ ] **AC-09 — Deactivate cancelled.**
+
 Given the deactivate confirmation dialog is open, when the user clicks Cancel or presses Escape, then the dialog closes with no mutation and the row remains active. (Traces BR-10.)
 
-**AC-10 — Reactivate row.**
+- [x] **AC-10 — Reactivate row.**
+
 Given a user has `canUpdate === true` and an inactive row, when they click Reactivate, then the row's `is_active` updates to `true` directly with no confirmation dialog, the row's badge changes to "Active", and a success toast renders with copy `"{name} reactivated."`. (Traces F-22, BR-10, BR-11.)
 
-**AC-11 — Permission denied — read.**
+- [x] **AC-11 — Permission denied — read.**
+
 Given a user is authenticated and has org context but lacks `read:page.membership-types`, when they navigate to `/settings/membership-types`, then `<AccessDenied />` renders with copy "You do not have permission to view this page." inside the `AuthenticatedShell` chrome. (Traces F-10, F-28.)
 
-**AC-12 — Permission denied — create / update.**
+- [x] **AC-12 — Permission denied — create / update.**
+
 Given a user has `canRead === true` but `canCreate === false` and `canUpdate === false`, when they view `/settings/membership-types`, then the **Create** button is not rendered and no row shows Edit / Deactivate / Reactivate actions. (Traces F-29, F-30, F-31.)
 
-**AC-13 — Switching organisation refreshes the list.**
+- [ ] **AC-13 — Switching organisation refreshes the list.**
+
 Given a user has the page open with rows visible for org A, when they switch the org context to org B in the header selector, then the list refetches and shows org B's rows (or the empty state). (Traces F-05, BR-01.)
 
-**AC-14 — Switching organisation while editor is open.**
+- [x] **AC-14 — Switching organisation while editor is open.**
+
 Given a user has the create or edit dialog open for org A, when they switch org context to org B, then the dialog closes silently, unsaved edits are discarded, and a `default`-variant toast renders with copy "Editing cancelled — organisation changed." (Traces F-34, BR-07, BR-11.)
 
-**AC-15 — Members count displayed.**
+- [ ] **AC-15 — Members count displayed.**
+
 Given an org has a membership type "Junior" with three `core_member` rows assigned to it for the current org, when the page loads, then the **Members** column for the "Junior" row shows the value `3`. (Traces F-16.)
 
-**AC-16 — Audit fields are not displayed and not sent.**
+- [ ] **AC-16 — Audit fields are not displayed and not sent.**
+
 Given a user opens the editor dialog, when they inspect the form, then `created_at`, `updated_at`, `created_by`, and `updated_by` are not displayed; and when they submit a create or update, then the network payload does not include these columns. (Traces F-18, F-37, BR-06.)
 
-**AC-17 — Search and filter.**
+- [ ] **AC-17 — Search and filter.**
+
 Given the table has multiple rows, when the user types into the search input, then only matching rows remain visible; when the user opens the **Active** column filter and selects "Inactive", then only inactive rows remain visible. (Traces F-23, F-24.)
 
-**AC-18 — Default sort.**
+- [ ] **AC-18 — Default sort.**
+
 Given the table has rows "Bravo", "Alpha", "Charlie", when the page loads, then the rows render in the order Alpha, Bravo, Charlie under the **Name** column. (Traces F-12, F-25.)
 
-**AC-19 — Server error on save.**
+- [x] **AC-19 — Server error on save.**
+
 Given a user submits a create with valid data but the server returns a 5xx error, when the mutation rejects, then the editor dialog stays open and a `destructive` toast renders the normalised message from `HandleSupabaseError`. (Traces F-09, BR-11.)
 
 ---
 
 ## §12 Verification
 
-- **MCP test — RLS bypass surface.** Against dev-db (`rkytnffgmwnnmewevqgp`), once the upstream RBAC-checked INSERT / UPDATE RLS policies (§15 gate) have landed, attempt an INSERT into `core_membership_type` as an authenticated user **without** `create:page.membership-types`. The query must fail with a Postgres permission error (RLS WITH CHECK violation). Repeat for UPDATE without `update:page.membership-types`.
+- **MCP test — RLS bypass surface.** Against MCP verification project (`yihzsfcceciimdoiibif`; [`npm run mcp:verification`](../../package.json); [`docs/delivery/mcp-verification-preflight-queries.md`](../delivery/mcp-verification-preflight-queries.md)), once the upstream RBAC-checked INSERT / UPDATE RLS policies (§15 gate) have landed, attempt an INSERT into `core_membership_type` as an authenticated user **without** `create:page.membership-types`. The query must fail with a Postgres permission error (RLS WITH CHECK violation). Repeat for UPDATE without `update:page.membership-types`.
 - **MCP test — Helper exists.** Confirm `data_check_rbac_permission_with_context(...)` exists and that `data_get_app_id('TEAM')` returns a non-null UUID via `select data_check_rbac_permission_with_context(...)` and `select data_get_app_id('TEAM')`. The slice's RLS posture depends on these helpers per pace-core2 standard 3.
 - **MCP test — Per-org uniqueness.** Insert a row `(name='Junior', organisation_id=<org A>)` and confirm a second insert with the same name in org A fails with 23505. Confirm the same name succeeds in org B (different `organisation_id`). This proves per-org (not global) uniqueness.
 - **MCP test — Schema invariants.** Confirm `core_membership_type.is_active` is `NOT NULL DEFAULT true` (DB-317).
@@ -605,7 +624,7 @@ Given a user submits a create with valid data but the server returns a 5xx error
 - Do not implement a hard-delete path. The DataTable's `features.deletion` is `false`, `onDeleteRow` is not passed, and no UI surface offers row deletion.
 - Do not use `onEditRow` / `onDeleteRow` built-in DataTable modals. Create may use DataTable `onCreateRow` as a handoff into the slice editor `Dialog`.
 - Do not author the RBAC-checked INSERT / UPDATE RLS policies on `core_membership_type` from inside this slice. That migration is upstream platform work; this slice depends on it (§15).
-- Do not query production database during build or test. All MCP verification targets dev-db only (`rkytnffgmwnnmewevqgp`).
+- Do not query production database during build or test. All MCP catalogue checks use verified-contract project `yihzsfcceciimdoiibif` ([`npm run mcp:verification`](../../package.json)); preview `SUPABASE_PROJECT_REF` remains for browser/app connectivity only.
 
 ---
 

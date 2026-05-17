@@ -31,6 +31,33 @@
 | S-17 | AC-17 | local validation command | Run `npm run validate`. | Command exits 0 with no TypeScript/lint errors. | [Pass/Fail] |  |
 | S-18 | AC-18 | authenticated shell | Trigger `toast(...)` from a descendant component. | Toast appears bottom-right without provider error and auto-dismisses. | [Pass/Fail] |  |
 
+## Post-build RBAC seeding
+
+Before release, seed the canonical TEAM `rbac_app_pages` rows (`scope_type='organisation'`):
+
+- `home`
+- `members`
+- `member-roles`
+- `approvals`
+- `membership-types`
+- `organisations`
+- `org-settings`
+- `forms`
+- `events`
+- `reports`
+- `moderation-photos`
+- `CommsLog`
+
+Remove legacy rows in the same change window:
+
+- `Activities`
+- `dashboard`
+- `Dashboard`
+- `Members`
+- `Reports`
+- `team-crm`
+- `team-relationships`
+
 ## Test run summary
 
 - overall result: [Pass | Fail]

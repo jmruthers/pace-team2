@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
@@ -83,15 +83,15 @@ function ApprovalsPageContent() {
       return;
     }
     previousOrganisationId.current = organisationId;
-    if (organisationId == null || requestId == null) {
+    if (organisationId == null) {
       return;
     }
-    navigate('/approvals');
     toast({
       title: `Switched organisations. Showing approvals for ${organisationName}.`,
       variant: 'default',
+      duration: 5000,
     });
-  }, [organisationId, requestId, navigate, organisationName]);
+  }, [organisationId, organisationName]);
 
   const openColumns = useMemo<DataTableColumn<ApprovalRequestRow>[]>(
     () => [
@@ -206,10 +206,11 @@ function ApprovalsPageContent() {
     const retry = view === 'open' ? refetchOpen : refetchClosed;
 
     if (errorMessage != null) {
+      const errorTitle = view === 'open' ? 'Could not load requests' : 'Could not load closed requests';
       return (
         <section className="grid gap-3">
           <Alert variant="destructive">
-            <AlertTitle>Could not load {view} requests</AlertTitle>
+            <AlertTitle>{errorTitle}</AlertTitle>
             <AlertDescription>{errorMessage}</AlertDescription>
           </Alert>
           <nav aria-label={`${view} requests retry`}>
@@ -221,6 +222,17 @@ function ApprovalsPageContent() {
       );
     }
 
+    const openEmptyDescription: ReactNode = (
+      <section className="grid gap-2">
+        <p>New join and transfer requests appear here once submitted via your org signup form.</p>
+        <p>
+          <Button type="button" variant="link" onClick={() => navigate('/forms')}>
+            Configure org signup form
+          </Button>
+        </p>
+      </section>
+    );
+
     return (
       <DataTable<ApprovalRequestRow>
         data={rows}
@@ -230,16 +242,17 @@ function ApprovalsPageContent() {
         isLoading={loading}
         getRowId={(row) => row.id}
         initialPageSize={25}
-        initialSorting={[{ id: view === 'open' ? 'createdAt' : 'status', desc: view !== 'open' }]}
+        initialSorting={[{ id: view === 'open' ? 'createdAt' : 'resolvedAt', desc: view === 'closed' }]}
         emptyState={view === 'open'
           ? {
               title: 'No requests waiting for review.',
-              description: 'New join and transfer requests appear here once submitted via your org signup form.',
+              description: openEmptyDescription,
             }
           : {
               title: 'No closed requests yet.',
               description: 'Resolved requests appear here for audit.',
             }}
+        onRowActivate={(row) => navigate(`/approvals/${row.id}`)}
         features={{
           import: false,
           export: false,
