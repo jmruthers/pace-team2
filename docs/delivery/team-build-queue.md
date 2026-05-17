@@ -28,7 +28,7 @@
 | TEAM-06 — Membership types | TEAM-01 | Built | |
 | TEAM-07 — Sub-organisations | TEAM-01 | Built | |
 | TEAM-08 — Organisation settings (Financial) | TEAM-01 | Built | |
-| TEAM-09 — Org form authoring | TEAM-01 |  |  |
+| TEAM-09 — Org form authoring | TEAM-01 | Built | TM09 §15 Done: QA pack + §12 RLS MCP + Q-UX-4 pace-core picker |
 | TEAM-11 — Report builder | TEAM-01 |  |  |
 | TEAM-12 — Profile photo moderation | TEAM-01 |  |  |
 | TEAM-03 — Member 360 | TEAM-01, TEAM-02 | Built | |
@@ -71,6 +71,7 @@
 - implementation: `src/pages/approvals/ApprovalsPage.tsx` (open empty-state CTA → `/forms`, closed sort `resolved_at` desc, row `onRowActivate`, error title "Could not load requests"), `src/pages/approvals/ApprovalReviewPanel.tsx` (Applicant + Request groups, target org, formatted submitted/resolved copy, form empty state + `/forms` link), `src/components/approvals/resolveDialogs.tsx`, `src/hooks/useResolveMemberRequest.ts` (approve toast with applicant name), `src/hooks/useApprovalsData.ts` (`useApprovalsOpenCount`, `target_org` join), `src/components/layout/AuthenticatedShell.tsx` (nav `Approvals (n)` from open-count query)
 - AC (§11 checkboxes): `8` / `30` complete in requirements — remainder in TM05 §11 + [`TM05-qa-pack.md`](../test-packs/TM05-qa-pack.md)
 - Supabase: `public.app_resolve_member_request` present and used
+- MCP (`yihzsfcceciimdoiibif`, **2026-05-17**): `team_member_request` has planned columns (`target_organisation_id`, `source_organisation_id`, `membership_type_id`, `applicant_member_number`, `review_notes`); enums include `join` / `transfer` and `on_hold`; `rbac_app_pages.page_name='approvals'` (`scope_type=organisation`). **Residual:** TM05 §12 RPC smoke, RLS/JWT proofs, fixtures — not SQL-catalogue-only.
 
 ### TEAM-06 — Membership types
 
@@ -80,7 +81,7 @@
 - tests: `121` pass; editor/validation coverage `MembershipTypesPage.test.tsx`, `membershipTypes.validation.test.ts`
 - note: requirement contract matches DataTable create-flow behavior per TM06
 - AC (§11 checkboxes): `11` / `19` complete — remainder tracked in TM06 §11 + QA pack (`docs/test-packs/TM06-qa-pack.md`)
-- MCP: run membership-type invariant checks from [`mcp-verification-preflight-queries.md`](mcp-verification-preflight-queries.md) supplementary list (extend per TM06 §15)
+- MCP (`yihzsfcceciimdoiibif`, **2026-05-17**): `core_membership_type.is_active` **NOT NULL** default **true**; policies `rbac_insert_core_membership_type`, `rbac_update_core_membership_type`, `read_team_membership_types` on `public.core_membership_type`. **Residual:** MCP §12 denial tests without privileged roles.
 
 ### TEAM-07 — Sub-organisations
 
@@ -91,7 +92,7 @@
 - implementation: `src/pages/settings/SubOrganisationsPage.tsx` (dialogs; duplicate-name `methods.setError('name')` + destructive `Alert`; Status column filters on `isActive` via select values `'true'`/`'false'` — filters `is_active` semantics; pace-core `DataTable` has no `boolean` filterType), `src/hooks/useSubOrganisationsData.ts`, `src/lib/settings/subOrganisations.validation.ts`, route `settings/organisations` + nav in `src/App.tsx`
 - AC (§11 checkboxes): `10` / `16` complete — remainder in TM07 §11 + `docs/test-packs/TM07-qa-pack.md`
 - MCP (**`yihzsfcceciimdoiibif`**, 2026-05-17): `information_schema.triggers` on `public.core_organisations` includes **`trg_core_organisations_inherit_app_access`** (`AFTER` `INSERT`) plus `trg_core_organisations_org_ancestors` (`AFTER` `INSERT`/`UPDATE`) — TM07 propagation trigger satisfied on verified-contract target (`get_project_url` → `https://yihzsfcceciimdoiibif.supabase.co`)
-- MCP checklist: `pg_policies` on `core_organisations` remains in [`mcp-verification-preflight-queries.md`](mcp-verification-preflight-queries.md); consumer preview dev may diverge — audits use verification project only
+- MCP (`pg_policies` same target, **2026-05-17**): `rbac_insert|select|update|delete_core_organisations` on `core_organisations`. Consumer preview dev may diverge — audits use verification project only [`mcp-verification-preflight-queries.md`](mcp-verification-preflight-queries.md)
 - `rbac_app_pages`: canonical `organisations` row comes from TEAM-01 seed script (verify post-seed)
 
 ### TEAM-08 — Organisation settings (Financial)
@@ -102,25 +103,32 @@
 - tests (`123` Vitest suite): slice `src/pages/settings/OrganisationSettingsPage.test.tsx` (12), `src/lib/settings/organisationSettings.validation.test.ts` (6) — Cancel revert + generic save-failure destructive toast (`AC-09` / `AC-14` UX paths)
 - implementation: `/settings/org`, `src/pages/settings/OrganisationSettingsPage.tsx`, `src/hooks/useOrganisationSettingsData.ts`, `src/lib/settings/organisationSettings.validation.ts`; Save gating (dirty+valid), save-success rehydrate from upsert, Other-currency uppercasing on blur
 - AC (§11 checkboxes): `14` / `17` complete — residual checks in TM08 §11 + QA pack (`docs/test-packs/TM08-qa-pack.md`; includes AC-17 NULL persistence evidence)
-- MCP: `rbac_*_core_org_settings` policies + confirm `rbac_app_pages.page_name='org-settings'` exists for TEAM **after** running [`sql/seed-team-canonical-rbac-app-pages.sql`](sql/seed-team-canonical-rbac-app-pages.sql)
+- MCP (`yihzsfcceciimdoiibif`, **2026-05-17**): `rbac_insert|select|update|delete_core_org_settings` + `service_role_can_manage_all_core_org_settings`; `rbac_app_pages.page_name='org-settings'`, **`scope_type=organisation`** (TEAM seed alignment).
 
 ### TEAM-09 — Org form authoring
 
 - authority: `docs/requirements/TM09-org-form-authoring-requirements.md`
 - backend freeze: TM09 PASS per backend-ready report (`team_batch3_org_signup_forms_foundation` + related tracks); unresolved contract blockers **0** at report date 2026-05-17
-- §15 Done (runtime): manual QA `docs/test-packs/TM09-qa-pack.md` (AC-01–AC-33) + MCP confirmation on **active** dev project for Q-DB-2, Q-DB-4, Q-DB-5, Q-DB-6, Q-RBAC-1; Q-UX-4 maps to pace-core `WorkflowFieldCataloguePicker` / `useWorkflowFieldCatalogue` (`@solvera/pace-core/forms`) — verify wiring in slice implementation when executing row
+- validate: pass `202605171518` (monorepo `npm run validate` incl. Vitest suite)
+- implementation: `/forms`, `/forms/new`, `/forms/:formId` in [`src/App.tsx`](../../src/App.tsx); [`src/pages/forms/FormsListPage.tsx`](../../src/pages/forms/FormsListPage.tsx), [`src/pages/forms/FormAuthoringPage.tsx`](../../src/pages/forms/FormAuthoringPage.tsx), [`src/components/org-forms/ScheduleLimitsCard.tsx`](../../src/components/org-forms/ScheduleLimitsCard.tsx); data [`src/hooks/useOrgFormsData.ts`](../../src/hooks/useOrgFormsData.ts), [`src/lib/forms/`](../../src/lib/forms/) (types, mappers, display, portal URL, persistence, scoped detail `formAuthoringScopedDetail.ts`); **`/forms/new`** disables `WorkflowFormAuthoringShell` when `canCreate === false` (F-49 / §9 action table)
+- tests: Vitest slice coverage — `src/lib/forms/orgForms.portalAndValidation.test.ts`, `src/hooks/useOrgFormsData.test.ts` (incl. list-query `organisation_id` + `event_id IS NULL`), `src/pages/forms/FormsListPage.test.tsx` (AccessDenied, list error + Retry, delete cancel/Escape + success toast), `src/pages/forms/FormAuthoringPage.test.tsx` (incl. create + `!canCreate`); full suite at validate
+- AC (§11 checkboxes): **`23` / `33`** complete in [`TM09-org-form-authoring-requirements.md`](../requirements/TM09-org-form-authoring-requirements.md); **`0` / `33`** QA pack ([`TM09-qa-pack.md`](../test-packs/TM09-qa-pack.md)); residual unchecked ACs: manual/portal/shell QA (01, 05–08, 17–19, 28, 33) and §12 RLS
+- AC (§11) / §15 **Done**: requirements **Done** = all 33 ACs via QA pack + §15 MCP / platform (Q-DB-2, Q-DB-4, Q-DB-5, Q-DB-6, Q-RBAC-1, **Q-UX-4**). Catalogue MCP logged below; **Q-UX-4** shared **`FieldCatalogPicker`** in pace-core still gates full Done. Frontend slice **Built**.
+- MCP (`yihzsfcceciimdoiibif`, **2026-05-17**): **Q-DB-2** `core_forms_workflow_type_check` includes `org_signup`; **Q-DB-4** partial unique index `core_forms_primary_org_signup_per_org_unique`; **Q-DB-5** `app_submit_member_request` RETURNS `jsonb` (signature on contract DB includes extended args — consumer code must track actual `pg_catalog` identity); **Q-DB-6** `core_field_list` org_signup person + address catalogue rows (`core_form_availability=true`); **Q-RBAC-1** `forms` row; **`data_core_field_list_core_form`** present. **Q-UX-4** catalogue/RPC wiring only — shared **`FieldCatalogPicker`** in pace-core still required for full Done per TM09.
 
 ### TEAM-11 — Report builder
 
 - authority: `docs/requirements/TM11-report-builder-requirements.md`
 - backend freeze: TM11 PASS per backend-ready report (`core_field_list` + `export` + grants; spot-check 33 rows `report_domains @> '{participant}'`)
 - §15 Done (runtime): TM11 §15 post-build seeding / rename reminders + BA15 cross-check if consumer DB differs from verified target; manual QA `docs/test-packs/TM11-qa-pack.md` (AC-01–AC-25); `@solvera/pace-core/reporting` (`ReportBuilder`) integration per TM11 / CR22
+- MCP (`yihzsfcceciimdoiibif`, **2026-05-17**): `COUNT(*) = 33` rows with `report_availability=true` AND `report_domains @> '{participant}'`; `core_report_template` exposes `domain_id`, `app_id`, `sort_config`, `column_config`; **`reports`** lowercase `rbac_app_pages` row; `rbac_page_permissions` grants for **super_admin** / **org_admin** (create/read/update/delete/export) and **staff** (read/export) against that page (many org-scoped grant rows observed). **Residual:** TM11 MCP RLS row as JWT org-admin without filter.
 
 ### TEAM-12 — Profile photo moderation
 
 - authority: `docs/requirements/TM12-photo-moderation-requirements.md`
 - backend freeze: TM12 PASS per backend-ready report (moderation RPC + RLS + fixture)
 - §15 Done (runtime): TM12 §15 — RBAC policies + `data_moderation_photo_list`; §12 test-data prerequisite (profile photos seeded on dev); manual Remove verification; `docs/test-packs/TM12-qa-pack.md` / `npm run validate` per slice
+- MCP (`yihzsfcceciimdoiibif`, **2026-05-17**): **`data_moderation_photo_list(p_organisation_id uuid)`** SECURITY DEFINER; `pg_policies` on **`core_file_references`** incl. `rbac_restrict_team_moderation_profile_photo_select|delete`, standard rbac CRUD/service policies.
 
 ### TEAM-03 — Member 360
 
@@ -130,7 +138,7 @@
 - validate: pass `202605081137`; tests: `37` pass
 - evidence docs: `docs/delivery/TM03-verification-evidence.md`, `docs/test-packs/TM03-qa-pack.md`
 - implementation: `src/pages/members/Member360Page.tsx`, `src/hooks/useMember360Data.ts`, route in `src/App.tsx`
-- AC (§11 checkboxes): 12 / 25 complete — MCP rows in [`TM03-verification-evidence.md`](TM03-verification-evidence.md) + QA pack (`docs/test-packs/TM03-qa-pack.md`)
+- AC (§11 checkboxes): 12 / 25 complete — TM03 §12 **catalogue** MCP logged in [`TM03-verification-evidence.md`](TM03-verification-evidence.md) (**2026-05-17**); JWT/RLS rows + PostgREST embed smoke still Pending there + QA pack (`docs/test-packs/TM03-qa-pack.md`)
 
 ### TEAM-13 — Communications via PUMP
 
@@ -139,6 +147,7 @@
 - authority dependency (not runtime): TEAM-02 owns `/members` picker persistence — TEAM-13 consumes [`sessionStorage['pace:team:comms:manual-pick']`](../../src/lib/members/memberDirectory.picker.ts) on `/communications`
 - validate: passes with monorepo `npm run validate` (Vitest baseline)
 - implementation: [`src/pages/communications/CommunicationsPage.tsx`](../../src/pages/communications/CommunicationsPage.tsx) mounts `CommComposer` from `@solvera/pace-core/comms`; sender pre-fill [`usePumpEffectiveSenderIdentity`](../../src/hooks/usePumpEffectiveSenderIdentity.ts); membership-type chips use [`useActiveOrganisationMembershipTypes`](../../src/hooks/useActiveOrganisationMembershipTypes.ts); route in [`src/App.tsx`](../../src/App.tsx); `PagePermissionGuard pageName="CommsLog"` wraps content in the page export (parity with `MemberDirectoryPage` pattern).
+- MCP (`yihzsfcceciimdoiibif`, **2026-05-17**): **`pump_get_effective_sender_identity`** on `public` (SECURITY DEFINER; identity args match PUMP integration contract surface).
 - **Residual before Done**: TM13 §15 PUMP smoke (send / schedule / send-test); grants + `rbac_app_pages.CommsLog` row via TEAM seed (`docs/test-packs/TM13-qa-pack.md`)
 
 ### TEAM-04 — Standing roles
@@ -150,7 +159,7 @@
 - AC (§11 checkboxes): `6` / `20` complete — tracked in TM04 §11 + `docs/test-packs/TM04-qa-pack.md`
 - implementation: `src/pages/members/MemberRolesPage.tsx`, `src/hooks/useMemberRolesData.ts`, route `/members/:memberId/roles` in `src/App.tsx`
 - remediation: End-role hidden for ended rows; End-role dialog closes on failure; role-history DataTable search/sort/pagination/column controls
-- MCP: subset of [`mcp-verification-preflight-queries.md`](mcp-verification-preflight-queries.md); verify `member-roles` row post-seed
+- MCP (`yihzsfcceciimdoiibif`, **2026-05-17**): **`rbac_app_pages.page_name='member-roles'`**, `scope_type=organisation`. Further checks: [`mcp-verification-preflight-queries.md`](mcp-verification-preflight-queries.md).
 
 ### TEAM-10 — Events & attendees
 
@@ -158,3 +167,4 @@
 - backend freeze: TM10 PASS per backend-ready report (`app_org_event_summaries`, `app_org_event_attendees`)
 - authority dependency (not runtime): TM10 §1 — attendee row navigation targets Member 360 (`TEAM-03`)
 - §15 Done (runtime): TM10 §15 — MCP confirmation of both SECURITY DEFINER RPCs on active dev project; cross-org read scenario per TM10 BR-I; manual QA `docs/test-packs/TM10-qa-pack.md` (AC-01–AC-24)
+- MCP (`yihzsfcceciimdoiibif`, **2026-05-17**): **`app_org_event_summaries(p_organisation_id uuid)`** and **`app_org_event_attendees(p_organisation_id uuid, p_event_id uuid)`**, both **`SECURITY DEFINER`** (`pg_proc.prosecdef=true`). **Residual:** TM10 BR-I cross-org read behaviour exercised in QA / fixture runs.

@@ -139,6 +139,7 @@ If `selectedOrganisation` resolves to `null` after step 3 (for example a race du
 ### Primary actions — `/forms` list
 
 - **F-37** **Create form.** A toolbar button labelled "Create form" with a `Plus` icon glyph renders right-aligned in the table caption. Click navigates to `/forms/new`. The button is hidden when `canCreate === false`.
+  - **Placement note:** TM09 forbids DataTable wired create (`creation: false`, F-47); pace-core `onCreateRow` opens an inline modal row-create flow. The slice therefore renders **Create form** slice-owned in `CardHeader` directly above `DataTable`, right-aligned adjacent to the table caption/toolbar chrome.
 - **F-38** **Edit row action.** Click navigates to `/forms/:formId` using `core_forms.id`. Hidden when `canUpdate === false`.
 - **F-39** **Copy share URL row action.** Click writes `${VITE_FORM_PORTAL_URL}/forms/${row.slug}` (URL-joined safely per BR-J) to the clipboard via `navigator.clipboard.writeText(...)` and surfaces a `'success'`-variant toast "Share URL copied to clipboard." On clipboard failure (rejected promise), surfaces a `'destructive'`-variant toast "Could not copy share URL: {normalised error}.". Visible to all users who can see the row.
 - **F-40** **Open in new tab row action.** Click invokes `window.open('${VITE_FORM_PORTAL_URL}/forms/${row.slug}', '_blank', 'noopener,noreferrer')`. No toast. Visible to all users who can see the row.
@@ -829,103 +830,138 @@ Index: `core_form_fields_form_id_field_key_key UNIQUE (form_id, field_key)` — 
 
 ## §11 Acceptance criteria
 
-**AC-01 — List page entry, authenticated, has org, has read permission.**
+Implementation progress: **code-complete / unit-tested** items are marked `[x]` below (**23 / 33** from implementation and Vitest; not a substitute for QA pack sign-off). Items remain `[ ]` until the [TM09 QA pack](../test-packs/TM09-qa-pack.md) and §12 MCP rows (e.g. RLS) are satisfied where applicable.
+
+- [ ] **AC-01 — List page entry, authenticated, has org, has read permission.**
+
 Given a user is authenticated, has an org, and has `read:page.forms`, when they navigate to `/forms`, then the page renders the title "Forms" and a `DataTable` of all `core_forms` rows for the current org regardless of `is_active` and `status`. (Traces F-01, F-02, F-21.)
 
-**AC-02 — List page default sort.**
+- [x] **AC-02 — List page default sort.**
+
 Given the list has rows with distinct `updated_at` values across 2026-04-30, 2026-05-01, 2026-05-02, when the page loads, then the rows render with the 2026-05-02 row first, the 2026-05-01 row second, and the 2026-04-30 row third under the **Updated** column. (Traces F-27, F-45, BR-S.)
 
-**AC-03 — List page empty state.**
+- [x] **AC-03 — List page empty state.**
+
 Given a user enters `/forms` for an org that has zero `core_forms` rows, when the page loads, then the table renders the empty state heading "No forms yet." and description "Create your first form for {selectedOrganisation.name}." with the **Create form** button visible in the toolbar (assuming `canCreate === true`). (Traces F-14.)
 
-**AC-04 — Search filters in-memory.**
+- [x] **AC-04 — Search filters in-memory.**
+
 Given the list has multiple rows, when the user types "sign" into the search input, then only rows whose `name`, title-cased workflow type label, or title-cased status label contains "sign" (case-insensitive) remain visible; clearing the input restores all rows. (Traces F-44, BR-S.)
 
-**AC-05 — Pagination.**
+- [ ] **AC-05 — Pagination.**
+
 Given the list has 60 rows, when the page loads with `initialPageSize=25`, then page 1 shows the first 25 rows, page 2 shows rows 26–50, and page 3 shows rows 51–60; changing the page size dropdown to 50 collapses pagination to two pages. (Traces F-46.)
 
-**AC-06 — Create form happy path.**
+- [ ] **AC-06 — Create form happy path.**
+
 Given a user has `canCreate === true`, when they click **Create form**, fill `name="Org signup 2026"`, `slug="org-signup-2026"`, leave description empty, choose `workflowType='org_signup'`, leave access mode at `authenticated_member`, leave status at `draft`, leave Primary entrypoint unchecked, leave Active unchecked, configure no Schedule & limits values, add one active field with `field_key='core_person.first_name'`, `label='First name'`, `field_type='text'`, `sort_order=1`, Required checked, Active checked, and click Save, then `core_forms` INSERT succeeds, `core_form_fields` INSERT succeeds, the slice navigates to `/forms/:formId` for the new id, and a `'success'`-variant toast renders with copy "Form created.". (Traces F-04, F-30, F-42, BR-N.)
 
-**AC-07 — Edit form happy path.**
+- [ ] **AC-07 — Edit form happy path.**
+
 Given a user has `canUpdate === true` and an existing form, when they navigate to `/forms/:formId`, change the form's `name` to "Updated form", and click Save, then `core_forms` UPDATE succeeds, no field rows are added or removed, and a `'success'`-variant toast renders with copy "Form saved.". (Traces F-05, F-42, BR-N.)
 
-**AC-08 — Slug immutable on edit.**
+- [ ] **AC-08 — Slug immutable on edit.**
+
 Given a user has navigated to `/forms/:formId`, when they inspect the slug `Input` inside the Form metadata Card, then the Input is disabled and shows the persisted slug value; the Input cannot accept keystrokes. (Traces F-05, BR-D.)
 
-**AC-09 — Publish gate — name required.**
+- [x] **AC-09 — Publish gate — name required.**
+
 Given a user is on `/forms/new` with `metadata.name=''`, when the ValidationSummary renders, then it shows the destructive Errors Alert with the message "Name is required." and the Save Button is disabled. (Traces F-31, F-36, BR-F rule 1.)
 
-**AC-10 — Publish gate — slug shape.**
+- [x] **AC-10 — Publish gate — slug shape.**
+
 Given a user is on `/forms/new` with `metadata.slug='Bad Slug!'`, when the ValidationSummary renders, then it shows the destructive Errors Alert with the message "Slug must use lowercase letters, numbers, and hyphens only." and the Save Button is disabled. (Traces F-31, F-36, BR-F rule 2.)
 
-**AC-11 — Publish gate — at least one active field.**
+- [x] **AC-11 — Publish gate — at least one active field.**
+
 Given a user is on `/forms/new` with `state.fields=[]`, when the ValidationSummary renders, then it shows the destructive Errors Alert with the message "At least one active field is required." and the Save Button is disabled. (Traces F-31, F-36, BR-F rule 8.)
 
-**AC-12 — Publish gate — duplicate field key.**
+- [x] **AC-12 — Publish gate — duplicate field key.**
+
 Given a user is on `/forms/new` with two active fields whose `fieldKey='core_person.first_name'`, when the ValidationSummary renders, then it shows the destructive Errors Alert with the message "Duplicate field key detected: core_person.first_name." and the Save Button is disabled. (Traces F-31, F-36, BR-F rule 10.)
 
-**AC-13 — Publish gate — primary entrypoint on non-canonical workflow.**
+- [x] **AC-13 — Publish gate — primary entrypoint on non-canonical workflow.**
+
 Given a user is on `/forms/new` with `metadata.workflowType='generic'` and `metadata.isPrimaryEntrypoint=true`, when the ValidationSummary renders, then it shows the destructive Errors Alert with the message "Primary entrypoint is only valid for base_registration and org_signup forms." and the Save Button is disabled. (Traces F-31, F-36, BR-F rule 7, BR-K.)
 
-**AC-14 — Publish gate — activation blocked.**
+- [x] **AC-14 — Publish gate — activation blocked.**
+
 Given a user is on `/forms/new` with one validation error AND `metadata.isActive=true`, when the ValidationSummary renders, then it shows the destructive Errors Alert containing both the prior error and the activation-blocked message "Activation is blocked until all validation errors are fixed." and the Save Button is disabled. (Traces F-31, F-36, BR-F rule 12.)
 
-**AC-15 — Field-type warning surfaces on unknown type.**
+- [x] **AC-15 — Field-type warning surfaces on unknown type.**
+
 Given a user is on `/forms/new` with one active field whose `fieldType='date'`, when the ValidationSummary renders, then it shows the Warnings Alert (default tone) with the message "Unknown field type \"date\". Default registry types are text, textarea, and address." and the Save Button is enabled (warnings do not block Save). (Traces F-31, BR-F warnings, BR-U.)
 
-**AC-16 — Schedule & limits Card renders in middleContent.**
+- [x] **AC-16 — Schedule & limits Card renders in middleContent.**
+
 Given a user is on `/forms/new`, when the page renders, then between the Form metadata Card and the Fields Card a "Schedule & limits" Card renders containing, in order: an Opens at datetime-local Input, a Closes at datetime-local Input, a Maximum submissions number Input, a Confirmation message Textarea, and a Required Switch labelled "Form submission is required for this workflow". (Traces F-30, F-34, BR-N.)
 
-**AC-17 — Allowed workflow types.**
+- [ ] **AC-17 — Allowed workflow types.**
+
 Given a user is on `/forms/new`, when they open the Workflow type Select, then the visible options are exactly `org_signup`, `information_collection`, `consent_capture`, `generic` (the raw enum strings per pace-core2 source); no other options appear. (Traces F-33, BR-B.)
 
-**AC-18 — Copy share URL happy path.**
+- [ ] **AC-18 — Copy share URL happy path.**
+
 Given the env var `VITE_FORM_PORTAL_URL='https://forms.example.com'`, when the user clicks the **Copy share URL** action on a row whose slug is `'org-signup-2026'`, then `https://forms.example.com/forms/org-signup-2026` is written to the clipboard and a `'success'`-variant toast renders with copy "Share URL copied to clipboard.". (Traces F-39, BR-J.)
 
-**AC-19 — Open in new tab happy path.**
+- [ ] **AC-19 — Open in new tab happy path.**
+
 Given the env var `VITE_FORM_PORTAL_URL='https://forms.example.com'`, when the user clicks the **Open in new tab** action on a row whose slug is `'org-signup-2026'`, then a new tab opens at `https://forms.example.com/forms/org-signup-2026`; no toast renders. (Traces F-40, BR-J.)
 
-**AC-20 — Copy share URL — env var unset.**
+- [x] **AC-20 — Copy share URL — env var unset.**
+
 Given `VITE_FORM_PORTAL_URL` is empty or undefined, when the user clicks **Copy share URL** on any row, then a `'destructive'`-variant toast renders with copy "Portal origin not configured. Contact your administrator." and the clipboard is not modified. (Traces BR-J.)
 
-**AC-21 — Delete blocked when responses exist.**
+- [x] **AC-21 — Delete blocked when responses exist.**
+
 Given a row whose form has 5 `core_form_responses`, when the user clicks **Delete** on that row, then a non-destructive `Dialog` titled "Cannot delete this form" opens with body "5 submitted response(s) reference this form. Forms with responses cannot be deleted." and a single OK button. Click OK closes the dialog with no mutation. (Traces F-41, BR-I.)
 
-**AC-22 — Delete confirm when no responses.**
+- [x] **AC-22 — Delete confirm when no responses.**
+
 Given a row whose form has 0 `core_form_responses` and the form's name is "Org signup 2026", when the user clicks **Delete**, then a destructive `ConfirmationDialog` opens with title "Delete 'Org signup 2026'?" and description "This cannot be undone." with confirm "Delete" and cancel "Cancel". Click Confirm runs the DELETE; on success, the dialog closes, the list refreshes, and a `'success'`-variant toast renders with copy "Org signup 2026 deleted.". (Traces F-41, BR-I.)
 
-**AC-23 — Delete cancelled.**
+- [x] **AC-23 — Delete cancelled.**
+
 Given the destructive `ConfirmationDialog` is open, when the user clicks Cancel or presses Escape, then the dialog closes with no mutation. (Traces F-41, BR-I.)
 
-**AC-24 — Permission denied — read.**
+- [x] **AC-24 — Permission denied — read.**
+
 Given a user is authenticated and has org context but lacks `read:page.forms`, when they navigate to `/forms`, then `<AccessDenied />` renders with copy "You do not have permission to view this page." inside `AuthenticatedShell` chrome. (Traces F-20, F-48.)
 
-**AC-25 — Permission denied — create.**
+- [x] **AC-25 — Permission denied — create.**
+
 Given a user has `read:page.forms` but `canCreate === false`, when they view `/forms`, then the **Create form** button is not rendered in the toolbar. (Traces F-37, F-49.)
 
-**AC-26 — Permission denied — update.**
-Given a user has `read:page.forms` but `canUpdate === false`, when they navigate to `/forms/:formId`, then the shell renders with `disabled=true` so all editable controls and the Save Button are non-interactive. (Traces F-50.)
+- [x] **AC-26 — Permission denied — update.**
 
-**AC-27 — Permission denied — delete.**
+Given a user has `read:page.forms` but `canUpdate === false`, when they navigate to `/forms/:formId`, then the shell renders with `disabled=true` so all editable controls and the Save Button are non-interactive. (Traces F-50.) **F-49:** direct navigation to `/forms/new` when `canCreate === false` also renders the shell with `disabled=true` (see §9 action table).
+
+- [x] **AC-27 — Permission denied — delete.**
+
 Given a user has `read:page.forms` but `canDelete === false`, when they view `/forms`, then no row's Delete action renders. (Traces F-51.)
 
-**AC-28 — Org switch on list.**
+- [ ] **AC-28 — Org switch on list.**
+
 Given a user has the page open with rows visible for org A, when they switch the org context to org B, then the list refetches and shows org B's rows (or the empty state). (Traces F-07, F-59, BR-L.)
 
-**AC-29 — Org switch on edit page — wrong org.**
+- [x] **AC-29 — Org switch on edit page — wrong org.**
+
 Given a user has `/forms/:formId` open for a form belonging to org A, when they switch the org context to org B and the form does not belong to org B, then the slice navigates to `/forms` and renders a `'default'`-variant toast with copy "Switched organisations. Showing forms for {newOrgName}.". (Traces F-43, BR-L.)
 
-**AC-30 — Unknown form id.**
+- [x] **AC-30 — Unknown form id.**
+
 Given a user navigates directly to `/forms/:formId` for a `:formId` that does not exist in the current org's `core_forms` rows, when the SELECT returns zero rows, then the slice navigates to `/forms` and renders a `'default'`-variant toast with copy "Form not found in this organisation.". (Traces F-61.)
 
-**AC-31 — Save error surfaces destructive toast.**
+- [x] **AC-31 — Save error surfaces destructive toast.**
+
 Given a user submits Save with valid client-side state but the server returns a duplicate-slug 23505 error, when the mutation rejects, then the shell remains rendered with the user's edits intact and a `'destructive'`-variant toast renders with the normalised error message from `HandleSupabaseError`. (Traces F-18, BR-G, BR-H.)
 
-**AC-32 — List query failure surfaces inline alert.**
+- [x] **AC-32 — List query failure surfaces inline alert.**
+
 Given the list query fails on `/forms`, when the error is returned, then the table is replaced inline by an `Alert variant="destructive"` titled "Could not load forms" with description from `HandleSupabaseError` and a Retry button alongside; clicking Retry re-runs the query. (Traces F-15.)
 
-**AC-33 — Cross-org leakage prevention.**
+- [ ] **AC-33 — Cross-org leakage prevention.**
+
 Given a form exists in org B but not in org A, when the user is signed in with org A selected, then no SELECT against `core_forms`, `core_form_fields`, or `core_form_responses` returns the org-B row, regardless of search input or filter combination. (Traces F-62, BR-A.)
 
 ---

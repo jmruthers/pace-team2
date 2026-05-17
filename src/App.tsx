@@ -12,6 +12,8 @@ import { MembershipTypesPage } from './pages/settings/MembershipTypesPage';
 import { OrganisationSettingsPage } from './pages/settings/OrganisationSettingsPage';
 import { SubOrganisationsPage } from './pages/settings/SubOrganisationsPage';
 import { CommunicationsPage } from './pages/communications/CommunicationsPage';
+import { FormsListPage } from './pages/forms/FormsListPage';
+import { FormAuthoringPage } from './pages/forms/FormAuthoringPage';
 export const APP_NAME = 'TEAM';
 
 const NAV_ITEMS: NavigationItem[] = [
@@ -180,6 +182,15 @@ function App() {
             path="communications"
             element={<CommunicationsPage />}
           />
+          <Route
+            path="forms/new"
+            element={<FormAuthoringPage />}
+          />
+          <Route
+            path="forms/:formId"
+            element={<FormAuthoringPage />}
+          />
+          <Route path="forms" element={<FormsListPage />} />
           <Route
             path="settings/membership-types"
             element={<MembershipTypesPage />}
