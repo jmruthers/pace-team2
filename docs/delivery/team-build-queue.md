@@ -29,7 +29,7 @@
 | TEAM-07 — Sub-organisations | TEAM-01 | Built | |
 | TEAM-08 — Organisation settings (Financial) | TEAM-01 | Built | |
 | TEAM-09 — Org form authoring | TEAM-01 | Built | TM09 §15 Done: QA pack + §12 RLS MCP + Q-UX-4 pace-core picker |
-| TEAM-11 — Report builder | TEAM-01 |  |  |
+| TEAM-11 — Report builder | TEAM-01 | Built | |
 | TEAM-12 — Profile photo moderation | TEAM-01 |  |  |
 | TEAM-03 — Member 360 | TEAM-01, TEAM-02 | Built | |
 | TEAM-13 — Communications via PUMP | TEAM-01, TEAM-02 | Built | PUMP Edge smoke-send + TM13 §15 residual checks on active dev |
@@ -120,8 +120,12 @@
 
 - authority: `docs/requirements/TM11-report-builder-requirements.md`
 - backend freeze: TM11 PASS per backend-ready report (`core_field_list` + `export` + grants; spot-check 33 rows `report_domains @> '{participant}'`)
-- §15 Done (runtime): TM11 §15 post-build seeding / rename reminders + BA15 cross-check if consumer DB differs from verified target; manual QA `docs/test-packs/TM11-qa-pack.md` (AC-01–AC-25); `@solvera/pace-core/reporting` (`ReportBuilder`) integration per TM11 / CR22
-- MCP (`yihzsfcceciimdoiibif`, **2026-05-17**): `COUNT(*) = 33` rows with `report_availability=true` AND `report_domains @> '{participant}'`; `core_report_template` exposes `domain_id`, `app_id`, `sort_config`, `column_config`; **`reports`** lowercase `rbac_app_pages` row; `rbac_page_permissions` grants for **super_admin** / **org_admin** (create/read/update/delete/export) and **staff** (read/export) against that page (many org-scoped grant rows observed). **Residual:** TM11 MCP RLS row as JWT org-admin without filter.
+- implementation: [`src/pages/reports/ReportsPage.tsx`](../../src/pages/reports/ReportsPage.tsx) (truncation banner, `alwaysShowResults` + `suppressInlineSavedTemplates`, `canDeleteTemplates`, `visibilityLabels` parity with TM11 §11 AC-15, `onTemplatesPersisted` orchestration); [`src/components/reports/TeamReportTemplatesTable.tsx`](../../src/components/reports/TeamReportTemplatesTable.tsx); [`src/lib/reports/`](../../src/lib/reports/), [`src/hooks/useTeamReportingAdapters.ts`](../../src/hooks/useTeamReportingAdapters.ts); [`src/hooks/useTeamReportTemplatesPanel.ts`](../../src/hooks/useTeamReportTemplatesPanel.ts); `/reports` route in [`src/App.tsx`](../../src/App.tsx); consumer depends on **`@solvera/pace-core/reporting`** `ReportBuilder` / `ReportBuilderHandle` wired from the linked **`pace-core2`** checkout (`package.json` `file:` path)
+- tests: Vitest slice — [`src/pages/reports/ReportsPage.test.tsx`](../../src/pages/reports/ReportsPage.test.tsx), [`src/lib/reports/teamReporting.*.test.ts`](../../src/lib/reports/), panel null-skip in [`teamReporting.templatesPanel.test.ts`](../../src/lib/reports/teamReporting.templatesPanel.test.ts)
+- validate: pass `202605171618` (consumer `npm run validate` incl. Vitest suite + pace-core audit)
+- AC (§11 checkboxes): **`18` / `25`** complete — residual **QA pack** [`TM11-qa-pack.md`](../test-packs/TM11-qa-pack.md) (happy-path run/export, denial, org-switch) plus AC-07/AC-09 save/load integration
+- §15 Done (runtime): TM11 §15 post-build seeding / rename reminders + BA15 cross-check if consumer DB differs from verified target
+- MCP (`yihzsfcceciimdoiibif`, **2026-05-19**): `COUNT(*) = 33` rows with `report_availability=true` AND `report_domains @> '{participant}'`; `core_report_template` exposes `domain_id`, `app_id`, `sort_config`, `column_config`; **`reports`** lowercase `rbac_app_pages` row; `rbac_page_permissions` grants for **super_admin** / **org_admin** (create/read/update/delete/export) and **staff** (read/export). `core_report_template.created_by` FK targets `auth.users` (not `core_person`); owner column resolves via batch `core_person.user_id` lookup in [`teamReporting.templatesPanel.ts`](../../src/lib/reports/teamReporting.templatesPanel.ts). **Residual:** TM11 MCP RLS row as JWT org-admin without filter; manual QA pack for open ACs (03, 07, 09, 16, 17, 22, 23).
 
 ### TEAM-12 — Profile photo moderation
 

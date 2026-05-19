@@ -14,6 +14,7 @@ import { SubOrganisationsPage } from './pages/settings/SubOrganisationsPage';
 import { CommunicationsPage } from './pages/communications/CommunicationsPage';
 import { FormsListPage } from './pages/forms/FormsListPage';
 import { FormAuthoringPage } from './pages/forms/FormAuthoringPage';
+import { ReportsPage } from './pages/reports/ReportsPage';
 export const APP_NAME = 'TEAM';
 
 const NAV_ITEMS: NavigationItem[] = [
@@ -191,6 +192,7 @@ function App() {
             element={<FormAuthoringPage />}
           />
           <Route path="forms" element={<FormsListPage />} />
+          <Route path="reports" element={<ReportsPage />} />
           <Route
             path="settings/membership-types"
             element={<MembershipTypesPage />}

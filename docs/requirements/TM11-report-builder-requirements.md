@@ -460,17 +460,18 @@ This slice publishes no symbols for other slices to import. The reporting UX liv
     .order('field_name', { ascending: true })
   ```
 
-- **Templates list query.** PostgREST shape (joined for the Owner column):
+- **Templates list query.** PostgREST shape (Owner column resolved in a follow-up read):
   ```
   useSecureSupabase()
     .from('core_report_template')
-    .select('id, name, description, is_private, organisation_id, created_by, created_at, updated_at, app_id, domain_id, selected_fields, filters, sort_config, column_config, owner:core_person!core_report_template_created_by_fkey(id, first_name, last_name, preferred_name)')
+    .select('id, name, description, is_private, organisation_id, created_by, created_at, updated_at, app_id, domain_id, selected_fields, filters, sort_config, column_config')
     .eq('organisation_id', selectedOrganisation.id)
     .eq('app_id', 'team')
     .eq('domain_id', 'participant')
     .order('updated_at', { ascending: false, nullsFirst: false })
   ```
-  After the query resolves, the slice client-filters out any row where `domain_id IS NULL` OR `app_id IS NULL` as a defensive null-skip (BR-TEMPLATE-LIST). The exact PostgREST join shape may differ provided the rule above holds; the build agent picks the supported relationship name during integration.
+  Owner display names: `created_by` references `auth.users`; batch-load `core_person` rows with `.in('user_id', [...unique created_by values...])` and map `preferred_name` / `first_name` / `last_name` for the Owner column.
+  After the query resolves, the slice client-filters out any row where `domain_id IS NULL` OR `app_id IS NULL` as a defensive null-skip (BR-TEMPLATE-LIST).
 
 - **Single template load.** PostgREST shape: `select('*').eq('id', templateId).single()` against `core_report_template`. The slice then calls `deserializeReportTemplateConfig` to rebuild `exploreKey`, `selected_fields`, `filters`, `sort_config`, `column_config` for the builder.
 
@@ -649,79 +650,79 @@ In v1, the UI is creator-only for edit / delete (BR-OWNERSHIP). RLS would permit
 
 ## §11 Acceptance criteria
 
-**AC-01 — Page entry, authenticated, has org, has read permission.**
+- [x] **AC-01 — Page entry, authenticated, has org, has read permission.**
 Given a user is authenticated, has an org, and has `read:page.reports`, when they navigate to `/reports`, then the page renders the title "Reports", the Report builder card is visible with the explore selector defaulting to "Participants — TEAM", the Templates panel is visible, and the Report results panel shows its empty state. (Traces F-01, F-03, F-04, F-32.)
 
-**AC-02 — Field list populated from `core_field_list`.**
+- [x] **AC-02 — Field list populated from `core_field_list`.**
 Given the catalogue has at least three rows tagged `report_availability = true` AND `report_domains @> ARRAY['participant']`, when the page loads, then the Fields section lists those rows in `(table_name, field_name)` order. (Traces F-24, BR-FIELD-CATALOG.)
 
-**AC-03 — Run report with selected fields.**
+- [ ] **AC-03 — Run report with selected fields.**
 Given the user has selected at least one field and the org has at least one matching `core_member` row, when they click Run report, then the results panel shows the rows in the selected order with one column per selected field. (Traces F-33, F-41, BR-EXECUTION.)
 
-**AC-04 — Validation alert with no fields.**
+- [x] **AC-04 — Validation alert with no fields.**
 Given the user has not selected any fields, when they look at the page, then the Run report button is disabled and an `<Alert variant="default">` reads "Select at least one field — Pick fields from the list above to run a report." (Traces F-13, BR-VALIDATION.)
 
-**AC-05 — Execution failure surfaces inline.**
+- [x] **AC-05 — Execution failure surfaces inline.**
 Given the execution adapter rejects on Run, when the error returns, then an `<Alert variant="destructive">` appears above the results table with the normalised error message and Run re-enables. (Traces F-16, BR-EXECUTION.)
 
-**AC-06 — Truncation banner at row cap.**
+- [x] **AC-06 — Truncation banner at row cap.**
 Given a Run that returns exactly 10,000 rows (the cap), when the results render, then a `<Alert variant="default">` appears above the results table with title "Result truncated" and description "Result truncated at 10,000 rows. Add filters to narrow results." (Traces F-34, F-59, BR-ROW-CAP.)
 
-**AC-07 — Save new template (creator).**
+- [ ] **AC-07 — Save new template (creator).**
 Given the user has selected fields and entered a template name, when they click Save, then a `'success'`-variant toast renders "Template saved.", the Templates panel includes the new row at the top of the Modified-desc list, and the builder's Load template `<Select>` includes the new row. (Traces F-42, BR-SAVE.)
 
-**AC-08 — Save creates `app_id = 'team'` and `domain_id = 'participant'`.**
+- [x] **AC-08 — Save creates `app_id = 'team'` and `domain_id = 'participant'`.**
 Given the user saves a new template, when the INSERT lands, then the persisted row carries `app_id = 'team'`, `domain_id = 'participant'`, `organisation_id = selectedOrganisation.id`, and `created_by = currentUserId`. (Traces F-42, BR-SAVE.)
 
-**AC-09 — Load template restores builder state.**
+- [ ] **AC-09 — Load template restores builder state.**
 Given a saved template with three selected fields, two filters, one sort, and a description, when the user picks it from the Load template `<Select>`, then the builder's fields, filters, sorts, name, visibility, and description match the saved state. (Traces F-44, BR-SAVE.)
 
-**AC-10 — Delete confirmation dialog copy.**
+- [x] **AC-10 — Delete confirmation dialog copy.**
 Given the user clicks Delete on a creator-owned template named "My report", when the dialog opens, then the title reads "Delete template?", the description reads "This permanently deletes the template 'My report'. This cannot be undone.", the confirm button reads "Delete" (destructive), and the cancel button reads "Cancel". (Traces F-49.)
 
-**AC-11 — Delete success.**
+- [x] **AC-11 — Delete success.**
 Given the user confirms the delete dialog for a creator-owned template, when the DELETE succeeds, then a `'success'`-variant toast renders "Template deleted.", the Templates panel and Load `<Select>` no longer include the deleted row, the active template is cleared, and the results panel resets to its empty state. (Traces F-43, BR-DELETE.)
 
-**AC-12 — Non-creator cannot edit (locked state).**
+- [x] **AC-12 — Non-creator cannot edit (locked state).**
 Given a non-private template was saved by user A, when user B (a different org-admin in the same org) loads that template, then the Template name / Visibility / Description fields are disabled, the literal caption "Only the template creator can edit or delete this template." renders, and the Save and Delete buttons in the builder card are hidden. (Traces F-29, F-55, BR-OWNERSHIP.)
 
-**AC-13 — RLS race on edit emits literal toast.**
+- [x] **AC-13 — RLS race on edit emits literal toast.**
 Given a non-creator somehow triggers a Save (e.g. a race), when the database rejects the UPDATE, then a `'destructive'`-variant toast renders with the literal copy "Only the template creator can edit this template." (Traces F-19, F-63, BR-OWNERSHIP.)
 
-**AC-14 — Org-shared visibility badge wording.**
+- [x] **AC-14 — Org-shared visibility badge wording.**
 Given a saved template with `is_private = false`, when the Templates panel renders, then the row's Name cell shows the inline badge "Org-shared". When `is_private = true`, the badge shows "Private". (Traces F-36, BR-VISIBILITY.)
 
-**AC-15 — Builder visibility checkbox label.**
+- [x] **AC-15 — Builder visibility checkbox label.**
 Given the builder is in a clean state with `is_private = true`, when the user looks at the Visibility checkbox, then the label reads "Private template". When the user unchecks it, the label flips to "Event-shared template" (the pace-core2 literal label, accepted in v1). (Traces F-28, BR-VISIBILITY, §17 capability item.)
 
-**AC-16 — CSV export downloads `export.csv`.**
+- [ ] **AC-16 — CSV export downloads `export.csv`.**
 Given the user has run a report and `canExport === true`, when they click Export in the results toolbar, then a file named `export.csv` downloads containing the visible rows in their visible-column order. (Traces F-45, BR-EXPORT.)
 
-**AC-17 — Export hidden when `canExport === false`.**
+- [ ] **AC-17 — Export hidden when `canExport === false`.**
 Given the user has `canExport === false`, when they look at the results toolbar, then the Export action is not visible. (Traces F-54, BR-EXPORT.)
 
-**AC-18 — Save hidden when `canCreate === false` AND `canUpdate === false`.**
+- [x] **AC-18 — Save hidden when `canCreate === false` AND `canUpdate === false`.**
 Given the user has `canCreate === false` AND `canUpdate === false`, when they look at the builder card footer, then the Save button is not visible. (Traces F-52.)
 
-**AC-19 — Delete hidden when `canDelete === false`.**
+- [x] **AC-19 — Delete hidden when `canDelete === false`.**
 Given the user has `canDelete === false`, when they load any template, then the Delete button in the builder card is hidden and the Templates panel kebab menu does not show Delete on any row. (Traces F-53.)
 
-**AC-20 — Empty catalogue empty state.**
+- [x] **AC-20 — Empty catalogue empty state.**
 Given the metadata query returns zero rows, when the page renders, then the Fields section shows "No fields available for this explore. Contact your administrator." and Run is disabled. (Traces F-11, F-60, BR-EMPTY-CATALOG.)
 
-**AC-21 — Empty templates list empty state.**
+- [x] **AC-21 — Empty templates list empty state.**
 Given the org has zero templates, when the page renders, then the Templates panel body shows "No saved templates yet." and the Load template `<Select>` shows only the placeholder "Select template…". (Traces F-12.)
 
-**AC-22 — Permission denied (read).**
+- [ ] **AC-22 — Permission denied (read).**
 Given a user is authenticated and has org context but lacks `read:page.reports`, when they navigate to `/reports`, then `<AccessDenied />` renders with copy "You do not have permission to view this page." inside the `AuthenticatedShell` chrome and no builder, results, or templates panel renders. (Traces F-20, F-51.)
 
-**AC-23 — Org switch resets builder, templates, and results.**
+- [ ] **AC-23 — Org switch resets builder, templates, and results.**
 Given the user is on `/reports` for org A with selected fields and a result set, when they switch the org context to org B, then the metadata refetches against org B, the templates list refetches against org B, the active template clears, and the results panel returns to its pre-Run empty state. (Traces F-58, BR-ORG-SWITCH.)
 
-**AC-24 — Defensive null skip in templates list.**
+- [x] **AC-24 — Defensive null skip in templates list.**
 Given a row exists in `core_report_template` for the current org with `app_id = NULL` (orphan), when the Templates panel renders, then that row does not appear in the list. (Traces F-40, BR-TEMPLATE-LIST.)
 
-**AC-25 — Cross-org template invisibility.**
+- [x] **AC-25 — Cross-org template invisibility.**
 Given templates exist for org B but the user is signed in with org A selected, when the Templates panel queries, then no org-B template row is returned regardless of search input. (Traces F-64, BR-SCOPE.)
 
 ---
@@ -789,7 +790,7 @@ Given templates exist for org B but the user is signed in with org A selected, w
 - Do not author a TEAM-local allowlist of fields for PII / sensitive-column gating. Catalogue ownership lies with the data platform; gating decisions live there. (Q-D6.)
 - Do not author an org-admin UI override of creator-only edit / delete in v1. The application layer is creator-only; org-admin override is deferred. (Q-D5; §17.)
 - Do not introduce a TEAM-local CSV export wrapper. DataTable's built-in `features.export = true` is the whole export surface; the filename is `export.csv`. (Q-PC2.)
-- Do not fork shared `ReportBuilder` to override the visibility checkbox label. Accept the literal "Event-shared template" string in v1; the upstream `visibilityLabels` prop is captured in §17. (Q-V1.)
+- Do not fork shared `ReportBuilder` to override the visibility checkbox label. TEAM passes `visibilityLabels` (`Private template` / `Event-shared template`) and `sharedTemplateBadgeLabel` (`Org-shared`) per AC-14 / AC-15. (Q-V1 delivered in v1.)
 - Do not invent a "successor explore id" pattern. v6 declares `team.participant` exclusively. (Q-DEF-1.)
 - Do not present report results BASE-table-first. Results are member-anchored via the `team.participant` explore on `core_member`.
 - Do not use the `team_unit` legacy construct anywhere in this slice.
