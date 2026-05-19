@@ -61,7 +61,7 @@ TEAM-10 does **not** own:
 
 **Single combined list.** No tabs. No upcoming / past split. The events list is a single `DataTable` sorted by `event_date DESC NULLS LAST`.
 
-**Loading split.** The `/events` page renders a full-page `<LoadingSpinner />` inside the `PaceMain` content area while the events RPC is in flight. The `/events/:eventId` page renders a full-page `<LoadingSpinner />` while the events RPC resolves the event header (the same RPC supplies header data for the matching row), then a section-level `<LoadingSpinner />` inside the attendee `DataTable` while the attendees RPC is in flight.
+**Loading split.** The `/events` page renders a full-page `<LoadingSpinner />` inside the `PaceMain` content area while the events RPC is in flight. The `/events/:eventId` page renders a full-page `<LoadingSpinner />` while the attendees RPC (`app_org_event_attendees`) is in flight; neither the header card nor the attendee table renders until that RPC resolves (F-13). Background refetches after initial load use the attendee `DataTable`'s built-in loading row (F-12 / §5 States).
 
 **Toast context.** The slice imports `toast` from `@solvera/pace-core/components` and uses it only for unexpected fetch failures (network errors, RPC failures surfaced outside the inline `Alert` retry path — for example a one-off RPC failure on a fresh in-flight request). Variant vocabulary used: `'destructive'`. Default duration 5000 ms. `<ToastProvider>` is mounted by TEAM-01 inside `AuthenticatedShell`; this slice does not mount it.
 
@@ -642,7 +642,7 @@ Every verification step here targets dev-db only.
 | `DataTable` | `@solvera/pace-core/components` | Events list on `/events`; attendee list on `/events/:eventId` |
 | `Alert`, `AlertTitle`, `AlertDescription` | `@solvera/pace-core/components` | RPC fetch-error alert; Org-mismatch alert |
 | `Badge` | `@solvera/pace-core/components` | Application status badge on the attendee list |
-| `LoadingSpinner` | `@solvera/pace-core/components` | Full-page initial loading; section-level loading inside `DataTable` |
+| `LoadingSpinner` | `@solvera/pace-core/components` | Full-page initial loading on both routes; background refetch loading row inside `DataTable` |
 | `toast` | `@solvera/pace-core/components` | Module-level toast for unexpected RPC / network failures during background refetch |
 | `HandleSupabaseError` | `@solvera/pace-core/utils` | Normalise RPC errors for inline `Alert` description and toast copy |
 | `ChevronLeft` | `@solvera/pace-core/icons` | Back-button glyph on `/events/:eventId` |
@@ -685,76 +685,76 @@ Every verification step here targets dev-db only.
 
 ## §11 Acceptance criteria
 
-**AC-01 — `/events` page entry, authenticated, has org, has read permission.**
+- [x] **AC-01 — `/events` page entry, authenticated, has org, has read permission.**
 Given a user is authenticated, has an org, and has `read:page.events`, when they navigate to `/events`, then the page renders the heading "Events" and a `DataTable` with columns Event name, Event date, Event venue, Members registered, populated from the `app_org_event_summaries` RPC call. (Traces F-01, F-02, F-03, F-04, F-22, F-23, F-24, F-25, F-26.)
 
-**AC-02 — `/events` default sort.**
-Given the events RPC returns three rows with `event_date` values "2026-05-10", "2026-05-01", and `null`, when the page renders with `initialSorting: [{ id: 'event_date', desc: true }]`, then rows render in the order "2026-05-10", "2026-05-01", `null` (NULLS LAST in descending order). (Traces F-39, BR-M, BR-N.)
+- [x] **AC-02 — `/events` default sort.**
+Given the events RPC returns three rows with `event_date` values "2026-05-10", "2026-05-01", and `null`, when the page renders with `initialSorting: [{ id: 'event_date_sort_key', desc: true }]`, then rows render in the order "2026-05-10", "2026-05-01", `null` (NULLS LAST in descending order). (Traces F-39, BR-M, BR-N.)
 
-**AC-03 — `/events` event-date range when `event_days > 1`.**
+- [x] **AC-03 — `/events` event-date range when `event_days > 1`.**
 Given an events row has `event_date = "2026-05-05"` and `event_days = 3`, when the row renders, then the **Event date** cell shows "5 May 2026 – 7 May 2026" (the end date is computed as `event_date + (event_days - 1) days`). (Traces F-24, BR-L.)
 
-**AC-04 — `/events` event-date single day when `event_days <= 1`.**
+- [x] **AC-04 — `/events` event-date single day when `event_days <= 1`.**
 Given an events row has `event_date = "2026-05-05"` and `event_days IS NULL` (or `event_days = 1`), when the row renders, then the **Event date** cell shows "5 May 2026". (Traces F-24, BR-L.)
 
-**AC-05 — `/events` event-date em-dash when null.**
+- [x] **AC-05 — `/events` event-date em-dash when null.**
 Given an events row has `event_date IS NULL`, when the row renders, then the **Event date** cell shows "—" and the row sorts to the bottom under default descending sort. (Traces F-24, BR-L, BR-M.)
 
-**AC-06 — `/events` event-venue em-dash when null.**
+- [x] **AC-06 — `/events` event-venue em-dash when null.**
 Given an events row has `event_venue IS NULL`, when the row renders, then the **Event venue** cell shows "—". (Traces F-25.)
 
-**AC-07 — `/events` members-registered count.**
+- [x] **AC-07 — `/events` members-registered count.**
 Given an events row has `members_registered_count = 4`, when the row renders, then the **Members registered** cell shows "4". (Traces F-26, BR-P.)
 
-**AC-08 — `/events` empty state.**
+- [x] **AC-08 — `/events` empty state.**
 Given a user enters `/events` for an org that has zero events with current-org member presence, when the page loads, then the events `DataTable` renders the empty state title "No registered-member events" and description "Events appear here once a member of your organisation has an application or registration." with no CTA. (Traces F-15, BR-S.)
 
-**AC-09 — `/events` search filters in-memory.**
+- [ ] **AC-09 — `/events` search filters in-memory.**
 Given the events list has multiple rows and the user types "summer" into the search input, when the search executes, then only rows whose `event_name` contains "summer" (case-insensitive) remain visible; clearing the input restores all rows. (Traces F-37, BR-N.)
 
-**AC-10 — `/events` row click navigates to event detail.**
+- [x] **AC-10 — `/events` row click navigates to event detail.**
 Given the events list has at least one row, when the user clicks a row, then the app navigates to `/events/:eventId` where `:eventId` is the clicked row's `event_id`. (Traces F-34, F-45.)
 
-**AC-11 — `/events/:eventId` page entry and header render.**
+- [x] **AC-11 — `/events/:eventId` page entry and header render.**
 Given a user has `read:page.events` and navigates to `/events/:eventId` for an event the current org has presence in, when the attendees RPC returns at least one row, then the page renders the Back button at top-left, an event header card showing `event_name` as heading, the formatted event-date span beneath, and `event_venue` as subtitle, followed by the attendee `DataTable` with columns Name and Application status. (Traces F-06, F-07, F-09, F-10, F-28, F-30, F-31, F-32.)
 
-**AC-12 — `/events/:eventId` event-not-found UX.**
+- [x] **AC-12 — `/events/:eventId` event-not-found UX.**
 Given a user navigates to `/events/:eventId` for an event id that the current org has no presence in (RPC returns zero rows), when the page renders, then the page replaces its content with the heading "Event not found", description "We couldn't find this event for your current organisation.", and a "← Back to events" button that navigates to `/events`. (Traces F-16, BR-A, BR-S.)
 
-**AC-13 — `/events/:eventId` attendee name composition.**
+- [x] **AC-13 — `/events/:eventId` attendee name composition.**
 Given an attendee row has `preferred_name = "Sam"`, `first_name = "Samantha"`, `last_name = "Doe"`, when the row renders, then the **Name** cell shows "Sam Doe". When `preferred_name IS NULL` or empty, the cell shows "Samantha Doe". (Traces F-31, BR-F.)
 
-**AC-14 — `/events/:eventId` application status badge tones.**
+- [x] **AC-14 — `/events/:eventId` application status badge tones.**
 Given the attendee list has rows with statuses "submitted", "under_review", "approved", "rejected", "withdrawn", when the rows render, then the **Application status** cells render badges "Submitted" (default tone), "Under review" (default tone), "Approved" (success tone), "Rejected" (destructive tone), "Withdrawn" (muted tone). (Traces F-32, BR-E.)
 
-**AC-15 — `/events/:eventId` drafts excluded.**
+- [ ] **AC-15 — `/events/:eventId` drafts excluded.**
 Given a member of the current org has a `base_application` with `status = 'draft'` for the event, when the page renders, then that member does not appear in the attendee list and the count in the description does not include them. (Traces F-52, BR-D.)
 
-**AC-16 — `/events/:eventId` cross-org applicants excluded.**
+- [ ] **AC-16 — `/events/:eventId` cross-org applicants excluded.**
 Given a `core_person` has applications for the same event from two organisations and the user is signed in with org A selected, when the page renders, then the attendee list shows only the org A application row (not the other-org application row). (Traces F-53, BR-G.)
 
-**AC-17 — `/events/:eventId` member-row-missing applicants excluded.**
+- [ ] **AC-17 — `/events/:eventId` member-row-missing applicants excluded.**
 Given a `base_application` exists for the event but the applicant has no `core_member` row in the current org (`core_member.organisation_id != p_organisation_id` OR no row at all), when the page renders, then that applicant does not appear in the attendee list. (Traces F-54, BR-H.)
 
-**AC-18 — `/events/:eventId` row click navigates to Member 360.**
+- [x] **AC-18 — `/events/:eventId` row click navigates to Member 360.**
 Given the attendee list has at least one row, when the user clicks a row, then the app navigates to `/members/:memberId` where `:memberId` is the clicked row's `member_id`. (Traces F-35, F-46, BR-V.)
 
-**AC-19 — `/events/:eventId` Back button navigates to events list.**
+- [x] **AC-19 — `/events/:eventId` Back button navigates to events list.**
 Given the page has loaded, when the user clicks the "← Back to events" button at top-left of the `PaceMain` content area, then the app navigates to `/events`. (Traces F-36, F-47.)
 
-**AC-20 — Permission denied — read.**
+- [x] **AC-20 — Permission denied — read.**
 Given a user is authenticated and has org context but lacks `read:page.events`, when they navigate to `/events` or `/events/:eventId`, then `<AccessDenied />` renders inside the `AuthenticatedShell` chrome with copy "You do not have permission to view this page." and no list, header, or table renders. (Traces F-20, F-42.)
 
-**AC-21 — RPC error state on `/events`.**
+- [x] **AC-21 — RPC error state on `/events`.**
 Given the `app_org_event_summaries` RPC fails, when the error is returned, then the page replaces its content with `<Alert variant="destructive">` titled "Could not load events" with description sourced from `HandleSupabaseError(error, { context: 'app_org_event_summaries' })` and a Retry button beneath; clicking Retry re-runs the RPC. (Traces F-18.)
 
-**AC-22 — Org switch on `/events` refetches list.**
+- [x] **AC-22 — Org switch on `/events` refetches list.**
 Given the user has the events list visible for org A, when they switch to org B in the org context selector, then the events RPC refetches against org B and the user sees org B's data (or the events-list empty state). (Traces F-48, BR-W.)
 
-**AC-23 — Org switch on `/events/:eventId` with no presence renders org-mismatch.**
+- [x] **AC-23 — Org switch on `/events/:eventId` with no presence renders org-mismatch.**
 Given the user is on `/events/:eventId` for an event where org A has presence, when they switch the org context to org B (which has no presence in this event), then the page replaces its content with `<Alert variant="destructive">` titled "This event is not in your current organisation", description "Switch back, or return to the events list.", and a "Back to events" button navigating to `/events`. (Traces F-19, F-49, BR-W.)
 
-**AC-24 — Cross-org leakage prevention.**
+- [ ] **AC-24 — Cross-org leakage prevention.**
 Given an event exists for org B but org A has no presence, when the user is signed in with org A selected and the events RPC returns its list, then no row for the org-B-only event is returned by the RPC, regardless of search input. (Traces F-50, BR-G, BR-I.)
 
 ---

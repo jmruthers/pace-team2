@@ -34,7 +34,7 @@
 | TEAM-03 — Member 360 | TEAM-01, TEAM-02 | Built | |
 | TEAM-13 — Communications via PUMP | TEAM-01, TEAM-02 | Built | PUMP Edge smoke-send + TM13 §15 residual checks on active dev |
 | TEAM-04 — Standing roles | TEAM-01, TEAM-03 | Built | |
-| TEAM-10 — Events & attendees | TEAM-01, TEAM-03 |  |  |
+| TEAM-10 — Events & attendees | TEAM-01, TEAM-03 | Built | TM10 §15: manual QA pack S-01–S-24 on dev; RPC-scoped AC-15–17, AC-24 (BR-I); AC-09 search in-app |
 
 ## Evidence
 
@@ -176,5 +176,11 @@
 - authority: `docs/requirements/TM10-events-attendees-requirements.md`
 - backend freeze: TM10 PASS per backend-ready report (`app_org_event_summaries`, `app_org_event_attendees`)
 - authority dependency (not runtime): TM10 §1 — attendee row navigation targets Member 360 (`TEAM-03`)
-- §15 Done (runtime): TM10 §15 — MCP confirmation of both SECURITY DEFINER RPCs on active dev project; cross-org read scenario per TM10 BR-I; manual QA `docs/test-packs/TM10-qa-pack.md` (AC-01–AC-24)
-- MCP (`yihzsfcceciimdoiibif`, **2026-05-17**): **`app_org_event_summaries(p_organisation_id uuid)`** and **`app_org_event_attendees(p_organisation_id uuid, p_event_id uuid)`**, both **`SECURITY DEFINER`** (`pg_proc.prosecdef=true`). **Residual:** TM10 BR-I cross-org read behaviour exercised in QA / fixture runs.
+- validate: pass `202605191928` (231 Vitest tests; pace-core audit pass)
+- implementation: [`src/pages/events/EventsListPage.tsx`](../../src/pages/events/EventsListPage.tsx), [`src/pages/events/EventDetailPage.tsx`](../../src/pages/events/EventDetailPage.tsx), [`src/hooks/useOrgEventsData.ts`](../../src/hooks/useOrgEventsData.ts), [`src/hooks/useEventAttendeesData.ts`](../../src/hooks/useEventAttendeesData.ts), [`src/lib/events/`](../../src/lib/events/); routes `/events`, `/events/:eventId` in [`src/App.tsx`](../../src/App.tsx); NULLS LAST via hidden `event_date_sort_key` column
+- tests: [`events.display.test.ts`](../../src/lib/events/events.display.test.ts), [`useOrgEventsData.test.tsx`](../../src/hooks/useOrgEventsData.test.tsx) (incl. org refetch), [`useEventAttendeesData.test.tsx`](../../src/hooks/useEventAttendeesData.test.tsx), [`EventsListPage.test.tsx`](../../src/pages/events/EventsListPage.test.tsx), [`EventDetailPage.test.tsx`](../../src/pages/events/EventDetailPage.test.tsx) (incl. detail RPC error + Retry)
+- verification log: [`docs/delivery/TM10-verification-evidence.md`](TM10-verification-evidence.md)
+- AC (§11 checkboxes): **20 / 24** complete in requirements — open: AC-09, AC-15–17, AC-24 (RPC/manual QA)
+- QA pack: **0 / 24** manual Pass/Fail — [`docs/test-packs/TM10-qa-pack.md`](../test-packs/TM10-qa-pack.md); Vitest subset documented in verification log
+- known deviations (documented): DataTable search placeholder is generic `"Search…"` (spec: `"Search events"` / `"Search attendees"`); pace-core has no `searchPlaceholder` prop yet
+- MCP (**2026-05-19**, verified-contract): **`app_org_event_summaries`**, **`app_org_event_attendees`**, both **`SECURITY DEFINER`**; **`rbac_app_pages.events`** `scope_type=organisation`. **Residual:** BR-I cross-org read + draft/member exclusion proofs on dev fixtures (S-15–S-17, S-24).

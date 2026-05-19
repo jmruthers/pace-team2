@@ -16,6 +16,8 @@ import { FormsListPage } from './pages/forms/FormsListPage';
 import { FormAuthoringPage } from './pages/forms/FormAuthoringPage';
 import { ReportsPage } from './pages/reports/ReportsPage';
 import { PhotoModerationPage } from './pages/moderation/PhotoModerationPage';
+import { EventsListPage } from './pages/events/EventsListPage';
+import { EventDetailPage } from './pages/events/EventDetailPage';
 export const APP_NAME = 'TEAM';
 
 const NAV_ITEMS: NavigationItem[] = [
@@ -184,6 +186,8 @@ function App() {
             path="communications"
             element={<CommunicationsPage />}
           />
+          <Route path="events" element={<EventsListPage />} />
+          <Route path="events/:eventId" element={<EventDetailPage />} />
           <Route
             path="forms/new"
             element={<FormAuthoringPage />}

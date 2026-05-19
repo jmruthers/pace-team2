@@ -1,0 +1,17 @@
+export const EVENTS_DATA_TABLE_FEATURES = {
+  import: false,
+  export: false,
+  hierarchical: false,
+  grouping: false,
+  creation: false,
+  editing: false,
+  deletion: false,
+  deleteSelected: false,
+  selection: false,
+  filtering: true,
+  search: true,
+  sorting: true,
+  pagination: true,
+  columnVisibility: true,
+  columnReordering: true,
+} as const;

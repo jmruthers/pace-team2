@@ -37,6 +37,12 @@
 | S-23 | AC-23 | `/events/:eventId` | Detail for org A presence; switch to org B without presence. | Destructive org-mismatch Alert with Back to events. | [Pass/Fail] |  |
 | S-24 | AC-24 | `/events` | Event exists only for org B; org A selected. | List RPC returns no row for that event regardless of search. | [Pass/Fail] |  |
 
+## Vitest coverage (pre-manual sign-off)
+
+Automated tests cover list/detail wiring, display rules, NULLS LAST sort (`event_date_sort_key`), org-mismatch, navigation, and RPC hook contracts. See [`docs/delivery/TM10-verification-evidence.md`](../delivery/TM10-verification-evidence.md).
+
+Scenarios **requiring in-app dev QA:** S-09 (search), S-15–S-17 (RPC row filters), S-22 (org switch UI), S-24 (BR-I cross-org).
+
 ## Test run summary
 
 - overall result: [Pass | Fail]
