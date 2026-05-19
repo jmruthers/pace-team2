@@ -15,6 +15,7 @@ import { CommunicationsPage } from './pages/communications/CommunicationsPage';
 import { FormsListPage } from './pages/forms/FormsListPage';
 import { FormAuthoringPage } from './pages/forms/FormAuthoringPage';
 import { ReportsPage } from './pages/reports/ReportsPage';
+import { PhotoModerationPage } from './pages/moderation/PhotoModerationPage';
 export const APP_NAME = 'TEAM';
 
 const NAV_ITEMS: NavigationItem[] = [
@@ -193,6 +194,7 @@ function App() {
           />
           <Route path="forms" element={<FormsListPage />} />
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="moderation/photos" element={<PhotoModerationPage />} />
           <Route
             path="settings/membership-types"
             element={<MembershipTypesPage />}

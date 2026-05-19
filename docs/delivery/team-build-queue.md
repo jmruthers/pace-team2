@@ -30,7 +30,7 @@
 | TEAM-08 — Organisation settings (Financial) | TEAM-01 | Built | |
 | TEAM-09 — Org form authoring | TEAM-01 | Built | TM09 §15 Done: QA pack + §12 RLS MCP + Q-UX-4 pace-core picker |
 | TEAM-11 — Report builder | TEAM-01 | Built | |
-| TEAM-12 — Profile photo moderation | TEAM-01 |  |  |
+| TEAM-12 — Profile photo moderation | TEAM-01 | Built | TM12 §15 — run docs/test-packs/TM12-qa-pack.md (S-01–S-15); seed dev profile photos (public + private); manual Remove E2E on dev |
 | TEAM-03 — Member 360 | TEAM-01, TEAM-02 | Built | |
 | TEAM-13 — Communications via PUMP | TEAM-01, TEAM-02 | Built | PUMP Edge smoke-send + TM13 §15 residual checks on active dev |
 | TEAM-04 — Standing roles | TEAM-01, TEAM-03 | Built | |
@@ -131,8 +131,14 @@
 
 - authority: `docs/requirements/TM12-photo-moderation-requirements.md`
 - backend freeze: TM12 PASS per backend-ready report (moderation RPC + RLS + fixture)
-- §15 Done (runtime): TM12 §15 — RBAC policies + `data_moderation_photo_list`; §12 test-data prerequisite (profile photos seeded on dev); manual Remove verification; `docs/test-packs/TM12-qa-pack.md` / `npm run validate` per slice
-- MCP (`yihzsfcceciimdoiibif`, **2026-05-17**): **`data_moderation_photo_list(p_organisation_id uuid)`** SECURITY DEFINER; `pg_policies` on **`core_file_references`** incl. `rbac_restrict_team_moderation_profile_photo_select|delete`, standard rbac CRUD/service policies.
+- validate: pass `202605191828` (201 Vitest tests; pace-core audit pass)
+- implementation: [`src/pages/moderation/PhotoModerationPage.tsx`](../../src/pages/moderation/PhotoModerationPage.tsx), [`src/hooks/usePhotoModerationData.ts`](../../src/hooks/usePhotoModerationData.ts), [`src/lib/moderation/photoModeration.display.ts`](../../src/lib/moderation/photoModeration.display.ts), [`src/components/moderation/PhotoThumbnailCell.tsx`](../../src/components/moderation/PhotoThumbnailCell.tsx), [`src/components/moderation/PhotoPreviewDialog.tsx`](../../src/components/moderation/PhotoPreviewDialog.tsx), route in [`src/App.tsx`](../../src/App.tsx)
+- tests: `photoModeration.display.test.ts`, `usePhotoModerationData.test.tsx`, `PhotoModerationPage.test.tsx`
+- AC (§11 checkboxes): **9 / 15** Vitest-verified; **15 / 15** implementation-complete — remainder manual QA in [`TM12-qa-pack.md`](../test-packs/TM12-qa-pack.md) (AC-06, AC-09–AC-10, AC-12–AC-15)
+- verification log: [`docs/delivery/TM12-verification-evidence.md`](TM12-verification-evidence.md)
+- §15 Done (runtime): TM12 §12 test-data prerequisite (≥1 public + 1 private `core_person` profile photo on dev); manual Remove verification; QA pack S-01–S-15
+- list-load error UX: destructive `Alert` + Retry **replaces** DataTable when RPC fails (same pattern as TM06/TM07/TM08/Forms; TM12 §4 inline-in-table wording deferred to team convention)
+- MCP (`yihzsfcceciimdoiibif`, **2026-05-17**): **`data_moderation_photo_list(p_organisation_id uuid)`** SECURITY DEFINER; `pg_policies` on **`core_file_references`** incl. `rbac_restrict_team_moderation_profile_photo_select|delete`, standard rbac CRUD/service policies; **`moderation-photos`** in canonical `rbac_app_pages` seed
 
 ### TEAM-03 — Member 360
 

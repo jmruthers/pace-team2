@@ -195,6 +195,8 @@ Sticky elements: the shell header and footer are sticky per TEAM-01's `PaceAppLa
 
 ### Components
 
+> **Badge variants (pace-core):** §5 tables use illustrative labels (`success`, `secondary`, `destructive` outline). In TEAM, use pace-core `Badge` tokens only — e.g. `soft-main-normal` / `soft-sec-normal` for Public / Private, `outline-acc-normal` for thumbnail errors.
+
 **Card (page content wrapper)**
 - `Card` from `@solvera/pace-core/components`, rendering `<article>` with rounded border + shadow per pace-core2 visual standards.
 - `CardHeader` contains `CardTitle` "Profile photos". No description.
@@ -586,49 +588,51 @@ A canonical `rbac_app_pages` row for `pageName = 'moderation-photos'` (with `sco
 
 ## §11 Acceptance criteria
 
-**AC-01 — Page entry, authenticated moderator with `read`**
+**Progress (2026-05-19):** **9 / 15** Vitest-verified · **15 / 15** implementation-complete · **§15 Done** blocked on [`docs/test-packs/TM12-qa-pack.md`](../test-packs/TM12-qa-pack.md) (S-01–S-15) and dev profile-photo seed (≥1 public + 1 private). Evidence: [`docs/delivery/TM12-verification-evidence.md`](../delivery/TM12-verification-evidence.md).
+
+- [x] **AC-01 — Page entry, authenticated moderator with `read`.**
 Given a user is authenticated and has `read:page.moderation-photos` on their current organisation, when they navigate to `/moderation/photos`, then the page renders with title "Photo moderation" and a Card titled "Profile photos" containing a DataTable showing all profile photos for `core_person`-pointed members of the current organisation, sorted by Member ascending.
 
-**AC-02 — Empty list**
+- [x] **AC-02 — Empty list.**
 Given the current organisation has zero profile photos for its `core_person`-pointed members, when the page loads, then the DataTable shows the empty placeholder with title "No profile photos to review." and description "New photos appear here as members upload them through Portal."
 
-**AC-03 — Remove — happy path**
+- [x] **AC-03 — Remove — happy path.**
 Given a moderator has `delete:page.moderation-photos` and clicks Remove on a row, when they confirm the destructive dialog, then `deleteAttachment` runs, the storage object is removed, the metadata row is deleted, the dialog closes, the row leaves the table, and a success toast "Photo removed." is shown.
 
-**AC-04 — Remove — failure (storage delete failed)**
+- [x] **AC-04 — Remove — failure (storage delete failed).**
 Given the user confirms a Remove and `deleteAttachment` returns `{ ok: false, error: { code: 'ATTACHMENT_STORAGE_DELETE_FAILED' } }`, when the failure is handled, then the Confirm Remove dialog stays open, a destructive toast "Could not remove photo" with the normalised error message is shown, and the row remains in the table.
 
-**AC-05 — Remove — visibility hidden when `canDelete === false`**
+- [x] **AC-05 — Remove — visibility hidden when `canDelete === false`.**
 Given a user has `read` but not `delete`, when the page loads, then no row shows a Remove action in its row-action menu, and the Preview dialog (when opened) does not render the Remove button.
 
-**AC-06 — Preview dialog**
+- [ ] **AC-06 — Preview dialog.**
 Given a moderator clicks the thumbnail cell on any row, when the Preview dialog opens, then the dialog title is the member display name and the body shows a larger version of the photo plus a metadata block with Uploaded date / time, Uploaded by, File size, File type, Public flag, Category, and the row's Storage path id (file_path is NOT shown).
 
-**AC-07 — Permission denied — page**
+- [x] **AC-07 — Permission denied — page.**
 Given a user is authenticated but lacks `read:page.moderation-photos`, when they navigate to `/moderation/photos`, then `<AccessDenied />` is shown inside PaceMain with copy "You do not have permission to view this page.", and the shell header and footer remain visible.
 
-**AC-08 — List load failure with retry**
+- [x] **AC-08 — List load failure with retry.**
 Given the read RPC returns an error, when the failure is handled, then the DataTable body is replaced by an inline destructive `Alert` with title "Could not load profile photos." and the normalised error message; clicking Retry re-runs the RPC.
 
-**AC-09 — Search, sort, pagination**
+- [ ] **AC-09 — Search, sort, pagination.**
 Given the table contains more than 25 rows, when the user uses the global search input, sort headers, and pagination controls, then search filters by Member, Uploaded by, and File type substring (case-insensitive), sorts apply per column, and pagination defaults to 25 rows per page with options [10, 25, 50].
 
-**AC-10 — Public / Private filter**
+- [ ] **AC-10 — Public / Private filter.**
 Given the table contains both public and private photos, when the user reveals the column filter row and filters Public to Public, then only rows with `is_public === true` are shown; switching to Private shows only `is_public === false` rows.
 
-**AC-11 — Org-context switch closes open dialog**
+- [x] **AC-11 — Org-context switch closes open dialog.**
 Given the Preview or Confirm Remove dialog is open and a user switches the current organisation via the header org selector, when the org changes, then the dialog closes silently, a default-variant toast "Editing cancelled — organisation changed." appears, and the table refetches against the new organisation.
 
-**AC-12 — Thumbnail signed URL for private files**
+- [ ] **AC-12 — Thumbnail signed URL for private files.**
 Given a private profile-photo row (`is_public === false`), when the page loads, then `useFileDisplay` resolves a signed URL from the `files` bucket and the thumbnail renders; `file_path` is never displayed to the user.
 
-**AC-13 — Thumbnail public URL for public files**
+- [ ] **AC-13 — Thumbnail public URL for public files.**
 Given a public profile-photo row (`is_public === true`), when the page loads, then `useFileDisplay` resolves a public URL from the `public-files` bucket and the thumbnail renders.
 
-**AC-14 — Member-name link**
+- [ ] **AC-14 — Member-name link.**
 Given a row shows a member display name and TEAM-03 Member 360 is in service, when the user clicks the name, then the browser navigates to `/members/<core_person_id>`. When TEAM-03 is not in service, the cell renders as plain text and is not clickable.
 
-**AC-15 — Concurrent removal handling**
+- [ ] **AC-15 — Concurrent removal handling.**
 Given two moderators click Remove on the same row at the same time, when the second `deleteAttachment` call runs after the first has succeeded, then the second call returns either `ATTACHMENT_STORAGE_DELETE_FAILED` (storage object already gone) or `ATTACHMENT_METADATA_DELETE_FAILED` (row already gone) and the destructive toast surfaces. The list does not duplicate or crash.
 
 ---
