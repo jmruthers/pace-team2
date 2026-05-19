@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { CommDraft, CommScheduleCompletePayload, CommSendResult, RecipientPoolDescriptor } from '@solvera/pace-core/comms';
-import { CommComposer, useCommDraft, useCommSendAdapter } from '@solvera/pace-core/comms';
+import type { CommDraft, CommRbacContext, CommScheduleCompletePayload, CommSendResult, RecipientPoolDescriptor } from '@solvera/pace-core/comms';
+import { CommComposer, useCommDraft, useCommSendAdapter, useResolvedPool } from '@solvera/pace-core/comms';
 import {
   Badge,
   Button,
@@ -17,31 +17,22 @@ import {
 } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
-import { AccessDenied, PagePermissionGuard, useCan } from '@solvera/pace-core/rbac';
+import { AccessDenied, PagePermissionGuard } from '@solvera/pace-core/rbac';
+import { useCommsLogRbac } from '@/hooks/useCommsLogRbac';
 import { useActiveOrganisationMembershipTypes } from '@/hooks/useActiveOrganisationMembershipTypes';
 import { usePumpEffectiveSenderIdentity } from '@/hooks/usePumpEffectiveSenderIdentity';
+import { readManualPickInitialState, type CommsRecipientMode } from '@/lib/communications/commsManualPick';
+import { buildOrgMembersPool } from '@/lib/communications/commsRecipientPool';
+import { appendSendOutcomeDescription } from '@/lib/communications/communicationsSendOutcome';
+import {
+  createTeamCommSendAdapter,
+  ZERO_RECIPIENT_MESSAGE,
+} from '@/lib/communications/teamCommSendAdapter';
 import {
   buildManualPickPayload,
   getManualPickStorageKey,
-  readManualPickPayload,
 } from '@/lib/members/memberDirectory.picker';
 import { buildPostSendDraftReset } from '@/pages/communications/communicationsDraftReset';
-
-type RecipientMode = 'org_members' | 'manual';
-
-function appendSendOutcomeDescription(result: CommSendResult): string | undefined {
-  const fragments: string[] = [];
-  if (result.suppression_skipped > 0) {
-    fragments.push(`${result.suppression_skipped} skipped (suppression).`);
-  }
-  if (result.warnings.length > 0) {
-    fragments.push('Some recipients had unresolved tokens; check delivery in PUMP.');
-  }
-  if (fragments.length === 0) {
-    return undefined;
-  }
-  return fragments.join(' ');
-}
 
 function formatScheduledDatetimeForToast(scheduledAtIso: string): string {
   const d = new Date(scheduledAtIso);
@@ -54,55 +45,6 @@ function formatScheduledDatetimeForToast(scheduledAtIso: string): string {
   }).format(d);
 }
 
-function readManualPickInitialState(organisationId: string): {
-  recipientMode: RecipientMode;
-  manualMemberIds: string[];
-} {
-  if (typeof window === 'undefined') {
-    return { recipientMode: 'org_members', manualMemberIds: [] };
-  }
-
-  const key = getManualPickStorageKey();
-  const raw = window.sessionStorage.getItem(key);
-  if (raw == null) {
-    return { recipientMode: 'org_members', manualMemberIds: [] };
-  }
-
-  window.sessionStorage.removeItem(key);
-  const ids = readManualPickPayload(raw, organisationId);
-  if (ids.length > 0) {
-    return { recipientMode: 'manual', manualMemberIds: ids };
-  }
-
-  return { recipientMode: 'org_members', manualMemberIds: [] };
-}
-
-function buildOrgMembersPool(
-  organisationId: string,
-  memberTypeStringIds: string[],
-  includeInactive: boolean
-): RecipientPoolDescriptor {
-  const filters: {
-    member_type_ids?: string[];
-    include_inactive?: boolean;
-  } = {};
-
-  if (memberTypeStringIds.length > 0) {
-    filters.member_type_ids = [...memberTypeStringIds];
-  }
-  if (includeInactive) {
-    filters.include_inactive = true;
-  }
-
-  const hasFilters = Object.keys(filters).length > 0;
-
-  return {
-    type: 'org_members',
-    organisation_id: organisationId,
-    ...(hasFilters ? { filters } : {}),
-  };
-}
-
 interface CommunicationsPageInnerProps {
   organisationId: string;
 }
@@ -113,24 +55,17 @@ function CommunicationsPageInner({ organisationId }: CommunicationsPageInnerProp
   const navigate = useNavigate();
 
   const [handoff] = useState(() => readManualPickInitialState(organisationId));
-  const [recipientMode, setRecipientMode] = useState<RecipientMode>(() => handoff.recipientMode);
+  const [recipientMode, setRecipientMode] = useState<CommsRecipientMode>(() => handoff.recipientMode);
   const [manualMemberIds] = useState<string[]>(() => [...handoff.manualMemberIds]);
   const [selectedMembershipTypeIds, setSelectedMembershipTypeIds] = useState<Set<number>>(() => new Set());
   const [includeInactiveMembers, setIncludeInactiveMembers] = useState(false);
 
   const senderIdentitySeededRef = useRef(false);
+  const rbacErrorToastedRef = useRef(false);
 
   const { memberTypes } = useActiveOrganisationMembershipTypes(organisationId);
 
-  const scopeArgs = { organisationId };
-  const composeCheck = useCan('create:page.CommsLog', scopeArgs);
-  const sendCheck = useCan('update:page.CommsLog', scopeArgs);
-  const scheduleCheck = useCan('update:page.CommsLog', scopeArgs);
-
-  const rbacBusy =
-    composeCheck.isLoading ||
-    sendCheck.isLoading ||
-    scheduleCheck.isLoading;
+  const commsRbac = useCommsLogRbac(organisationId);
 
   const senderIdentityQuery = usePumpEffectiveSenderIdentity(organisationId);
 
@@ -143,19 +78,82 @@ function CommunicationsPageInner({ organisationId }: CommunicationsPageInnerProp
     reply_to: '',
   });
 
-  const adapter = useCommSendAdapter({ organisationId, sourceApp: 'team' });
+  const baseAdapter = useCommSendAdapter({ organisationId, sourceApp: 'team' });
+
+  const memberTypeIdsForPool = useMemo(
+    () => [...selectedMembershipTypeIds].sort((left, right) => left - right).map(String),
+    [selectedMembershipTypeIds]
+  );
+
+  const recipientPool = useMemo((): RecipientPoolDescriptor => {
+    if (recipientMode === 'manual') {
+      return { type: 'manual', member_ids: [...manualMemberIds] };
+    }
+    return buildOrgMembersPool(organisationId, memberTypeIdsForPool, includeInactiveMembers);
+  }, [
+    recipientMode,
+    organisationId,
+    manualMemberIds,
+    memberTypeIdsForPool,
+    includeInactiveMembers,
+  ]);
+
+  const resolvedPool = useResolvedPool({
+    adapter: baseAdapter,
+    recipientPool,
+    organisationId,
+    channel: draft.channel,
+  });
+
+  const estimatedRecipientCount =
+    resolvedPool.preview != null && !resolvedPool.isLoading
+      ? resolvedPool.preview.estimated_count
+      : null;
+
+  const adapter = useMemo(
+    () =>
+      createTeamCommSendAdapter(baseAdapter, {
+        getEstimatedRecipientCount: () => estimatedRecipientCount,
+        onZeroRecipientBlocked: () => {
+          toast({ title: ZERO_RECIPIENT_MESSAGE, variant: 'destructive' });
+        },
+        onSendTestSuccess: () => {
+          toast({ title: 'Test message sent.', variant: 'success' });
+        },
+      }),
+    [baseAdapter, estimatedRecipientCount]
+  );
 
   const rbac = useMemo(
-    () =>
-      ({
-        canCompose: !rbacBusy && composeCheck.can,
-        canSend: !rbacBusy && sendCheck.can,
-        canSchedule: !rbacBusy && scheduleCheck.can,
-        scopeType: 'organisation' as const,
-        scopeId: organisationId,
-      }),
-    [composeCheck.can, rbacBusy, scheduleCheck.can, organisationId, sendCheck.can]
+    (): CommRbacContext =>
+      commsRbac.hasPermissionError
+        ? {
+            canCompose: false,
+            canSend: false,
+            canSchedule: false,
+            scopeType: 'organisation',
+            scopeId: organisationId,
+          }
+        : {
+            canCompose: !commsRbac.isLoading && commsRbac.canCompose,
+            canSend: !commsRbac.isLoading && commsRbac.canSend,
+            canSchedule: !commsRbac.isLoading && commsRbac.canSchedule,
+            scopeType: 'organisation',
+            scopeId: organisationId,
+          },
+    [commsRbac, organisationId]
   );
+
+  useEffect(() => {
+    if (!commsRbac.hasPermissionError || rbacErrorToastedRef.current) {
+      return;
+    }
+    rbacErrorToastedRef.current = true;
+    toast({
+      title: 'Could not load permissions. Refresh to retry.',
+      variant: 'destructive',
+    });
+  }, [commsRbac.hasPermissionError]);
 
   useEffect(() => {
     if (!senderIdentityQuery.isError) {
@@ -180,24 +178,6 @@ function CommunicationsPageInner({ organisationId }: CommunicationsPageInnerProp
       sender_phone: row.senderPhone ?? '',
     });
   }, [senderIdentityQuery.data, senderIdentityQuery.isSuccess, updateDraft]);
-
-  const memberTypeIdsForPool = useMemo(
-    () => [...selectedMembershipTypeIds].sort((left, right) => left - right).map(String),
-    [selectedMembershipTypeIds]
-  );
-
-  const recipientPool = useMemo((): RecipientPoolDescriptor => {
-    if (recipientMode === 'manual') {
-      return { type: 'manual', member_ids: [...manualMemberIds] };
-    }
-    return buildOrgMembersPool(organisationId, memberTypeIdsForPool, includeInactiveMembers);
-  }, [
-    recipientMode,
-    organisationId,
-    manualMemberIds,
-    memberTypeIdsForPool,
-    includeInactiveMembers,
-  ]);
 
   const toggleMembershipType = useCallback((id: number) => {
     setSelectedMembershipTypeIds((previous) => {
@@ -262,9 +242,13 @@ function CommunicationsPageInner({ organisationId }: CommunicationsPageInnerProp
   }, [navigate]);
 
   const manualRecipientCount = manualMemberIds.length;
-  const recipientModeRadiosDisabled = rbacBusy;
-
-  const showComposerLoading = rbacBusy || senderIdentityQuery.isPending;
+  const recipientModeRadiosDisabled = commsRbac.isLoading;
+  const showComposerLoading = commsRbac.isLoading || senderIdentityQuery.isPending;
+  const showZeroRecipientCopy =
+    !resolvedPool.isLoading &&
+    resolvedPool.error == null &&
+    resolvedPool.preview != null &&
+    resolvedPool.preview.estimated_count === 0;
 
   return (
     <main className="grid gap-4 pb-28">
@@ -372,20 +356,24 @@ function CommunicationsPageInner({ organisationId }: CommunicationsPageInnerProp
           <LoadingSpinner aria-label="Loading communications composer" />
         </section>
       ) : (
-        <CommComposer
-          adapter={adapter}
-          blockSendOnUnresolvedTokens
-          draft={draft}
-          onDraftChange={onDraftChange}
-          onCancel={onCancel}
-          onScheduleComplete={onScheduleComplete}
-          onSendComplete={onSendComplete}
-          onSendError={onSendError}
-          organisationId={organisationId}
-          rbac={rbac}
-          recipientPool={recipientPool}
-          sourceApp="team"
-        />
+        <>
+          {showZeroRecipientCopy && <p>{ZERO_RECIPIENT_MESSAGE}</p>}
+          <CommComposer
+            adapter={adapter}
+            blockSendOnUnresolvedTokens
+            blockSendWhenPoolEmpty
+            draft={draft}
+            onDraftChange={onDraftChange}
+            onCancel={onCancel}
+            onScheduleComplete={onScheduleComplete}
+            onSendComplete={onSendComplete}
+            onSendError={onSendError}
+            organisationId={organisationId}
+            rbac={rbac}
+            recipientPool={recipientPool}
+            sourceApp="team"
+          />
+        </>
       )}
     </main>
   );
