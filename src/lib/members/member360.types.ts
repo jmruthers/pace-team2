@@ -1,4 +1,3 @@
-/* eslint-disable pace-core-compliance/max-named-exports */
 export type MembershipStatus = 'Active' | 'Provisional' | 'Suspended' | 'Lapsed' | 'Resigned' | 'Revoked';
 
 export type ContactPermissionType = 'full' | 'notify' | 'none';
@@ -85,10 +84,4 @@ export interface IdentityFormValues {
   membershipNumber: string;
   validFrom: string;
   validTo: string;
-}
-
-export interface ContactDetailData {
-  phonesText: string;
-  residentialAddress: string;
-  postalAddress: string;
 }

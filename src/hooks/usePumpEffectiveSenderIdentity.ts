@@ -42,8 +42,6 @@ export function usePumpEffectiveSenderIdentity(organisationId: string | null) {
         return null;
       }
 
-      // TM13 §3 / §15 — RPC slug owned by PUMP; not an `app_*` / `data_*` consumer naming pattern.
-      /* eslint-disable-next-line pace-core-compliance/rpc-naming-pattern -- TM13 PUMP contract */
       const { data, error } = await secureSupabase.rpc('pump_get_effective_sender_identity', {
         organisation_id: organisationId,
         source_context_type: null,

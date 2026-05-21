@@ -1,8 +1,7 @@
 // @vitest-environment jsdom
-/* eslint-disable pace-core-compliance/prefer-pace-core-components */
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useEffect, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -12,7 +11,7 @@ import type { OrgFormsResponseCountOutcome } from '@/hooks/useOrgFormsData';
 
 import { FormsListPage } from './FormsListPage';
 
-const toastSpy = vi.hoisted(() => vi.fn());
+const toastMock = vi.hoisted(() => vi.fn());
 const navigateSpy = vi.hoisted(() => vi.fn());
 
 let canCreate = true;
@@ -96,127 +95,9 @@ vi.mock('@/hooks/useOrgFormsData', () => ({
   useOrgFormsData: (...args: unknown[]) => useOrgFormsDataMock(...args),
 }));
 
-vi.mock('@solvera/pace-core/components', () => {
-  return {
-    Alert: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-    AlertDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
-    AlertTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
-    Badge: ({ children }: { children: ReactNode }) => <span>{children}</span>,
-    Button: ({
-      children,
-      onClick,
-      type,
-      disabled,
-    }: {
-      children: ReactNode;
-      onClick?: () => void | Promise<void>;
-      type?: 'button' | 'submit';
-      disabled?: boolean;
-    }) => (
-      <button type={type ?? 'button'} disabled={disabled} onClick={() => void onClick?.()}>
-        {children}
-      </button>
-    ),
-    Card: ({ children }: { children: ReactNode }) => <article>{children}</article>,
-    CardContent: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-    CardHeader: ({ children }: { children: ReactNode }) => <header>{children}</header>,
-    ConfirmationDialog: ({
-      open,
-      title,
-      confirmLabel,
-      cancelLabel,
-      onConfirm,
-      onOpenChange,
-    }: {
-      open: boolean;
-      title?: string;
-      confirmLabel?: string;
-      cancelLabel?: string;
-      onConfirm?: () => void | Promise<void>;
-      onOpenChange?: (open: boolean) => void;
-    }) => {
-      useEffect(() => {
-        if (!open) {
-          return;
-        }
-        const onKey = (e: KeyboardEvent) => {
-          if (e.key === 'Escape') {
-            onOpenChange?.(false);
-          }
-        };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-      }, [open, onOpenChange]);
-      return open ? (
-        <section data-testid="confirm-delete-root">
-          {title ? <h2>{title}</h2> : null}
-          <button type="button" data-testid="confirm-delete-cancel" onClick={() => onOpenChange?.(false)}>
-            {cancelLabel ?? 'Cancel'}
-          </button>
-          <button type="button" data-testid="confirm-delete-submit" onClick={() => void onConfirm?.()}>
-            {confirmLabel ?? 'Confirm'}
-          </button>
-        </section>
-      ) : null;
-    },
-    Dialog: ({ open, children }: { open: boolean; children: ReactNode }) => (open ? <section data-testid="blocked-dialog">{children}</section> : null),
-    DialogPortal: ({ children }: { children: ReactNode }) => <>{children}</>,
-    DialogContent: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-    DialogHeader: ({ children }: { children: ReactNode }) => <header>{children}</header>,
-    DialogTitle: ({ children }: { children: ReactNode }) => <h3>{children}</h3>,
-    DialogBody: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-    DialogFooter: ({ children }: { children: ReactNode }) => <footer>{children}</footer>,
-    DataTable: <T extends Record<string, unknown>>({
-      data,
-      actions,
-    }: {
-      data: T[];
-      actions?: Array<{
-        label: string;
-        testId?: string;
-        loading?: boolean | ((row: T) => boolean);
-        hidden?: boolean | ((row: T) => boolean);
-        disabled?: boolean | ((row: T) => boolean);
-        onClick: (row: T) => void;
-      }>;
-    }) => (
-      <table>
-        <tbody>
-          {data.map((row) => (
-            <tr key={String(row.id ?? '')}>
-              {actions?.map((action, index) => {
-                const hid =
-                  typeof action.hidden === 'function' ? action.hidden(row) : action.hidden === true;
-                const loading =
-                  typeof action.loading === 'function' ? action.loading(row) : action.loading === true;
-                const dis =
-                  loading ||
-                  (typeof action.disabled === 'function'
-                    ? action.disabled(row)
-                    : action.disabled === true);
-                if (hid) {
-                  return null;
-                }
-                return (
-                  <td key={`${action.testId ?? action.label}-${index}`}>
-                    <button
-                      type="button"
-                      disabled={dis}
-                      data-testid={action.testId ?? action.label}
-                      onClick={() => action.onClick(row)}
-                    >
-                      {loading ? '…' : action.label}
-                    </button>
-                  </td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    ),
-    toast: (...args: unknown[]) => toastSpy(...args),
-  };
+vi.mock('@solvera/pace-core/components', async () => {
+  const { buildOrgFormsListPageComponentsMock } = await import('@/test-utils/orgFormsListPageMocks');
+  return buildOrgFormsListPageComponentsMock(toastMock);
 });
 
 function injectDataState(row: OrgFormsTableRow) {
@@ -259,7 +140,7 @@ describe('FormsListPage', () => {
     canDelete = true;
     formsPageReadAllowed = true;
     navigateSpy.mockReset();
-    toastSpy.mockReset();
+    toastMock.mockReset();
     deleteFormAsyncMock.mockReset().mockResolvedValue({});
     orgHarness.organisation = { id: 'org-1', display_name: 'Org One', name: 'Org One' };
     fetchResponseCountFn = vi.fn(async () => ({ ok: true as const, count: 0 }));
@@ -372,7 +253,7 @@ describe('FormsListPage', () => {
     vi.stubEnv('VITE_FORM_PORTAL_URL', '');
     renderFlat();
     await user.click(screen.getByTestId('forms-copy-url'));
-    expect(toastSpy).toHaveBeenCalledWith(
+    expect(toastMock).toHaveBeenCalledWith(
       expect.objectContaining({
         variant: 'destructive',
       }),
@@ -409,7 +290,7 @@ describe('FormsListPage', () => {
     });
     await user.click(screen.getByTestId('confirm-delete-submit'));
     await waitFor(() => {
-      expect(toastSpy).toHaveBeenCalledWith(
+      expect(toastMock).toHaveBeenCalledWith(
         expect.objectContaining({ title: 'Signup deleted.', variant: 'success' }),
       );
     });
@@ -457,7 +338,7 @@ describe('FormsListPage', () => {
     await user.click(screen.getByTestId('forms-delete'));
 
     await waitFor(() => {
-      expect(toastSpy).toHaveBeenCalledWith(
+      expect(toastMock).toHaveBeenCalledWith(
         expect.objectContaining({
           variant: 'destructive',
           title: expect.stringMatching(/Could not check responses:/),
@@ -478,7 +359,7 @@ describe('FormsListPage', () => {
     await user.click(screen.getByTestId('confirm-delete-submit'));
 
     await waitFor(() => {
-      expect(toastSpy).toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' }));
+      expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' }));
     });
     await waitFor(() => {
       expect(screen.queryByTestId('confirm-delete-root')).toBeNull();
@@ -501,7 +382,7 @@ describe('FormsListPage', () => {
 
       await waitFor(() => {
         expect(writeText).toHaveBeenCalledWith('https://portal.example/forms/signup-draft');
-        expect(toastSpy).toHaveBeenCalledWith(
+        expect(toastMock).toHaveBeenCalledWith(
           expect.objectContaining({ title: 'Share URL copied to clipboard.', variant: 'success' }),
         );
       });

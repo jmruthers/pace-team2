@@ -1,6 +1,6 @@
 import { validateWorkflowAuthoringState } from '@solvera/pace-core/forms';
 
-import { createEmptyAuthoringState } from '@/lib/forms/orgForms.mappers';
+import { createEmptyAuthoringState } from '@/lib/forms/orgForms.mappers.authoring';
 import { composePortalFormsUrl } from '@/lib/forms/orgForms.portalUrl';
 
 import { describe, expect, it } from 'vitest';

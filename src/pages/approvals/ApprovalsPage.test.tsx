@@ -1,4 +1,3 @@
-/* eslint-disable pace-core-compliance/prefer-pace-core-components */
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -32,52 +31,43 @@ vi.mock('@/pages/approvals/ApprovalReviewPanel', () => ({
   ApprovalReviewPanel: ({ requestId }: { requestId?: string }) => <p>review-panel:{requestId ?? 'none'}</p>,
 }));
 
-vi.mock('@solvera/pace-core/components', () => ({
-  Alert: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  AlertTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
-  AlertDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
-  Button: ({ children, onClick }: { children: ReactNode; onClick?: () => void }) => (
-    <button type="button" onClick={onClick}>
-      {children}
-    </button>
-  ),
-  Label: ({ children }: { children: ReactNode }) => <label>{children}</label>,
-  DataTable: ({
-    columns,
-    data,
-    onRowActivate,
-  }: {
-    columns: Array<{ cell?: (info: { row: ApprovalRequestRow; getValue: () => unknown; index: number }) => ReactNode }>;
-    data: ApprovalRequestRow[];
-    onRowActivate?: (row: ApprovalRequestRow) => void;
-  }) => {
-    if (data.length === 0) {
-      return <section />;
-    }
-    const primaryCell = columns[0]?.cell;
-    const renderedCell = primaryCell?.({
-      row: data[0]!,
-      getValue: () => data[0]?.subjectLastName,
-      index: 0,
-    });
-    return (
-      <section>
-        <button type="button" aria-label="Activate queue row" onClick={() => onRowActivate?.(data[0]!)} />
-        {renderedCell ?? null}
-      </section>
-    );
-  },
-  Select: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  SelectTrigger: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  SelectValue: ({ placeholder }: { placeholder?: string }) => <span>{placeholder}</span>,
-  SelectContent: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  SelectItem: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  Tabs: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  TabsList: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  TabsTrigger: ({ children }: { children: ReactNode }) => <button type="button">{children}</button>,
-  TabsContent: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  toast: vi.fn(),
-}));
+vi.mock('@solvera/pace-core/components', async () => {
+  const { buildPaceCoreComponentsMock, MockButton } = await import('@/test-utils/paceCoreMocks');
+  const base = buildPaceCoreComponentsMock(vi.fn());
+  return {
+    ...base,
+    AlertTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
+    DataTable: ({
+      columns,
+      data,
+      onRowActivate,
+    }: {
+      columns: Array<{ cell?: (info: { row: ApprovalRequestRow; getValue: () => unknown; index: number }) => ReactNode }>;
+      data: ApprovalRequestRow[];
+      onRowActivate?: (row: ApprovalRequestRow) => void;
+    }) => {
+      if (data.length === 0) {
+        return <section />;
+      }
+      const primaryCell = columns[0]?.cell;
+      const renderedCell = primaryCell?.({
+        row: data[0]!,
+        getValue: () => data[0]?.subjectLastName,
+        index: 0,
+      });
+      return (
+        <section>
+          <MockButton aria-label="Activate queue row" onClick={() => onRowActivate?.(data[0]!)} />
+          {renderedCell ?? null}
+        </section>
+      );
+    },
+    Tabs: ({ children }: { children: ReactNode }) => <section>{children}</section>,
+    TabsList: ({ children }: { children: ReactNode }) => <section>{children}</section>,
+    TabsTrigger: ({ children }: { children: ReactNode }) => <MockButton>{children}</MockButton>,
+    TabsContent: ({ children }: { children: ReactNode }) => <section>{children}</section>,
+  };
+});
 
 const row: ApprovalRequestRow = {
   id: 'req-1',

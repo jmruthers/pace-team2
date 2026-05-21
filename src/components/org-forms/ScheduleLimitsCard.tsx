@@ -10,7 +10,7 @@ import {
 } from '@solvera/pace-core/components';
 
 import type { OrgFormScheduleLimitsInput } from '@/lib/forms/orgForms.types';
-import { datetimeLocalToIso, isoToDatetimeLocal } from '@/lib/forms/orgForms.mappers';
+import { datetimeLocalToIso, isoToDatetimeLocal } from '@/lib/forms/orgForms.mappers.datetime';
 
 export interface ScheduleLimitsCardProps {
   disabled: boolean;

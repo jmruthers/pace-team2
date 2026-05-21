@@ -8,10 +8,9 @@ import {
   filterApplications,
   filterCards,
   filterContacts,
-  formatPhoneRows,
-  getDisplayName,
   membershipStatusBadgeVariant,
-} from './member360.display';
+} from './member360.display.badges';
+import { formatPhoneRows, getDisplayName } from './member360.display.format';
 
 describe('member360 display helpers', () => {
   it('composes display names with preferred name fallback', () => {

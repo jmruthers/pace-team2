@@ -23,11 +23,7 @@ const config = {
 
 fs.mkdirSync(path.dirname(mcpPath), { recursive: true });
 fs.writeFileSync(mcpPath, `${JSON.stringify(config, null, 2)}\n`);
-// eslint-disable-next-line no-console
 console.log(`MCP Supabase → verification project ${MCP_VERIFICATION_PROJECT_REF}`);
-// eslint-disable-next-line no-console
 console.log(`Wrote ${mcpPath}`);
-// eslint-disable-next-line no-console
 console.log('Reminder: Restart Cursor MCP or reconnect if the IDE cached the prior project ref.');
-// eslint-disable-next-line no-console
 console.log('Note: npm run env:dev rewires MCP to SUPABASE_PROJECT_REF — run npm run mcp:verification afterward for DB audits.');

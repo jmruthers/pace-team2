@@ -1,62 +1,26 @@
-/* eslint-disable pace-core-compliance/prefer-pace-core-components */
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { ReactNode } from 'react';
 import { ApproveResolveDialog, HoldResolveDialog, RejectResolveDialog } from '@/components/approvals/resolveDialogs';
 import type { ApprovalRequestRow } from '@/lib/approvals/approvals.types';
 
-vi.mock('@solvera/pace-core/components', () => ({
-  Button: ({
-    children,
-    disabled,
-    onClick,
-  }: {
-    children: ReactNode;
-    disabled?: boolean;
-    onClick?: () => void;
-  }) => (
-    <button type="button" disabled={disabled} onClick={onClick}>
-      {children}
-    </button>
-  ),
-  ConfirmationDialog: ({
-    open,
-    confirmLabel,
-    onConfirm,
-  }: {
-    open: boolean;
-    confirmLabel: string;
-    onConfirm: () => void;
-  }) => (open ? <button type="button" onClick={onConfirm}>{confirmLabel}</button> : null),
-  Dialog: ({ open, children }: { open: boolean; children: ReactNode }) => (open ? <section>{children}</section> : null),
-  DialogContent: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  DialogHeader: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  DialogTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
-  DialogDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
-  DialogBody: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  DialogFooter: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  Label: ({ children, htmlFor }: { children: ReactNode; htmlFor?: string }) => <label htmlFor={htmlFor}>{children}</label>,
-  Input: ({
-    id,
-    value,
-    onChange,
-  }: {
-    id?: string;
-    value: string;
-    onChange: (value: string) => void;
-  }) => <input id={id} aria-label="input" value={value} onChange={(event) => onChange(event.target.value)} />,
-  Textarea: ({
-    id,
-    value,
-    onChange,
-  }: {
-    id?: string;
-    value: string;
-    onChange: (value: string) => void;
-  }) => <textarea id={id} aria-label="textarea" value={value} onChange={(event) => onChange(event.target.value)} />,
-}));
+vi.mock('@solvera/pace-core/components', async () => {
+  const { buildPaceCoreComponentsMock, MockButton } = await import('@/test-utils/paceCoreMocks');
+  const base = buildPaceCoreComponentsMock(vi.fn());
+  return {
+    ...base,
+    ConfirmationDialog: ({
+      open,
+      confirmLabel,
+      onConfirm,
+    }: {
+      open: boolean;
+      confirmLabel: string;
+      onConfirm: () => void;
+    }) => (open ? <MockButton onClick={onConfirm}>{confirmLabel}</MockButton> : null),
+  };
+});
 
 const baseRequest: ApprovalRequestRow = {
   id: 'req-1',
@@ -123,10 +87,11 @@ describe('resolve dialog validation rules', () => {
 
     const approveButton = screen.getByRole('button', { name: 'Approve' });
     expect(approveButton.hasAttribute('disabled')).toBe(true);
-    await user.type(screen.getByLabelText('input'), '   ');
+    const memberNumberInput = screen.getByPlaceholderText('Member number');
+    await user.type(memberNumberInput, '   ');
     expect(approveButton.hasAttribute('disabled')).toBe(true);
-    await user.clear(screen.getByLabelText('input'));
-    await user.type(screen.getByLabelText('input'), 'TEAM-001');
+    await user.clear(memberNumberInput);
+    await user.type(memberNumberInput, 'TEAM-001');
     expect(approveButton.hasAttribute('disabled')).toBe(false);
   });
 

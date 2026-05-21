@@ -148,7 +148,69 @@ export function formatResolvedDateHeading(iso: string | null): string {
   return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'long', year: 'numeric' }).format(d);
 }
 
-// eslint-disable-next-line complexity
+function mapRequestCoreFields(raw: Record<string, unknown>): Pick<
+  ApprovalRequestRow,
+  | 'id'
+  | 'organisationId'
+  | 'requestType'
+  | 'status'
+  | 'createdAt'
+  | 'resolvedAt'
+  | 'targetOrganisationId'
+  | 'sourceOrganisationId'
+  | 'membershipTypeId'
+  | 'applicantMemberNumber'
+  | 'reviewNotes'
+> {
+  return {
+    id: String(raw.id ?? ''),
+    organisationId: String(raw.organisation_id ?? ''),
+    requestType: (raw.request_type as ApprovalRequestType) ?? 'join',
+    status: (raw.status as ApprovalRequestStatus) ?? 'pending',
+    createdAt: (raw.created_at as string | null) ?? null,
+    resolvedAt: (raw.resolved_at as string | null) ?? null,
+    targetOrganisationId: (raw.target_organisation_id as string | null) ?? null,
+    sourceOrganisationId: (raw.source_organisation_id as string | null) ?? null,
+    membershipTypeId: (raw.membership_type_id as string | null) ?? null,
+    applicantMemberNumber: (raw.applicant_member_number as string | null) ?? null,
+    reviewNotes: (raw.review_notes as string | null) ?? (raw.resolution_note as string | null) ?? null,
+  };
+}
+
+function mapSubjectPersonFields(person: JoinedPerson | null): Pick<
+  ApprovalRequestRow,
+  'subjectPersonId' | 'subjectFirstName' | 'subjectLastName' | 'subjectPreferredName' | 'subjectEmail'
+> {
+  return {
+    subjectPersonId: (person?.id as string | undefined) ?? null,
+    subjectFirstName: person?.first_name ?? null,
+    subjectLastName: person?.last_name ?? null,
+    subjectPreferredName: person?.preferred_name ?? null,
+    subjectEmail: person?.email ?? null,
+  };
+}
+
+function mapSubjectMemberFields(member: JoinedMember | null): Pick<
+  ApprovalRequestRow,
+  'subjectMemberId' | 'subjectMemberDeletedAt'
+> {
+  return {
+    subjectMemberId: (member?.id as string | undefined) ?? null,
+    subjectMemberDeletedAt: member?.deleted_at ?? null,
+  };
+}
+
+function mapResolverPersonFields(person: JoinedPerson | null): Pick<
+  ApprovalRequestRow,
+  'resolverFirstName' | 'resolverLastName' | 'resolverPreferredName'
+> {
+  return {
+    resolverFirstName: person?.first_name ?? null,
+    resolverLastName: person?.last_name ?? null,
+    resolverPreferredName: person?.preferred_name ?? null,
+  };
+}
+
 export function mapRequestRow(raw: Record<string, unknown>): ApprovalRequestRow {
   const subjectPerson = asObject(raw.subject_person as JoinedPerson | JoinedPerson[] | null);
   const subjectMember = asObject(raw.subject_member as JoinedMember | JoinedMember[] | null);
@@ -158,30 +220,13 @@ export function mapRequestRow(raw: Record<string, unknown>): ApprovalRequestRow 
   const resolverPerson = asObject(raw.resolver_person as JoinedPerson | JoinedPerson[] | null);
 
   return {
-    id: String(raw.id ?? ''),
-    organisationId: String(raw.organisation_id ?? ''),
-    requestType: (raw.request_type as ApprovalRequestType) ?? 'join',
-    status: (raw.status as ApprovalRequestStatus) ?? 'pending',
-    createdAt: (raw.created_at as string | null) ?? null,
-    resolvedAt: (raw.resolved_at as string | null) ?? null,
-    targetOrganisationId: (raw.target_organisation_id as string | null) ?? null,
+    ...mapRequestCoreFields(raw),
     targetOrganisationName: targetOrg?.name ?? null,
-    sourceOrganisationId: (raw.source_organisation_id as string | null) ?? null,
-    membershipTypeId: (raw.membership_type_id as string | null) ?? null,
     membershipTypeName: membershipType?.name ?? null,
-    applicantMemberNumber: (raw.applicant_member_number as string | null) ?? null,
-    reviewNotes: (raw.review_notes as string | null) ?? (raw.resolution_note as string | null) ?? null,
-    subjectPersonId: (subjectPerson?.id as string | undefined) ?? null,
-    subjectFirstName: subjectPerson?.first_name ?? null,
-    subjectLastName: subjectPerson?.last_name ?? null,
-    subjectPreferredName: subjectPerson?.preferred_name ?? null,
-    subjectEmail: subjectPerson?.email ?? null,
     sourceOrganisationName: sourceOrg?.name ?? null,
-    subjectMemberId: (subjectMember?.id as string | undefined) ?? null,
-    subjectMemberDeletedAt: subjectMember?.deleted_at ?? null,
-    resolverFirstName: resolverPerson?.first_name ?? null,
-    resolverLastName: resolverPerson?.last_name ?? null,
-    resolverPreferredName: resolverPerson?.preferred_name ?? null,
+    ...mapSubjectPersonFields(subjectPerson),
+    ...mapSubjectMemberFields(subjectMember),
+    ...mapResolverPersonFields(resolverPerson),
   };
 }
 

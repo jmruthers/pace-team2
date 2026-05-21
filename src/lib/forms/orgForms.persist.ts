@@ -10,7 +10,7 @@ import {
   computeRemovedFieldIds,
   mapDefinitionToFieldUpdatePayload,
   mapDefinitionToInsertFieldRow,
-} from '@/lib/forms/orgForms.mappers';
+} from '@/lib/forms/orgForms.mappers.fields';
 
 /** Minimal client shape used by TM09 field replace mutations. */
 export interface OrgFormsSecureClient {

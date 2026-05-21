@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-/* eslint-disable pace-core-compliance/prefer-pace-core-components, pace-core-compliance/persistence-save-placement */
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -8,7 +7,7 @@ import type { ReactNode } from 'react';
 import { Member360Page } from './Member360Page';
 
 const launchMemberProfileMock = vi.fn();
-const toastMock = vi.fn();
+const toastMock = vi.hoisted(() => vi.fn());
 const deactivateOrReactivateCardMock = vi.fn();
 const saveIdentityMock = vi.fn();
 const fetchContactDetailsMock = vi.fn();
@@ -68,113 +67,81 @@ vi.mock('@solvera/pace-core/icons', () => ({
   ChevronRight: () => <span aria-hidden>right</span>,
 }));
 
-vi.mock('@solvera/pace-core/components', () => ({
-  Alert: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  AlertTitle: ({ children }: { children: ReactNode }) => <p>{children}</p>,
-  AlertDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
-  Avatar: ({ name }: { name: string }) => <p>{name}</p>,
-  Badge: ({ children }: { children: ReactNode }) => <span>{children}</span>,
-  Button: ({
-    children,
-    onClick,
-    type,
-    variant,
-    disabled,
-  }: {
-    children: ReactNode;
-    onClick?: () => void;
-    type?: 'button' | 'submit' | 'reset';
-    variant?: string;
-    disabled?: boolean;
-  }) => (
-    <button type={type ?? 'button'} data-variant={variant} onClick={onClick} disabled={disabled}>
-      {children}
-    </button>
-  ),
-  Card: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  CardHeader: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  CardTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
-  CardContent: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  ConfirmationDialog: ({
-    open,
-    title,
-    confirmLabel,
-    onConfirm,
-  }: {
-    open: boolean;
-    title: string;
-    confirmLabel?: string;
-    onConfirm: () => void;
-  }) =>
-    open ? (
+vi.mock('@solvera/pace-core/components', async () => {
+  const { buildPaceCoreComponentsMock, MockButton, MockCardFooter, MockSaveActions } = await import(
+    '@/test-utils/paceCoreMocks'
+  );
+  const base = buildPaceCoreComponentsMock(toastMock);
+  return {
+    ...base,
+    Avatar: ({ name }: { name: string }) => <p>{name}</p>,
+    CardTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
+    ConfirmationDialog: ({
+      open,
+      title,
+      confirmLabel,
+      onConfirm,
+    }: {
+      open: boolean;
+      title: string;
+      confirmLabel?: string;
+      onConfirm: () => void;
+    }) =>
+      open ? (
+        <section>
+          <p>{title}</p>
+          <MockButton onClick={onConfirm}>{confirmLabel ?? 'Confirm'}</MockButton>
+        </section>
+      ) : null,
+    DataTable: ({
+      data,
+      columns,
+      emptyState,
+    }: {
+      data: Array<Record<string, unknown>>;
+      columns: Array<{
+        id?: string;
+        accessorKey?: string;
+        header: string;
+        cell?: (info: { row: Record<string, unknown>; getValue: () => unknown; index: number }) => ReactNode;
+      }>;
+      emptyState?: { title?: string };
+    }) => (
       <section>
-        <p>{title}</p>
-        <button type="button" onClick={onConfirm}>
-          {confirmLabel ?? 'Confirm'}
-        </button>
+        {data.length === 0 ? (
+          <p>{emptyState?.title}</p>
+        ) : (
+          data.map((row, index) => (
+            <article key={String(row.id ?? index)}>
+              {columns.map((column) => (
+                <span key={column.id ?? column.accessorKey ?? column.header}>
+                  {column.cell
+                    ? column.cell({ row, getValue: () => row[column.accessorKey ?? ''], index })
+                    : String(row[column.accessorKey ?? ''] ?? '')}
+                </span>
+              ))}
+            </article>
+          ))
+        )}
       </section>
-    ) : null,
-  DataTable: ({
-    data,
-    columns,
-    emptyState,
-  }: {
-    data: Array<Record<string, unknown>>;
-    columns: Array<{
-      id?: string;
-      accessorKey?: string;
-      header: string;
-      cell?: (info: { row: Record<string, unknown>; getValue: () => unknown; index: number }) => ReactNode;
-    }>;
-    emptyState?: { title?: string };
-  }) => (
-    <section>
-      {data.length === 0 ? (
-        <p>{emptyState?.title}</p>
-      ) : (
-        data.map((row, index) => (
-          <article key={String(row.id ?? index)}>
-            {columns.map((column) => (
-              <div key={column.id ?? column.accessorKey ?? column.header}>
-                {column.cell
-                  ? column.cell({ row, getValue: () => row[column.accessorKey ?? ''], index })
-                  : String(row[column.accessorKey ?? ''] ?? '')}
-              </div>
-            ))}
-          </article>
-        ))
-      )}
-    </section>
-  ),
-  DatePickerWithTimezone: () => <input />,
-  Dialog: ({ children, open }: { children: ReactNode; open: boolean }) => (open ? <section>{children}</section> : null),
-  DialogHeader: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  DialogTitle: ({ children }: { children: ReactNode }) => <h3>{children}</h3>,
-  DialogDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
-  DialogBody: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  DialogFooter: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  DialogContent: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  Form: ({ children }: { children: (methods: unknown) => ReactNode }) =>
-    <section>{children({ formState: { isDirty: formIsDirty, isSubmitting: false }, handleSubmit: (fn: unknown) => fn, setError: vi.fn(), reset: vi.fn() })}</section>,
-  FormField: ({ label }: { label?: string }) => <label>{label}</label>,
-  Input: ({ value, onChange }: { value?: string; onChange?: (value: string) => void }) => (
-    <input value={value ?? ''} onChange={(event) => onChange?.(event.target.value)} />
-  ),
-  Label: ({ children }: { children: ReactNode }) => <label>{children}</label>,
-  LoadingSpinner: () => <p>Loading member</p>,
-  SaveActions: ({ onCancel }: { onCancel?: () => void }) => (
-    <section>
-      <button type="button" onClick={onCancel}>Cancel</button>
-      <button type="submit">Save</button>
-    </section>
-  ),
-  Select: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  SelectTrigger: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  SelectValue: ({ placeholder }: { placeholder?: string }) => <span>{placeholder}</span>,
-  SelectContent: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  SelectItem: ({ children }: { children: ReactNode }) => <span>{children}</span>,
-  toast: (...args: unknown[]) => toastMock(...args),
-}));
+    ),
+    DatePickerWithTimezone: () => null,
+    DialogTitle: ({ children }: { children: ReactNode }) => <h3>{children}</h3>,
+    Form: ({ children }: { children: (methods: unknown) => ReactNode }) => (
+      <section>
+        {children({
+          formState: { isDirty: formIsDirty, isSubmitting: false },
+          handleSubmit: (fn: unknown) => fn,
+          setError: vi.fn(),
+          reset: vi.fn(),
+        })}
+      </section>
+    ),
+    FormField: ({ label }: { label?: string }) => <span>{label}</span>,
+    SaveActions: MockSaveActions,
+    CardFooter: MockCardFooter,
+  };
+});
 
 vi.mock('@/hooks/useMember360Data', () => ({
   useMember360Data: (...args: unknown[]) => useMember360DataMock(...args),

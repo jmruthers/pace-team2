@@ -1,21 +1,27 @@
 import { createRoot } from 'react-dom/client';
 import { MutationCache, QueryCache, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter } from 'react-router-dom';
-import { UnifiedAuthProvider } from '@solvera/pace-core';
-import { InactivityWarningModal, SessionRestorationLoader } from '@solvera/pace-core/components';
-import { useUnifiedAuthContext, OrganisationServiceProvider } from '@solvera/pace-core/providers';
 import { createGetAppIdResolver, setupRBAC } from '@solvera/pace-core/rbac';
-import { QueryRetryHandler, queryErrorHandler } from '@solvera/pace-core/utils';
-import { supabaseClient } from './lib/supabase';
-import App, { APP_NAME } from './App';
+import {
+  UnifiedAuthProvider,
+  InactivityWarningModal,
+  SessionRestorationLoader,
+  QueryRetryHandler,
+  queryErrorHandler,
+} from '@solvera/pace-core';
+import { supabaseClient } from '@/lib/supabase';
 import './app.css';
+import App from './App';
 
-const resolveTeamAppId = createGetAppIdResolver(supabaseClient);
+const APP_NAME = 'YOUR_APP';
 
 setupRBAC(supabaseClient, {
   appName: APP_NAME,
-  getAppId: resolveTeamAppId,
+  getAppId: createGetAppIdResolver(supabaseClient),
 });
+
+const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+const WARN_BEFORE_MS = 2 * 60 * 1000;
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -30,34 +36,19 @@ const queryClient = new QueryClient({
     onError: (error) => queryErrorHandler(error, 'Mutation'),
   }),
 });
+const root = document.getElementById('root');
+if (!root) throw new Error('Root element not found');
 
-function AppProviders() {
-  const { user, session } = useUnifiedAuthContext();
-  return (
-    <OrganisationServiceProvider supabaseClient={supabaseClient} user={user} session={session}>
-      <SessionRestorationLoader message="Restoring session…">
-        <App />
-      </SessionRestorationLoader>
-    </OrganisationServiceProvider>
-  );
-}
-
-const rootElement = document.getElementById('root');
-
-if (rootElement == null) {
-  throw new Error('Root element not found');
-}
-
-createRoot(rootElement).render(
+createRoot(root).render(
   <QueryClientProvider client={queryClient}>
     <BrowserRouter>
       <UnifiedAuthProvider
         supabaseClient={supabaseClient}
         appName={APP_NAME}
-        idleTimeoutMs={30 * 60 * 1000}
-        warnBeforeMs={2 * 60 * 1000}
-        onIdleLogout={() => {
-          void supabaseClient.auth.signOut();
+        idleTimeoutMs={IDLE_TIMEOUT_MS}
+        warnBeforeMs={WARN_BEFORE_MS}
+        onIdleLogout={async () => {
+          await supabaseClient.auth.signOut();
         }}
         renderInactivityWarning={({ timeRemaining, onStaySignedIn, onSignOutNow }) => (
           <InactivityWarningModal
@@ -68,7 +59,9 @@ createRoot(rootElement).render(
           />
         )}
       >
-        <AppProviders />
+        <SessionRestorationLoader message="Restoring session…">
+          <App />
+        </SessionRestorationLoader>
       </UnifiedAuthProvider>
     </BrowserRouter>
   </QueryClientProvider>

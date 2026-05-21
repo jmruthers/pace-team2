@@ -10,7 +10,7 @@ import {
   computeRemovedFieldIds,
   isLikelyPersistedFieldId,
   mapDefinitionToFieldUpdatePayload,
-} from '@/lib/forms/orgForms.mappers';
+} from '@/lib/forms/orgForms.mappers.fields';
 import { replaceFormFields } from '@/lib/forms/orgForms.persist';
 import type { OrgFormsSecureClient } from '@/lib/forms/orgForms.persist';
 import {

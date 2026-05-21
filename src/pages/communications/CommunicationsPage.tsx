@@ -261,33 +261,29 @@ function CommunicationsPageInner({ organisationId }: CommunicationsPageInnerProp
         <CardContent className="grid gap-4">
           <fieldset className="grid gap-4">
             <legend className="sr-only">Recipient mode</legend>
-            <section className="grid grid-flow-col auto-cols-max items-center gap-4">
-              <Label htmlFor="comms-recipient-org">
-                {/* eslint-disable-next-line pace-core-compliance/prefer-pace-core-components -- pace-core Input always binds string `value`; radios require `checked`. */}
-                <input
-                  aria-label="All organisation members"
-                  checked={recipientMode === 'org_members'}
-                  disabled={recipientModeRadiosDisabled}
-                  id="comms-recipient-org"
-                  name="recipient-mode"
-                  onChange={() => setRecipientMode('org_members')}
-                  type="radio"
-                />
+            <section
+              aria-label="Recipient mode"
+              className="grid grid-flow-col auto-cols-max items-center gap-4"
+              role="group"
+            >
+              <Button
+                aria-pressed={recipientMode === 'org_members'}
+                disabled={recipientModeRadiosDisabled}
+                onClick={() => setRecipientMode('org_members')}
+                type="button"
+                variant={recipientMode === 'org_members' ? 'default' : 'outline'}
+              >
                 All organisation members
-              </Label>
-              <Label htmlFor="comms-recipient-manual">
-                {/* eslint-disable-next-line pace-core-compliance/prefer-pace-core-components -- pace-core Input always binds string `value`; radios require `checked`. */}
-                <input
-                  aria-label="Specific members"
-                  checked={recipientMode === 'manual'}
-                  disabled={recipientModeRadiosDisabled}
-                  id="comms-recipient-manual"
-                  name="recipient-mode"
-                  onChange={() => setRecipientMode('manual')}
-                  type="radio"
-                />
+              </Button>
+              <Button
+                aria-pressed={recipientMode === 'manual'}
+                disabled={recipientModeRadiosDisabled}
+                onClick={() => setRecipientMode('manual')}
+                type="button"
+                variant={recipientMode === 'manual' ? 'default' : 'outline'}
+              >
                 Specific members
-              </Label>
+              </Button>
             </section>
           </fieldset>
 

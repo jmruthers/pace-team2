@@ -12,13 +12,12 @@ import type {
   OrgFormScheduleLimitsInput,
 } from '@/lib/forms/orgForms.types';
 
+import { mapDetailRowToAuthoring, mapListRowToTableRow } from '@/lib/forms/orgForms.mappers.authoring';
+import { mapDefinitionToInsertFieldRow } from '@/lib/forms/orgForms.mappers.fields';
 import {
-  mapDetailRowToAuthoring,
-  mapDefinitionToInsertFieldRow,
-  mapListRowToTableRow,
   mapStateToCoreFormsInsertPayload,
   mapStateToCoreFormsUpdatePayload,
-} from '@/lib/forms/orgForms.mappers';
+} from '@/lib/forms/orgForms.mappers.payload';
 import { replaceFormFields } from '@/lib/forms/orgForms.persist';
 import type { OrgFormsSecureClient } from '@/lib/forms/orgForms.persist';
 

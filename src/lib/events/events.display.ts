@@ -1,7 +1,7 @@
 import {
   applicationStatusBadgeVariant,
   applicationStatusLabel,
-} from '@/lib/members/member360.display';
+} from '@/lib/members/member360.display.badges';
 import type { ApplicationStatus } from '@/lib/members/member360.types';
 import type {
   OrgEventAttendeeRow,

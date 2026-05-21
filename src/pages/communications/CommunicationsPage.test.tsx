@@ -273,7 +273,7 @@ describe('CommunicationsPage', () => {
 
   it('rebuilds recipientPool when switching to specific members mode', async () => {
     renderPage();
-    fireEvent.click(screen.getByLabelText('Specific members'));
+    fireEvent.click(screen.getByRole('button', { name: 'Specific members' }));
 
     await waitFor(() => {
       expect(capturedRecipientPool).toEqual({ type: 'manual', member_ids: [] });

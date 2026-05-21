@@ -1,6 +1,7 @@
-/* eslint-disable pace-core-compliance/prefer-pace-core-components -- test doubles */
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
+
+const toastMock = vi.hoisted(() => vi.fn());
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -63,31 +64,8 @@ vi.mock('@solvera/pace-core/icons', () => ({
 
 vi.mock('@solvera/pace-core/components', async (importActual) => {
   const actual = await importActual<typeof import('@solvera/pace-core/components')>();
-  return {
-    ...actual,
-    DataTable: ({
-      columns,
-      data,
-      initialSorting,
-      onRowActivate,
-    }: {
-      columns: Array<{ header: string; hidden?: boolean }>;
-      data: OrgEventAttendeeRow[];
-      initialSorting?: Array<{ id: string; desc: boolean }>;
-      onRowActivate?: (row: OrgEventAttendeeRow) => void;
-    }) => (
-      <section data-testid="attendees-table">
-        <p data-testid="column-headers">
-          {columns.filter((column) => column.hidden !== true).map((column) => column.header).join('|')}
-        </p>
-        <p data-testid="initial-sort">{JSON.stringify(initialSorting)}</p>
-        <button type="button" onClick={() => onRowActivate?.(data[0]!)}>
-          Open attendee
-        </button>
-      </section>
-    ),
-    LoadingSpinner: ({ label }: { label?: string }) => <p>{label ?? 'Loading'}</p>,
-  };
+  const { buildEventDetailDataTableMock } = await import('@/test-utils/eventsPageMocks');
+  return { ...actual, ...buildEventDetailDataTableMock(), toast: toastMock };
 });
 
 function defaultHookReturn(overrides: Record<string, unknown> = {}) {

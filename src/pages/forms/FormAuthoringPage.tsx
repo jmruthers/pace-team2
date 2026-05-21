@@ -24,7 +24,7 @@ import { ScheduleLimitsCard } from '@/components/org-forms/ScheduleLimitsCard';
 import type { ApiResult } from '@/lib/apiResult';
 import { fetchScopedAuthoringDetailSnapshot } from '@/lib/forms/formAuthoringScopedDetail';
 import type { OrgFormScheduleLimitsInput } from '@/lib/forms/orgForms.types';
-import { createEmptyAuthoringState, defaultScheduleLimits } from '@/lib/forms/orgForms.mappers';
+import { createEmptyAuthoringState, defaultScheduleLimits } from '@/lib/forms/orgForms.mappers.authoring';
 import { useOrgFormsData } from '@/hooks/useOrgFormsData';
 
 const TEAM_WORKFLOW_TYPES = ['org_signup', 'information_collection', 'consent_capture', 'generic'] as const;

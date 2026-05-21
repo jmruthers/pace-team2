@@ -177,90 +177,66 @@ function ApprovalReviewPanelContent({ requestId, organisationId }: ApprovalRevie
             <aside className="grid gap-6" aria-label="Applicant and request">
               <article className="grid gap-3">
                 <h3>Applicant</h3>
-                {/* eslint-disable pace-core-compliance/prefer-semantic-html -- WHATWG: div wrappers group dt/dd pairs inside dl */}
-                <dl className="grid gap-3">
-                  <div className="grid gap-1">
-                    <dt>Full name</dt>
-                    <dd>
-                      <p>{applicantName}</p>
-                    </dd>
-                  </div>
+                <dl className="grid">
+                  <dt className="mb-1">Full name</dt>
+                  <dd className="mb-3">
+                    <p>{applicantName}</p>
+                  </dd>
                   {showPreferredLine ? (
-                    <div className="grid gap-1">
-                      <dt>Preferred name</dt>
-                      <dd>
+                    <>
+                      <dt className="mb-1">Preferred name</dt>
+                      <dd className="mb-3">
                         <p>{request.subjectPreferredName}</p>
                       </dd>
-                    </div>
+                    </>
                   ) : null}
-                  <div className="grid gap-1">
-                    <dt>Email</dt>
-                    <dd>
-                      <p>{request.subjectEmail ?? '—'}</p>
-                    </dd>
-                  </div>
-                  <div className="grid gap-1">
-                    <dt>Photo</dt>
-                    <dd>
-                      <Avatar name={avatarName} />
-                    </dd>
-                  </div>
+                  <dt className="mb-1">Email</dt>
+                  <dd className="mb-3">
+                    <p>{request.subjectEmail ?? '—'}</p>
+                  </dd>
+                  <dt className="mb-1">Photo</dt>
+                  <dd>
+                    <Avatar name={avatarName} />
+                  </dd>
                 </dl>
-                {/* eslint-enable pace-core-compliance/prefer-semantic-html */}
               </article>
 
               <article className="grid gap-3">
                 <h3>Request</h3>
-                {/* eslint-disable pace-core-compliance/prefer-semantic-html -- WHATWG: div wrappers group dt/dd pairs inside dl */}
-                <dl className="grid gap-3">
-                  <div className="grid gap-1">
-                    <dt>Request type</dt>
-                    <dd>
-                      <p>
-                        <Badge>{requestTypeLabel(request.requestType)}</Badge>
-                      </p>
-                    </dd>
-                  </div>
-                  <div className="grid gap-1">
-                    <dt>Submitted</dt>
-                    <dd>
-                      <p>{formatRequestSubmittedAt(request.createdAt)}</p>
-                    </dd>
-                  </div>
-                  <div className="grid gap-1">
-                    <dt>Target organisation</dt>
-                    <dd>
-                      <p>{request.targetOrganisationName ?? '—'}</p>
-                    </dd>
-                  </div>
-                  <div className="grid gap-1">
-                    <dt>Source organisation</dt>
-                    <dd>
-                      <p>{request.requestType === 'transfer' ? (request.sourceOrganisationName ?? '—') : '—'}</p>
-                    </dd>
-                  </div>
-                  <div className="grid gap-1">
-                    <dt>Membership type</dt>
-                    <dd>
-                      <p>{request.membershipTypeName ?? '—'}</p>
-                    </dd>
-                  </div>
-                  <div className="grid gap-1">
-                    <dt>Applicant member number</dt>
-                    <dd>
-                      <p>{request.applicantMemberNumber ?? '—'}</p>
-                    </dd>
-                  </div>
-                  <div className="grid gap-1">
-                    <dt>Status</dt>
-                    <dd>
-                      <p>
-                        <Badge>{statusLabel(request.status)}</Badge>
-                      </p>
-                    </dd>
-                  </div>
+                <dl className="grid">
+                  <dt className="mb-1">Request type</dt>
+                  <dd className="mb-3">
+                    <p>
+                      <Badge>{requestTypeLabel(request.requestType)}</Badge>
+                    </p>
+                  </dd>
+                  <dt className="mb-1">Submitted</dt>
+                  <dd className="mb-3">
+                    <p>{formatRequestSubmittedAt(request.createdAt)}</p>
+                  </dd>
+                  <dt className="mb-1">Target organisation</dt>
+                  <dd className="mb-3">
+                    <p>{request.targetOrganisationName ?? '—'}</p>
+                  </dd>
+                  <dt className="mb-1">Source organisation</dt>
+                  <dd className="mb-3">
+                    <p>{request.requestType === 'transfer' ? (request.sourceOrganisationName ?? '—') : '—'}</p>
+                  </dd>
+                  <dt className="mb-1">Membership type</dt>
+                  <dd className="mb-3">
+                    <p>{request.membershipTypeName ?? '—'}</p>
+                  </dd>
+                  <dt className="mb-1">Applicant member number</dt>
+                  <dd className="mb-3">
+                    <p>{request.applicantMemberNumber ?? '—'}</p>
+                  </dd>
+                  <dt className="mb-1">Status</dt>
+                  <dd>
+                    <p>
+                      <Badge>{statusLabel(request.status)}</Badge>
+                    </p>
+                  </dd>
                 </dl>
-                {/* eslint-enable pace-core-compliance/prefer-semantic-html */}
               </article>
 
               {showMemberLink ? (

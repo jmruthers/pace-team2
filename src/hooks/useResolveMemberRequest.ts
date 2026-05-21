@@ -93,7 +93,6 @@ export async function runResolveMemberRequestRpc(
   secureSupabase: SupabaseLike,
   payload: ResolveRequestPayload
 ): Promise<ApiResult<void>> {
-  // eslint-disable-next-line pace-core-compliance/rpc-naming-pattern
   const { error } = await secureSupabase.rpc('app_resolve_member_request', {
     p_request_id: payload.requestId,
     p_status: payload.status,

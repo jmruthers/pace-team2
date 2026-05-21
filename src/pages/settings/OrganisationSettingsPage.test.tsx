@@ -1,12 +1,8 @@
 // @vitest-environment jsdom
-/* eslint-disable pace-core-compliance/prefer-pace-core-components */
-/* eslint-disable pace-core-compliance/prefer-pace-core-form */
-/* eslint-disable pace-core-compliance/persistence-save-placement */
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import * as React from 'react';
 import { OrganisationSettingsPage } from './OrganisationSettingsPage';
 
 let selectedOrganisation: { id: string } | null = { id: 'org-1' };
@@ -14,7 +10,7 @@ let canCreate = true;
 let canUpdate = true;
 let permissionsLoading = false;
 
-const toastMock = vi.fn();
+const toastMock = vi.hoisted(() => vi.fn());
 const saveOrganisationSettingsMock = vi.fn();
 const refetchOrganisationSettingsMock = vi.fn();
 const useOrganisationSettingsDataMock = vi.fn();
@@ -72,191 +68,11 @@ vi.mock('@/lib/settings/organisationSettings.validation', () => ({
   }),
 }));
 
-vi.mock('@solvera/pace-core/components', () => {
-  const FormContext = React.createContext<{
-    values: Record<string, unknown>;
-    setValue: (name: string, value: unknown) => void;
-    formState: {
-      isSubmitting: boolean;
-      isValid: boolean;
-      isDirty: boolean;
-      isSubmitted: boolean;
-      errors: Record<string, unknown>;
-    };
-  } | null>(null);
-
-  function Form<T extends Record<string, unknown>>({
-    defaultValues,
-    onSubmit,
-    children,
-  }: {
-    defaultValues?: T;
-    onSubmit: (values: T) => Promise<void> | void;
-    children: (methods: {
-      watch: (name: keyof T) => unknown;
-      setValue: (name: keyof T, value: unknown) => void;
-      formState: {
-        isSubmitting: boolean;
-        isValid: boolean;
-        isDirty: boolean;
-        isSubmitted: boolean;
-        errors: Record<string, unknown>;
-      };
-    }) => ReactNode;
-  }) {
-    const [values, setValues] = React.useState<Record<string, unknown>>((defaultValues ?? {}) as Record<string, unknown>);
-    const [isSubmitted, setIsSubmitted] = React.useState(false);
-    const [isDirty, setIsDirty] = React.useState(false);
-
-    const setValue = (name: string, value: unknown) => {
-      setIsDirty(true);
-      setValues((previous) => ({ ...previous, [name]: value }));
-    };
-
-    const formState = {
-      isSubmitting: false,
-      isValid: true,
-      isDirty,
-      isSubmitted,
-      errors: {},
-    };
-
-    return (
-      <FormContext.Provider value={{ values, setValue, formState }}>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            setIsSubmitted(true);
-            void onSubmit(values as T);
-          }}
-        >
-          {children({
-            watch: (name: keyof T) => values[String(name)],
-            setValue: (name: keyof T, value: unknown) => setValue(String(name), value),
-            formState,
-          })}
-        </form>
-      </FormContext.Provider>
-    );
-  }
-
-  function FormField<T extends Record<string, unknown>>({
-    name,
-    label,
-    render,
-  }: {
-    name: keyof T;
-    label?: string;
-    render: (props: { field: { value: string; onChange: (value: string) => void } }) => ReactNode;
-  }) {
-    const context = React.useContext(FormContext);
-    const value = String(context?.values[String(name)] ?? '');
-
-    return (
-      <label>
-        {label}
-        {render({
-          field: {
-            value,
-            onChange: (nextValue) => {
-              context?.setValue(String(name), nextValue);
-            },
-          },
-        })}
-      </label>
-    );
-  }
-
-  function Select({
-    value,
-    onValueChange,
-    children,
-  }: {
-    value?: string;
-    onValueChange?: (value?: string) => void;
-    children: ReactNode;
-  }) {
-    return (
-      <select value={value ?? ''} onChange={(event) => onValueChange?.(event.target.value)}>
-        {children}
-      </select>
-    );
-  }
-
-  return {
-    Alert: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-    AlertDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
-    AlertTitle: ({ children }: { children: ReactNode }) => <p>{children}</p>,
-    Button: ({
-      children,
-      type,
-      onClick,
-      disabled,
-    }: {
-      children: ReactNode;
-      type?: 'button' | 'submit';
-      onClick?: () => void;
-      disabled?: boolean;
-      variant?: string;
-    }) => (
-      <button type={type ?? 'button'} onClick={onClick} disabled={disabled}>
-        {children}
-      </button>
-    ),
-    Card: ({ children }: { children: ReactNode }) => <article>{children}</article>,
-    CardContent: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-    CardDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
-    CardFooter: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-    CardHeader: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-    CardTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
-    Form,
-    FormField,
-    Input: ({
-      value,
-      onChange,
-      onBlur,
-      placeholder,
-      type,
-      step,
-    }: {
-      value?: string;
-      onChange?: (value: string) => void;
-      onBlur?: () => void;
-      placeholder?: string;
-      type?: string;
-      step?: string;
-    }) => (
-      <input
-        type={type ?? 'text'}
-        value={value ?? ''}
-        placeholder={placeholder}
-        step={step}
-        onChange={(event) => onChange?.(event.target.value)}
-        onBlur={onBlur}
-      />
-    ),
-    LoadingSpinner: () => <span>Loading</span>,
-    SaveActions: ({
-      onCancel,
-      saveDisabled,
-    }: {
-      onCancel?: () => void;
-      saveDisabled?: boolean;
-      saveType?: 'submit';
-    }) => (
-      <section>
-        <button type="button" onClick={onCancel}>Cancel</button>
-        <button type="submit" disabled={saveDisabled}>Save</button>
-      </section>
-    ),
-    Select,
-    SelectContent: ({ children }: { children: ReactNode }) => <>{children}</>,
-    SelectGroup: ({ children }: { children: ReactNode }) => <>{children}</>,
-    SelectItem: ({ children, value }: { children: ReactNode; value: string }) => <option value={value}>{children}</option>,
-    SelectTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
-    SelectValue: ({ placeholder }: { placeholder?: string }) => <option value="">{placeholder}</option>,
-    toast: (...args: unknown[]) => toastMock(...args),
-  };
+vi.mock('@solvera/pace-core/components', async () => {
+  const { buildOrganisationSettingsPageComponentsMock } = await import(
+    '@/test-utils/organisationSettingsPageMocks'
+  );
+  return buildOrganisationSettingsPageComponentsMock(toastMock);
 });
 
 function buildDataState(overrides?: Partial<ReturnType<typeof useOrganisationSettingsDataMock>>) {

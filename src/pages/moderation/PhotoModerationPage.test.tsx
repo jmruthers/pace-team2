@@ -1,4 +1,3 @@
-/* eslint-disable pace-core-compliance/prefer-pace-core-components -- test doubles use native buttons */
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -10,7 +9,7 @@ import type { ModerationPhotoTableRow } from '@/lib/moderation/photoModeration.t
 
 const usePhotoModerationDataMock = vi.fn();
 const useOrganisationsContextMock = vi.fn();
-const toastMock = vi.fn();
+const toastMock = vi.hoisted(() => vi.fn());
 
 let pageGuardAllows = true;
 let canDelete = true;
@@ -73,9 +72,9 @@ vi.mock('@/components/moderation/PhotoPreviewDialog', () => ({
     open ? (
       <section data-testid="preview-dialog">
         {canDelete ? (
-          <button type="button" onClick={() => onRequestRemove(samplePhoto)}>
+          <span role="button" tabIndex={0} onClick={() => onRequestRemove(samplePhoto)} onKeyDown={() => undefined}>
             Preview remove
-          </button>
+          </span>
         ) : null}
       </section>
     ) : null,
@@ -83,57 +82,8 @@ vi.mock('@/components/moderation/PhotoPreviewDialog', () => ({
 
 vi.mock('@solvera/pace-core/components', async (importActual) => {
   const actual = await importActual<typeof import('@solvera/pace-core/components')>();
-  return {
-    ...actual,
-    toast: (...args: unknown[]) => toastMock(...args),
-    DataTable: ({
-      data,
-      actions,
-      emptyState,
-      isLoading,
-    }: {
-      data: ModerationPhotoTableRow[];
-      actions?: Array<{ label: string; hidden?: boolean; onClick: (row: ModerationPhotoTableRow) => void }>;
-      emptyState?: { title?: string };
-      isLoading?: boolean;
-    }) => {
-      if (isLoading) {
-        return <p>Loading photos</p>;
-      }
-      if (data.length === 0) {
-        return <p>{emptyState?.title ?? 'Empty'}</p>;
-      }
-      const visibleActions = (actions ?? []).filter((action) => action.hidden !== true);
-      return (
-        <section data-testid="photo-table">
-          <p>{data[0]?.member_display_name}</p>
-          {visibleActions.map((action) => (
-            <button
-              key={action.label}
-              type="button"
-              onClick={() => action.onClick(data[0]!)}
-            >
-              {action.label}
-            </button>
-          ))}
-        </section>
-      );
-    },
-    ConfirmationDialog: ({
-      open,
-      onConfirm,
-      confirmLabel,
-    }: {
-      open: boolean;
-      onConfirm: () => void | Promise<void>;
-      confirmLabel?: string;
-    }) =>
-      open ? (
-        <button type="button" onClick={() => void onConfirm()}>
-          {confirmLabel ?? 'Confirm'}
-        </button>
-      ) : null,
-  };
+  const { buildPhotoModerationPageComponentsMock } = await import('@/test-utils/photoModerationPageMocks');
+  return buildPhotoModerationPageComponentsMock(toastMock, actual);
 });
 
 function renderPage() {

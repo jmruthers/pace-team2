@@ -1,11 +1,8 @@
 // @vitest-environment jsdom
-/* eslint-disable pace-core-compliance/prefer-pace-core-components */
-/* eslint-disable pace-core-compliance/prefer-pace-core-form */
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
-import * as React from 'react';
 import { SubOrganisationsPage } from './SubOrganisationsPage';
 
 const DUPLICATE_NAME_MESSAGE =
@@ -23,7 +20,7 @@ let mockErrors: Record<string, unknown> = {};
 
 const createSubOrganisationMock = vi.fn();
 const updateSubOrganisationMock = vi.fn();
-const toastMock = vi.fn();
+const toastMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@solvera/pace-core/hooks', () => ({
   usePaceMain: () => undefined,
@@ -83,185 +80,13 @@ vi.mock('@/lib/settings/subOrganisations.validation', () => ({
   }),
 }));
 
-vi.mock('@solvera/pace-core/components', () => {
-  function Form<T extends Record<string, unknown>>({
-    defaultValues,
-    onSubmit,
-    children,
-  }: {
-    defaultValues?: T;
-    onSubmit: (values: T) => Promise<void> | void;
-    children: (methods: {
-      watch: (name: keyof T) => unknown;
-      setValue: (name: keyof T, value: unknown) => void;
-      clearErrors: (name: keyof T) => void;
-      setError: (name: keyof T, options: { type?: string; message?: string }) => void;
-      formState: { isSubmitting: boolean; errors: Record<string, unknown> };
-    }) => ReactNode;
-  }) {
-    const [values, setValues] = React.useState<T>((defaultValues ?? {}) as T);
-    const methods = {
-      watch: (name: keyof T) => values[name],
-      setValue: (name: keyof T, value: unknown) => {
-        setValues((previous) => ({ ...previous, [name]: value }));
-      },
-      clearErrors: () => undefined,
-      setError: () => undefined,
-      formState: {
-        isSubmitting: false,
-        isValid: mockIsValid,
-        isSubmitted: mockIsSubmitted,
-        errors: mockErrors,
-      },
-    };
-
-    return (
-      <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (mockIsValid) {
-            void onSubmit(values);
-          }
-        }}
-      >
-        {children(methods)}
-      </form>
-    );
-  }
-
-  function FormField<T extends Record<string, unknown>>({
-    label,
-    render,
-  }: {
-    name: keyof T;
-    label?: string;
-    render?: (props: { field: { value: string; onChange: (value: string) => void } }) => ReactNode;
-  }) {
-    const [value, setValue] = React.useState('');
-    return (
-      <label>
-        {label}
-        {render
-          ? render({ field: { value, onChange: setValue } })
-          : <input value={value} onChange={(event) => setValue(event.target.value)} />}
-      </label>
-    );
-  }
-
-  return {
-    Alert: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-    AlertDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
-    AlertTitle: ({ children }: { children: ReactNode }) => <p>{children}</p>,
-    Button: ({
-      children,
-      onClick,
-      disabled,
-      type,
-    }: {
-      children: ReactNode;
-      onClick?: () => void | Promise<void>;
-      disabled?: boolean;
-      type?: 'button' | 'submit';
-      variant?: string;
-    }) => (
-      <button type={type ?? 'button'} onClick={() => void onClick?.()} disabled={disabled}>
-        {children}
-      </button>
-    ),
-    Card: ({ children }: { children: ReactNode }) => <article>{children}</article>,
-    CardHeader: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-    CardTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
-    CardContent: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-    DataTable: ({
-      data,
-      columns,
-      actions,
-    }: {
-      data: Array<Record<string, unknown>>;
-      columns: Array<{ id?: string; accessorKey?: string; cell?: (info: { row: Record<string, unknown> }) => ReactNode }>;
-      actions?: Array<{ label: string; onClick: (row: Record<string, unknown>) => void }>;
-    }) => (
-      <section>
-        {data.map((row, index) => (
-          <article key={String(row.id ?? index)}>
-            {columns.map((column, columnIndex) => {
-              if (column.cell == null) {
-                return <span key={`${column.id ?? column.accessorKey ?? columnIndex}`}>{String(row[column.accessorKey ?? ''] ?? '')}</span>;
-              }
-              return <span key={`${column.id ?? column.accessorKey ?? columnIndex}`}>{column.cell({ row })}</span>;
-            })}
-            {actions?.map((action) => (
-              <button key={action.label} type="button" onClick={() => action.onClick(row)}>
-                {action.label}
-              </button>
-            ))}
-          </article>
-        ))}
-      </section>
-    ),
-    Dialog: ({ open, children }: { open: boolean; children: ReactNode }) => (open ? <section>{children}</section> : null),
-    DialogPortal: ({ children }: { children: ReactNode }) => <>{children}</>,
-    DialogContent: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-    DialogHeader: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-    DialogTitle: ({ children }: { children: ReactNode }) => <h3>{children}</h3>,
-    DialogBody: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-    DialogFooter: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-    Form,
-    FormField,
-    Input: ({
-      value,
-      onChange,
-      placeholder,
-      type,
-      disabled,
-    }: {
-      value?: string;
-      onChange?: (value: string) => void;
-      placeholder?: string;
-      type?: string;
-      disabled?: boolean;
-    }) => (
-      <input
-        value={value ?? ''}
-        onChange={(event) => onChange?.(event.target.value)}
-        placeholder={placeholder}
-        type={type ?? 'text'}
-        disabled={disabled}
-      />
-    ),
-    Label: ({ children }: { children: ReactNode }) => <label>{children}</label>,
-    LoadingSpinner: () => <span>Loading</span>,
-    Switch: ({
-      checked,
-      onChange,
-      disabled,
-    }: {
-      checked?: boolean;
-      onChange?: (checked: boolean) => void;
-      id?: string;
-      disabled?: boolean;
-    }) => (
-      <button type="button" disabled={disabled} onClick={() => onChange?.(!(checked ?? false))}>
-        Toggle
-      </button>
-    ),
-    Textarea: ({
-      value,
-      onChange,
-      placeholder,
-    }: {
-      value?: string;
-      onChange?: (value: string) => void;
-      placeholder?: string;
-    }) => (
-      <textarea
-        value={value ?? ''}
-        onChange={(event) => onChange?.(event.target.value)}
-        placeholder={placeholder}
-      />
-    ),
-    toast: (...args: unknown[]) => toastMock(...args),
-  };
+vi.mock('@solvera/pace-core/components', async () => {
+  const { buildSubOrganisationsPageComponentsMock } = await import('@/test-utils/subOrganisationsPageMocks');
+  return buildSubOrganisationsPageComponentsMock(toastMock, () => ({
+    isValid: mockIsValid,
+    isSubmitted: mockIsSubmitted,
+    errors: mockErrors,
+  }));
 });
 
 function buildDataState() {

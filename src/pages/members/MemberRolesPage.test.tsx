@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-/* eslint-disable pace-core-compliance/prefer-pace-core-components */
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -32,96 +31,77 @@ vi.mock('@/hooks/useMemberRolesData', () => ({
   useMemberRolesData: (...args: unknown[]) => useMemberRolesDataMock(...args),
 }));
 
-const toastMock = vi.fn();
+const toastMock = vi.hoisted(() => vi.fn());
 
 vi.mock('@solvera/pace-core/icons', () => ({
   ChevronLeft: () => <span aria-hidden>left</span>,
 }));
 
-vi.mock('@solvera/pace-core/components', () => ({
-  Alert: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  AlertDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
-  AlertTitle: ({ children }: { children: ReactNode }) => <p>{children}</p>,
-  Badge: ({ children }: { children: ReactNode }) => <span>{children}</span>,
-  Button: ({ children, onClick, disabled }: { children: ReactNode; onClick?: () => void; disabled?: boolean }) => (
-    <button type="button" onClick={onClick} disabled={disabled}>
-      {children}
-    </button>
-  ),
-  Card: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  CardContent: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  DataTable: ({
-    data,
-    columns,
-    emptyState,
-  }: {
-    data: Array<Record<string, unknown>>;
-    columns: Array<{
-      id?: string;
-      accessorKey?: string;
-      header: string;
-      cell?: (info: { row: Record<string, unknown>; getValue: () => unknown; index: number }) => ReactNode;
-    }>;
-    emptyState?: { title?: string; description?: string };
-  }) => (
-    <section>
-      {data.length === 0 ? (
-        <>
-          <p>{emptyState?.title}</p>
-          <p>{emptyState?.description}</p>
-        </>
-      ) : (
-        data.map((row, index) => (
-          <article key={String(row.id ?? index)}>
-            {columns.map((column) => (
-              <div key={column.id ?? column.accessorKey ?? column.header}>
-                {column.cell
-                  ? column.cell({
-                    row,
-                    getValue: () => row[column.accessorKey ?? ''],
-                    index,
-                  })
-                  : String(row[column.accessorKey ?? ''] ?? '')}
-              </div>
-            ))}
-          </article>
-        ))
-      )}
-    </section>
-  ),
-  DatePickerWithTimezone: () => <input />,
-  Dialog: ({ children, open }: { children: ReactNode; open: boolean }) => (open ? <section>{children}</section> : null),
-  DialogPortal: ({ children }: { children: ReactNode }) => <>{children}</>,
-  DialogContent: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  DialogDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
-  DialogHeader: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  DialogTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
-  DialogBody: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  DialogFooter: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  Input: ({ value, onChange }: { value?: string; onChange?: (value: string) => void }) => (
-    <input value={value ?? ''} onChange={(event) => onChange?.(event.target.value)} />
-  ),
-  Label: ({ children }: { children: ReactNode }) => <label>{children}</label>,
-  LoadingSpinner: () => <p>Loading member</p>,
-  Select: ({
-    children,
-    value,
-    onValueChange,
-  }: {
-    children: ReactNode;
-    value?: string;
-    onValueChange?: (value: string) => void;
-  }) => (
-    <select value={value} onChange={(event) => onValueChange?.(event.target.value)}>
-      {children}
-    </select>
-  ),
-  SelectContent: ({ children }: { children: ReactNode }) => <>{children}</>,
-  SelectItem: ({ children, value }: { children: ReactNode; value: string }) => <option value={value}>{children}</option>,
-  SelectTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
-  SelectValue: ({ placeholder }: { placeholder?: string }) => <option value="">{placeholder}</option>,
-  toast: (...args: unknown[]) => toastMock(...args),
-}));
+vi.mock('@solvera/pace-core/components', async () => {
+  const { buildPaceCoreComponentsMock, MockButton } = await import('@/test-utils/paceCoreMocks');
+  const base = buildPaceCoreComponentsMock(toastMock);
+  return {
+    ...base,
+    DatePickerWithTimezone: () => null,
+    DataTable: ({
+      data,
+      columns,
+      emptyState,
+    }: {
+      data: Array<Record<string, unknown>>;
+      columns: Array<{
+        id?: string;
+        accessorKey?: string;
+        header: string;
+        cell?: (info: { row: Record<string, unknown>; getValue: () => unknown; index: number }) => ReactNode;
+      }>;
+      emptyState?: { title?: string; description?: string };
+    }) => (
+      <section>
+        {data.length === 0 ? (
+          <>
+            <p>{emptyState?.title}</p>
+            <p>{emptyState?.description}</p>
+          </>
+        ) : (
+          data.map((row, index) => (
+            <article key={String(row.id ?? index)}>
+              {columns.map((column) => (
+                <span key={column.id ?? column.accessorKey ?? column.header}>
+                  {column.cell
+                    ? column.cell({
+                        row,
+                        getValue: () => row[column.accessorKey ?? ''],
+                        index,
+                      })
+                    : String(row[column.accessorKey ?? ''] ?? '')}
+                </span>
+              ))}
+            </article>
+          ))
+        )}
+      </section>
+    ),
+    Select: ({
+      children,
+      value,
+      onValueChange,
+    }: {
+      children: ReactNode;
+      value?: string;
+      onValueChange?: (value: string) => void;
+    }) => (
+      <section data-testid="mock-select" data-value={value} onChangeCapture={() => undefined}>
+        {children}
+        <MockButton onClick={() => onValueChange?.('role-1')}>pick</MockButton>
+      </section>
+    ),
+    SelectContent: ({ children }: { children: ReactNode }) => <>{children}</>,
+    SelectItem: ({ children }: { children: ReactNode }) => <span>{children}</span>,
+    SelectTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+    SelectValue: ({ placeholder }: { placeholder?: string }) => <span>{placeholder}</span>,
+  };
+});
 
 function buildHookState() {
   return {

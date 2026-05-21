@@ -1,5 +1,4 @@
 // @vitest-environment jsdom
-/* eslint-disable pace-core-compliance/prefer-pace-core-components */
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
@@ -11,7 +10,7 @@ import type { CoreFormDetailRaw } from '@/lib/forms/orgForms.types';
 
 import { FormAuthoringPage } from '@/pages/forms/FormAuthoringPage';
 
-const toastSpy = vi.hoisted(() => vi.fn());
+const toastMock = vi.hoisted(() => vi.fn());
 const navigateSpy = vi.hoisted(() => vi.fn());
 
 let selectedOrganisation: { id: string; display_name: string; name: string } = {
@@ -78,6 +77,7 @@ vi.mock('@/hooks/useOrgFormsData', () => ({
 
 vi.mock('@solvera/pace-core/forms', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@solvera/pace-core/forms')>();
+  const { MockButton } = await import('@/test-utils/paceCoreMocks');
   return {
     ...actual,
     validateWorkflowAuthoringState: (state: WorkflowAuthoringState) => {
@@ -89,23 +89,19 @@ vi.mock('@solvera/pace-core/forms', async (importOriginal) => {
     WorkflowFormAuthoringShell: (props: { disabled?: boolean; onSave?: () => Promise<void> | void }) => {
       capturedShellDisabled = props.disabled;
       return (
-        <div data-testid="authoring-shell-mock">
-          <button type="button" data-testid="shell-save-trigger" onClick={() => void props.onSave?.()}>
+        <section data-testid="authoring-shell-mock">
+          <MockButton data-testid="shell-save-trigger" onClick={() => void props.onSave?.()}>
             Save
-          </button>
-        </div>
+          </MockButton>
+        </section>
       );
     },
   };
 });
 
-vi.mock('@solvera/pace-core/components', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@solvera/pace-core/components')>();
-  return {
-    ...actual,
-    LoadingSpinner: () => <span data-testid="loading-spinner-mock">Loading</span>,
-    toast: (...args: unknown[]) => toastSpy(...args),
-  };
+vi.mock('@solvera/pace-core/components', async () => {
+  const { buildPaceCoreComponentsMock } = await import('@/test-utils/paceCoreMocks');
+  return buildPaceCoreComponentsMock(toastMock);
 });
 
 function buildValid(orgId: string): WorkflowAuthoringState {
@@ -213,7 +209,7 @@ describe('FormAuthoringPage', () => {
     authoringTestFlags.forceValidAuthoring = false;
     capturedShellDisabled = undefined;
     navigateSpy.mockReset();
-    toastSpy.mockReset();
+    toastMock.mockReset();
     fetchFormDetailMock.mockReset();
     updateFormAsyncMock.mockReset().mockResolvedValue(undefined);
     createFormAsyncMock.mockReset();
@@ -260,7 +256,7 @@ describe('FormAuthoringPage', () => {
 
     await waitFor(() => {
       expect(navigateSpy).toHaveBeenCalledWith('/forms');
-      expect(toastSpy).toHaveBeenCalledWith(
+      expect(toastMock).toHaveBeenCalledWith(
         expect.objectContaining({
           title: expect.stringContaining('Switched organisations'),
         }),
@@ -278,7 +274,7 @@ describe('FormAuthoringPage', () => {
 
     await waitFor(() => {
       expect(navigateSpy).toHaveBeenCalledWith('/forms');
-      expect(toastSpy).toHaveBeenCalledWith(
+      expect(toastMock).toHaveBeenCalledWith(
         expect.objectContaining({
           title: expect.stringMatching(/Form not found/i),
         }),
@@ -336,7 +332,7 @@ describe('FormAuthoringPage', () => {
     await user.click(screen.getByTestId('shell-save-trigger'));
 
     await waitFor(() => {
-      expect(toastSpy).toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' }));
+      expect(toastMock).toHaveBeenCalledWith(expect.objectContaining({ variant: 'destructive' }));
     });
     expect(screen.getByTestId('authoring-shell-mock')).toBeTruthy();
   });

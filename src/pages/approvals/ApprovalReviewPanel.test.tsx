@@ -1,4 +1,3 @@
-/* eslint-disable pace-core-compliance/prefer-pace-core-components */
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -31,20 +30,16 @@ vi.mock('@/components/approvals/resolveDialogs', () => ({
   HoldResolveDialog: () => null,
 }));
 
-vi.mock('@solvera/pace-core/components', () => ({
-  Alert: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  AlertTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
-  AlertDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
-  Avatar: ({ name }: { name: string }) => <span data-testid="avatar">{name}</span>,
-  Badge: ({ children }: { children: ReactNode }) => <span>{children}</span>,
-  Button: ({ children }: { children: ReactNode }) => <button type="button">{children}</button>,
-  Card: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  CardHeader: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  CardTitle: ({ children }: { children: ReactNode }) => <h1>{children}</h1>,
-  CardContent: ({ children }: { children: ReactNode }) => <section>{children}</section>,
-  LoadingSpinner: ({ label }: { label?: string }) => <p>{label}</p>,
-  toast: vi.fn(),
-}));
+vi.mock('@solvera/pace-core/components', async () => {
+  const { buildPaceCoreComponentsMock } = await import('@/test-utils/paceCoreMocks');
+  const base = buildPaceCoreComponentsMock(vi.fn());
+  return {
+    ...base,
+    Avatar: ({ name }: { name: string }) => <span data-testid="avatar">{name}</span>,
+    CardTitle: ({ children }: { children: ReactNode }) => <h1>{children}</h1>,
+    AlertTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
+  };
+});
 
 const baseRequest: ApprovalRequestRow = {
   id: 'req-1',
