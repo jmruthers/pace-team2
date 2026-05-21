@@ -1,5 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
-import { MockButton } from '@/test-utils/paceCoreMocks';
+import { MockButton } from '@/test-utils/paceCorePrimitives';
 
 export function buildOrgFormsListPageComponentsMock(toastFn: (...args: unknown[]) => unknown) {
   return {

@@ -77,7 +77,7 @@ vi.mock('@/hooks/useOrgFormsData', () => ({
 
 vi.mock('@solvera/pace-core/forms', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@solvera/pace-core/forms')>();
-  const { MockButton } = await import('@/test-utils/paceCoreMocks');
+  const { MockButton } = await import('@/test-utils/paceCorePrimitives');
   return {
     ...actual,
     validateWorkflowAuthoringState: (state: WorkflowAuthoringState) => {

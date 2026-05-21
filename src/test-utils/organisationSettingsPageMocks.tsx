@@ -4,14 +4,12 @@ import {
   MockAlert,
   MockAlertDescription,
   MockAlertTitle,
-  MockButton,
   MockCard,
   MockCardContent,
   MockCardHeader,
   MockCardTitle,
-  MockInput,
-  MockLoadingSpinner,
-} from '@/test-utils/paceCoreMocks';
+} from '@/test-utils/paceCoreCardMocks';
+import { MockButton, MockInput, MockLoadingSpinner } from '@/test-utils/paceCorePrimitives';
 
 export function buildOrganisationSettingsPageComponentsMock(
   toastFn: (...args: unknown[]) => unknown

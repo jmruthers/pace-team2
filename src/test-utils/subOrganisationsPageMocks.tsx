@@ -4,11 +4,12 @@ import {
   MockAlert,
   MockAlertDescription,
   MockAlertTitle,
-  MockButton,
   MockCard,
   MockCardContent,
   MockCardHeader,
   MockCardTitle,
+} from '@/test-utils/paceCoreCardMocks';
+import {
   MockDialog,
   MockDialogBody,
   MockDialogContent,
@@ -16,12 +17,15 @@ import {
   MockDialogHeader,
   MockDialogPortal,
   MockDialogTitle,
+} from '@/test-utils/paceCoreDialogMocks';
+import {
+  MockButton,
   MockInput,
   MockLabel,
   MockLoadingSpinner,
   MockSwitch,
   MockTextarea,
-} from '@/test-utils/paceCoreMocks';
+} from '@/test-utils/paceCorePrimitives';
 
 export type SubOrgFormMockState = {
   isValid: boolean;

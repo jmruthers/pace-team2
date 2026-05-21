@@ -6,7 +6,8 @@ import { ApproveResolveDialog, HoldResolveDialog, RejectResolveDialog } from '@/
 import type { ApprovalRequestRow } from '@/lib/approvals/approvals.types';
 
 vi.mock('@solvera/pace-core/components', async () => {
-  const { buildPaceCoreComponentsMock, MockButton } = await import('@/test-utils/paceCoreMocks');
+  const { buildPaceCoreComponentsMock } = await import('@/test-utils/paceCoreMocks');
+  const { MockButton } = await import('@/test-utils/paceCorePrimitives');
   const base = buildPaceCoreComponentsMock(vi.fn());
   return {
     ...base,
