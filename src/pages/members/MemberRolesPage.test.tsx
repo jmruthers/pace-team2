@@ -38,7 +38,8 @@ vi.mock('@solvera/pace-core/icons', () => ({
 }));
 
 vi.mock('@solvera/pace-core/components', async () => {
-  const { buildPaceCoreComponentsMock, MockButton } = await import('@/test-utils/paceCoreMocks');
+  const { buildPaceCoreComponentsMock } = await import('@/test-utils/paceCoreMocks');
+  const { MockButton } = await import('@/test-utils/paceCorePrimitives');
   const base = buildPaceCoreComponentsMock(toastMock);
   return {
     ...base,
