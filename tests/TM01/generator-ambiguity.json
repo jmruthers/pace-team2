@@ -1,0 +1,20 @@
+{
+  "slice_id": "TM01",
+  "ambiguities": [
+    {
+      "kind": "missing-primitive",
+      "detail": "S-05 (AC-05) requires seeding an authenticated user with no org membership (selectedOrganisation === null), but createTestUser always performs the full auth→person→member chain and cannot produce a user without a core_member row.",
+      "spec_location": "docs/test-packs/TM01-qa-pack.md row S-05; docs/requirements/TM01-app-shell-auth-layout-requirements.md §4 AC-05, BR-03"
+    },
+    {
+      "kind": "missing-primitive",
+      "detail": "S-06 (AC-06) requires a user with an org but without read:page.home permission so PagePermissionGuard renders AccessDenied. No v1.5 primitive exists to assign a deny-only or permission-stripped RBAC role for a specific page within an organisation.",
+      "spec_location": "docs/test-packs/TM01-qa-pack.md row S-06; docs/requirements/TM01-app-shell-auth-layout-requirements.md §4 AC-06, BR-06, §10"
+    },
+    {
+      "kind": "missing-toast-trigger",
+      "detail": "S-18 (AC-18) requires triggering toast() from a descendant component to verify ToastProvider is mounted, but TM01 §4 and §5 document no UI interaction that definitively calls toast(). The change-password success path is described as 'dialog closes' with no toast. Synthetic CustomEvent dispatch is prohibited.",
+      "spec_location": "docs/test-packs/TM01-qa-pack.md row S-18; docs/requirements/TM01-app-shell-auth-layout-requirements.md §3 (ToastProvider), §5 (change-password dialog), AC-18"
+    }
+  ]
+}

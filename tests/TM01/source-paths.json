@@ -1,0 +1,17 @@
+{
+  "slice_id": "TM01",
+  "source_paths": [
+    "src/main.tsx",
+    "src/App.tsx",
+    "src/components/layout/AuthenticatedShell.tsx"
+  ],
+  "rpcs_called": [],
+  "tables_touched": [
+    "core_organisations",
+    "core_person",
+    "core_member",
+    "rbac_apps",
+    "rbac_app_pages",
+    "rbac_organisation_roles"
+  ]
+}
