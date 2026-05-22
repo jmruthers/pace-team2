@@ -20,7 +20,11 @@
     "env:status": "node -e \"const fs=require('node:fs');const p='.env';if(!fs.existsSync(p)){console.log('.env not found');process.exit(0);}const t=fs.readFileSync(p,'utf8');const g=(k)=>{const m=t.match(new RegExp('^'+k+'=(.*)$','m'));return m?m[1]:''};console.log('SUPABASE_ENV='+g('SUPABASE_ENV'));console.log('SUPABASE_PROJECT_REF='+g('SUPABASE_PROJECT_REF'));console.log('VITE_SUPABASE_URL='+g('VITE_SUPABASE_URL'));\"",
     "migrate:link": "node node_modules/@solvera/pace-core/scripts/supabase-link-from-env.cjs",
     "migrate:link:dev": "node node_modules/@solvera/pace-core/scripts/supabase-link-from-env.cjs dev",
-    "migrate:link:prod": "node node_modules/@solvera/pace-core/scripts/supabase-link-from-env.cjs prod"
+    "migrate:link:prod": "node node_modules/@solvera/pace-core/scripts/supabase-link-from-env.cjs prod",
+    "test:pack": "node ./node_modules/@solvera/pace-core/scripts/run-test-pack.cjs",
+    "test:pack:all": "node ./node_modules/@solvera/pace-core/scripts/run-test-pack.cjs --all",
+    "test:pack:changed": "node ./node_modules/@solvera/pace-core/scripts/run-test-pack.cjs --changed",
+    "test:pack:generate": "node ./node_modules/@solvera/pace-core/scripts/generate-test-packs.cjs"
   },
   "dependencies": {
     "@solvera/pace-core": "file:../pace-core2/packages/core",
@@ -32,6 +36,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.15.0",
+    "@playwright/test": "^1.45.0",
     "@tailwindcss/vite": "^4.0.0",
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "^14.0.0",
@@ -48,9 +53,11 @@
     "globals": "^17.5.0",
     "happy-dom": "^20.9.0",
     "jsdom": "^29.1.1",
+    "playwright": "^1.45.0",
     "tailwindcss": "^4.0.0",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.58.2",
+    "uuid": "^10.0.0",
     "vite": "^8.0.10",
     "vitest": "^2.0.0"
   }

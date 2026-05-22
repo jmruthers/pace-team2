@@ -20,6 +20,13 @@ audit/*.md
 # Test coverage
 coverage/
 
+# Layer 5 test pipeline — runner bookkeeping (keep tests/<TM##>/scorecard*.md tracked)
+tests/**/.preflight-*.json
+tests/**/.postflight-*.json
+tests/**/.invariant-drift-*.json
+tests/**/triage-*.json
+tests/aggregate-scorecard-*.md
+
 # TS build artefacts (sometimes emitted at repo root)
 /tsconfig.tsbuildinfo
 
