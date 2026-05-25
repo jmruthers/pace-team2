@@ -1,6 +1,6 @@
-# Scorecard — TM01 — 019e5cee-39f4-7883-9fee-aaeed2bbae11
+# Scorecard — TM01 — 019e5cbb-726b-7664-a5ec-ebe8bf38700e
 
-Run completed at: 2026-05-25T02:19:57.992Z
+Run completed at: 2026-05-25T01:24:26.054Z
 Tier: full
 
 | Stage | Result | Exit code |
@@ -9,7 +9,7 @@ Tier: full
 | lint | pass | 0 |
 | persistence | pass | 0 |
 | rls | skipped | -1 |
-| e2e | pass | 0 |
+| e2e | fail | 1 |
 | postflight | pass | 0 |
 
-**Overall: PASS**
+**Overall: FAIL**

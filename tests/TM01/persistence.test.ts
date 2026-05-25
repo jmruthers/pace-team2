@@ -177,7 +177,7 @@ describe('F-01: TM01 — SeededWorld v1.5 shape', () => {
 // requirement_ref: AC-04 (org/member/person readable), BR-01 BR-03 (cross-org isolation)
 // ---------------------------------------------------------------------------
 
-describe('RLS: TM01 — row-level security via authenticated user session', () => {
+describe('S-04 RLS: TM01 — row-level security via authenticated user session', () => {
   let userClient: SupabaseClient;
 
   beforeAll(async () => {
@@ -196,7 +196,7 @@ describe('RLS: TM01 — row-level security via authenticated user session', () =
     await userClient.auth.signOut();
   });
 
-  it('RLS (AC-04, BR-01): org admin can read their own org row via user JWT', async () => {
+  it('S-04 RLS (AC-04, BR-01): org admin can read their own org row via user JWT', async () => {
     // requirement_ref: AC-04 — core_organisations RLS permits SELECT for authenticated users
     // who have a row in rbac_organisation_roles for that org. The admin test user is seeded
     // with role=org_admin in rbac_organisation_roles, so the org row IS readable via user JWT.
@@ -213,7 +213,7 @@ describe('RLS: TM01 — row-level security via authenticated user session', () =
     expect(data!.id).toBe(world.org.id);
   });
 
-  it('RLS (AC-04): authenticated user can read their own rbac_organisation_roles row (org-context gate)', async () => {
+  it('S-04 RLS (AC-04): authenticated user can read their own rbac_organisation_roles row (org-context gate)', async () => {
     // requirement_ref: AC-04 — OrganisationServiceProvider queries rbac_organisation_roles to
     // resolve org membership. Without a readable row the app shows "No organisation assigned".
     // The SELECT policy uses check_user_organisation_access() (SECURITY DEFINER) which reads
@@ -231,7 +231,7 @@ describe('RLS: TM01 — row-level security via authenticated user session', () =
     expect(data!.status).toBe('active');
   });
 
-  it('RLS (AC-04, BR-04): authenticated user can read their own membership row', async () => {
+  it('S-04 RLS (AC-04, BR-04): authenticated user can read their own membership row', async () => {
     // requirement_ref: BR-04 — OrganisationServiceProvider resolves membership for authenticated user
     const { data, error } = await userClient
       .from('core_member')
@@ -243,7 +243,7 @@ describe('RLS: TM01 — row-level security via authenticated user session', () =
     expect(data!.organisation_id).toBe(world.org.id);
   });
 
-  it('RLS (AC-04): authenticated user can read their own person row', async () => {
+  it('S-04 RLS (AC-04): authenticated user can read their own person row', async () => {
     // requirement_ref: AC-04 — user identity resolved from core_person via user_id
     // The .eq('user_id', ...) below is the canonical intrinsic-tenancy filter
     // for core_person (rule recognises it).
@@ -257,7 +257,7 @@ describe('RLS: TM01 — row-level security via authenticated user session', () =
     expect(data!.user_id).toBe(world.users.admin.id);
   });
 
-  it('RLS (BR-01, BR-03): cross-org isolation — user cannot read another org\'s members', async () => {
+  it('S-04 RLS (BR-01, BR-03): cross-org isolation — user cannot read another org\'s members', async () => {
     // requirement_ref: BR-01 BR-03 — org data must not bleed across tenant boundaries
     // RLS on core_member restricts rows to the authenticated user's org only;
     // querying for members of any OTHER org must return zero rows.
