@@ -15,7 +15,7 @@ setupRBAC(supabaseClient, {
   getAppId: getAppId,
 });
 
-const IDLE_TIMEOUT_MS = 15 * 60 * 1000;
+const IDLE_TIMEOUT_MS = 30 * 60 * 1000;
 const WARN_BEFORE_MS = 2 * 60 * 1000;
 
 const queryClient = new QueryClient({
