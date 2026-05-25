@@ -1,0 +1,51 @@
+{
+  "slice_id": "TM02",
+  "ambiguities": [
+    {
+      "kind": "missing-primitive",
+      "detail": "S-03 (AC-03) requires an org with zero Active or Suspended core_member rows. createTestUser always creates an Active member for the admin (required to log in and access the org). No primitive exists to create an org where the authenticated user's own membership is Provisional or absent.",
+      "spec_location": "docs/test-packs/TM02-qa-pack.md row S-03; docs/requirements/TM02-member-directory-requirements.md §4 F-11, §11 AC-03"
+    },
+    {
+      "kind": "missing-primitive",
+      "detail": "S-04 (AC-04) and S-06 (AC-06) require seeding team_member_request rows with request_type IN ('join','transfer') and status IN ('pending','on_hold'). createTestMemberRequest does not exist and the team_member_request table is absent from dev-db. This blocks all Pending tab content assertions (F-06, F-21–F-25, BR-03).",
+      "spec_location": "docs/test-packs/TM02-qa-pack.md rows S-04, S-06; docs/requirements/TM02-member-directory-requirements.md §4 F-06, F-21–F-25, §8 team_member_request, §15 implementation gate (a)–(c)"
+    },
+    {
+      "kind": "missing-primitive",
+      "detail": "S-06 (AC-06) additionally requires a core_member row with membership_status = 'Provisional'. createTestMember has no status override parameter; the default membership_status is assumed Active. A Provisional member primitive is needed to exercise BR-03 (orphan exclusion from Pending tab).",
+      "spec_location": "docs/test-packs/TM02-qa-pack.md row S-06; docs/requirements/TM02-member-directory-requirements.md §4 F-49, §6 BR-03"
+    },
+    {
+      "kind": "missing-primitive",
+      "detail": "S-08 (AC-08) requires core_membership_type rows scoped to the test org so the Membership-type filter dropdown has options. No createTestMembershipType primitive exists in @solvera/pace-core/test-helpers. Without seeded types the filter toolbar renders an empty dropdown and the filter flow cannot be exercised.",
+      "spec_location": "docs/test-packs/TM02-qa-pack.md row S-08; docs/requirements/TM02-member-directory-requirements.md §4 F-32, §8 core_membership_type"
+    },
+    {
+      "kind": "missing-primitive",
+      "detail": "S-11 (AC-11) requires seeding an authenticated user who has org context but lacks read:page.members permission so PagePermissionGuard renders AccessDenied. No v1.5 primitive is available to assign a deny-only or permission-stripped RBAC role for a specific page within an organisation. Identical constraint to TM01 S-06.",
+      "spec_location": "docs/test-packs/TM02-qa-pack.md row S-11; docs/requirements/TM02-member-directory-requirements.md §4 F-14, F-36, §10, §11 AC-11"
+    },
+    {
+      "kind": "spec-ambiguity",
+      "detail": "S-12 (AC-12) requires injecting a deterministic query failure for the core_member list query so the destructive Alert + Retry renders. The test framework has no mechanism to force a Supabase query error against the live dev-db without app-level test support (e.g. a network intercept hook or an intentionally broken RPC). The spec does not describe a supported test path for this scenario.",
+      "spec_location": "docs/test-packs/TM02-qa-pack.md row S-12; docs/requirements/TM02-member-directory-requirements.md §4 F-13, §11 AC-12"
+    },
+    {
+      "kind": "missing-primitive",
+      "detail": "S-13 (AC-13) and S-23 (AC-23) require the admin user to have access to at least two distinct organisations so the org context selector can switch between them. No v1.5 primitive exists to add an existing auth user to a second test org. Without multi-org membership, the org switch flow cannot be exercised end-to-end.",
+      "spec_location": "docs/test-packs/TM02-qa-pack.md rows S-13, S-23; docs/requirements/TM02-member-directory-requirements.md §4 F-42, F-43, §6 BR-11, §11 AC-13, AC-23"
+    },
+    {
+      "kind": "missing-primitive",
+      "detail": "S-20 (AC-20) and S-21 (AC-21) require selecting 700 and 2001 members respectively to trigger the picker soft-cap and hard-cap states. Seeding that many core_member rows via sequential createTestPerson + createTestMember calls is impractical (rate limits, fixture execution time). A bulk member-seeding primitive (e.g. createTestMembers(org.id, count)) would unblock these scenarios.",
+      "spec_location": "docs/test-packs/TM02-qa-pack.md rows S-20, S-21; docs/requirements/TM02-member-directory-requirements.md §4 F-45, F-46, §6 BR-09, §11 AC-20, AC-21"
+    },
+    {
+      "kind": "missing-primitive",
+      "id": "RLS-01-coverage-gap",
+      "detail": "RLS-01 (F-50, BR-12, AC-24) — production org admins see all members in their org via the rbac_select_core_member policy, which requires every member to have a core_member_role row binding them to the org via a role type (e.g. 'Member'). core_role_type is a per-tenant catalog (organisation_id NOT NULL). No primitives exist to seed either: createRoleType(orgId, name) to create a per-org role type, and createMemberRole(memberId, orgId, roleTypeId) to bind a member. Without them, the 26 named members are invisible to the authenticated admin (only the admin's own row is visible via the cp.user_id branch of the policy). The TM02 assertion was narrowed from 'admin sees all 27 members' to 'admin sees their own row' in this run — restore the original assertion (expect 27) once these primitives land. Service-role assertions in this file still verify all 27 members exist; only the authenticated-client coverage is narrowed.",
+      "spec_location": "tests/TM02/persistence.test.ts RLS-01; docs/requirements/TM02-member-directory-requirements.md §4 F-50, §6 BR-12, §11 AC-24; dev-db schema (pg_policy rbac_select_core_member, core_member_role, core_role_type)"
+    }
+  ]
+}
