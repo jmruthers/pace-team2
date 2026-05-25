@@ -11,8 +11,9 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { createClient } from '@supabase/supabase-js';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { getSupabaseTestClient } from '@solvera/pace-core/test-helpers';
+import { getSupabaseTestClient, persistWorld } from '@solvera/pace-core/test-helpers';
 import { seedWorld, RUN_ID, SLICE_ID } from './fixtures';
 import type { SeededWorld } from '@solvera/pace-core/test-helpers';
 
@@ -23,6 +24,9 @@ beforeAll(async () => {
   // requirement_ref: AC-04 — seed an org and admin user before all persistence assertions
   supabase = getSupabaseTestClient();
   world = await seedWorld();
+  // Write world.json so the RLS stage in run-test-pack can substitute {{world.*}}
+  // placeholders and set the correct auth context before running rls.sql.
+  persistWorld(world, SLICE_ID);
 });
 
 afterAll(async () => {
@@ -36,9 +40,8 @@ afterAll(async () => {
 describe('S-04: TM01 — core_organisations', () => {
   it('S-04 (AC-04): org row exists with display_name set', async () => {
     // requirement_ref: AC-04 — org must have name and display_name (both NOT NULL)
-    // core_organisations IS the tenant boundary table; it has no organisation_id column —
-    // filtering by primary key `id` is the correct and only scope available.
-    // eslint-disable-next-line pace-core-compliance/tenant-scoped-assertions
+    // core_organisations IS the tenant boundary table; the .eq('id', ...) below
+    // is its intrinsic tenancy filter (the tenant-scope rule recognises this).
     const { data: orgRow, error: orgError } = await supabase
       .from('core_organisations')
       .select('id, name, display_name')
@@ -68,9 +71,8 @@ describe('S-02 / S-04: TM01 — admin user full chain', () => {
 
   it('S-04 (AC-04): core_person row exists for admin user', async () => {
     // requirement_ref: AC-04 — person record must exist for authenticated user
-    // core_person has no organisation_id column; person↔org relationship is via core_member.
-    // Filtering by user_id uniquely identifies the test user's person record.
-    // eslint-disable-next-line pace-core-compliance/tenant-scoped-assertions
+    // core_person has no organisation_id column; the .eq('user_id', ...) below
+    // is the canonical intrinsic-tenancy filter (rule recognises it).
     const { data, error } = await supabase
       .from('core_person')
       .select('id, user_id, first_name, last_name, email')
@@ -167,5 +169,104 @@ describe('F-01: TM01 — SeededWorld v1.5 shape', () => {
     expect(world.users).toBeDefined();
     expect(world.users['admin']).toBeDefined();
     expect(world.users['admin'].organisationId).toBe(world.org.id);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// RLS — verified via authenticated user session (no psql / DB password needed)
+// requirement_ref: AC-04 (org/member/person readable), BR-01 BR-03 (cross-org isolation)
+// ---------------------------------------------------------------------------
+
+describe('RLS: TM01 — row-level security via authenticated user session', () => {
+  let userClient: SupabaseClient;
+
+  beforeAll(async () => {
+    userClient = createClient(
+      process.env.VITE_SUPABASE_URL!,
+      process.env.VITE_SUPABASE_PUBLISHABLE_KEY!,
+    );
+    const { error } = await userClient.auth.signInWithPassword({
+      email: world.users.admin.email,
+      password: process.env.TEST_USER_PASSWORD!,
+    });
+    if (error) throw new Error(`RLS setup: sign-in failed: ${error.message}`);
+  });
+
+  afterAll(async () => {
+    await userClient.auth.signOut();
+  });
+
+  it('RLS (AC-04, BR-01): org admin can read their own org row via user JWT', async () => {
+    // requirement_ref: AC-04 — core_organisations RLS permits SELECT for authenticated users
+    // who have a row in rbac_organisation_roles for that org. The admin test user is seeded
+    // with role=org_admin in rbac_organisation_roles, so the org row IS readable via user JWT.
+    // Previous spec-drift-note (asserting data === null) was based on an incomplete fixture
+    // that omitted the rbac_organisation_roles row. With the row present the policy correctly
+    // returns the org — no service-role bypass is required for org admins.
+    const { data, error } = await userClient
+      .from('core_organisations')
+      .select('id, name')
+      .eq('id', world.org.id)
+      .maybeSingle();
+    expect(error).toBeNull();
+    expect(data).not.toBeNull();
+    expect(data!.id).toBe(world.org.id);
+  });
+
+  it('RLS (AC-04): authenticated user can read their own rbac_organisation_roles row (org-context gate)', async () => {
+    // requirement_ref: AC-04 — OrganisationServiceProvider queries rbac_organisation_roles to
+    // resolve org membership. Without a readable row the app shows "No organisation assigned".
+    // The SELECT policy uses check_user_organisation_access() (SECURITY DEFINER) which reads
+    // rbac_organisation_roles directly — this test verifies the full RLS round-trip works.
+    const { data, error } = await userClient
+      .from('rbac_organisation_roles')
+      .select('id, user_id, organisation_id, role, status')
+      .eq('organisation_id', world.org.id)
+      .eq('user_id', world.users.admin.id)
+      .maybeSingle();
+    expect(error).toBeNull();
+    expect(data).not.toBeNull();
+    expect(data!.organisation_id).toBe(world.org.id);
+    expect(data!.role).toBe('org_admin');
+    expect(data!.status).toBe('active');
+  });
+
+  it('RLS (AC-04, BR-04): authenticated user can read their own membership row', async () => {
+    // requirement_ref: BR-04 — OrganisationServiceProvider resolves membership for authenticated user
+    const { data, error } = await userClient
+      .from('core_member')
+      .select('id, organisation_id')
+      .eq('organisation_id', world.org.id)
+      .maybeSingle();
+    expect(error).toBeNull();
+    expect(data).not.toBeNull();
+    expect(data!.organisation_id).toBe(world.org.id);
+  });
+
+  it('RLS (AC-04): authenticated user can read their own person row', async () => {
+    // requirement_ref: AC-04 — user identity resolved from core_person via user_id
+    // The .eq('user_id', ...) below is the canonical intrinsic-tenancy filter
+    // for core_person (rule recognises it).
+    const { data, error } = await userClient
+      .from('core_person')
+      .select('id, user_id')
+      .eq('user_id', world.users.admin.id)
+      .maybeSingle();
+    expect(error).toBeNull();
+    expect(data).not.toBeNull();
+    expect(data!.user_id).toBe(world.users.admin.id);
+  });
+
+  it('RLS (BR-01, BR-03): cross-org isolation — user cannot read another org\'s members', async () => {
+    // requirement_ref: BR-01 BR-03 — org data must not bleed across tenant boundaries
+    // RLS on core_member restricts rows to the authenticated user's org only;
+    // querying for members of any OTHER org must return zero rows.
+    // eslint-disable-next-line pace-core-compliance/tenant-scoped-assertions
+    const { data, error } = await userClient
+      .from('core_member')
+      .select('id, organisation_id')
+      .neq('organisation_id', world.org.id);
+    expect(error).toBeNull();
+    expect(data).toHaveLength(0);
   });
 });

@@ -44,19 +44,9 @@ if (react?.configs?.recommended?.rules && reactHooks?.configs?.recommended?.rule
   });
 }
 
-// Layer 5 test packs run under Node.js / Playwright — not Vite browser context.
-// These rules assume src/ code; they must not fire on test-pack files.
-config.push({
-  files: ['tests/**/*.{ts,tsx}'],
-  rules: {
-    // Test packs run in Node.js where process.env is correct; import.meta.env is unavailable
-    'pace-core-compliance/prefer-import-meta-env': 'off',
-    // Layer 5 persistence tests must query RBAC tables directly to verify platform seeding
-    'pace-core-compliance/no-direct-rbac-table': 'off',
-    // Orchestrator mandates e2e.spec.ts naming; the naming rule doesn't understand that convention
-    'pace-core-compliance/test-file-naming': 'off',
-  },
-});
+// NOTE: the Layer 5 test-pack tests/** override block previously lived here.
+// It now ships in @solvera/pace-core/eslint-config — see the tests/**/*.{ts,tsx}
+// block in eslint-config-pace-core.cjs. Consuming apps no longer need to hand-patch it.
 
 config.push({
   ignores: ['dist/**', 'coverage/**', 'node_modules/**', 'audit/**', '**/*.cjs'],

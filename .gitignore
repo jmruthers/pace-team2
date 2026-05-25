@@ -26,6 +26,17 @@ tests/**/.postflight-*.json
 tests/**/.invariant-drift-*.json
 tests/**/triage-*.json
 tests/aggregate-scorecard-*.md
+tests/manual-checks-*.md
+# Per-slice ephemera: world.json (written each run by persistWorld()), runner temp SQL
+tests/**/world.json
+tests/**/.rls-*.sql
+# Legacy aggregate scorecards written to tests/ root by an older runner version
+tests/scorecard.md
+tests/scorecard-*.md
+
+# Playwright HTML output
+test-results/
+playwright-report/
 
 # TS build artefacts (sometimes emitted at repo root)
 /tsconfig.tsbuildinfo
