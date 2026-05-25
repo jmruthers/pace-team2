@@ -12,7 +12,10 @@ import {
   ToastProvider,
 } from '@solvera/pace-core/components';
 import type { NavigationItem } from '@solvera/pace-core/components';
+import { useUnifiedAuthContext } from '@solvera/pace-core';
 import { useUnifiedAuth } from '@solvera/pace-core/hooks';
+import { OrganisationServiceProvider } from '@solvera/pace-core/providers';
+import { supabaseClient } from '@/lib/supabase';
 import { useApprovalsOpenCount } from '@/hooks/useApprovalsData';
 
 interface AuthenticatedShellProps {
@@ -20,9 +23,9 @@ interface AuthenticatedShellProps {
   navItems: NavigationItem[];
 }
 
-export function AuthenticatedShell({ appName, navItems }: AuthenticatedShellProps) {
+function AuthenticatedShellInner({ appName, navItems }: AuthenticatedShellProps) {
   const navigate = useNavigate();
-  const { isLoading, user, selectedOrganisation, signOut, updatePassword } = useUnifiedAuth();
+  const { isLoading, organisationLoading, user, selectedOrganisation, signOut, updatePassword } = useUnifiedAuth();
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const pendingApprovalsCount = useApprovalsOpenCount(selectedOrganisation?.id ?? null);
 
@@ -56,7 +59,7 @@ export function AuthenticatedShell({ appName, navItems }: AuthenticatedShellProp
     navigate('/login', { replace: true });
   };
 
-  if (isLoading) {
+  if (isLoading || organisationLoading) {
     return (
       <ToastProvider>
         <main className="grid min-h-screen place-items-center">
@@ -132,5 +135,14 @@ export function AuthenticatedShell({ appName, navItems }: AuthenticatedShellProp
         </Dialog>
       </PaceAppLayout>
     </ToastProvider>
+  );
+}
+
+export function AuthenticatedShell({ appName, navItems }: AuthenticatedShellProps) {
+  const { user, session } = useUnifiedAuthContext();
+  return (
+    <OrganisationServiceProvider supabaseClient={supabaseClient} user={user} session={session}>
+      <AuthenticatedShellInner appName={appName} navItems={navItems} />
+    </OrganisationServiceProvider>
   );
 }
