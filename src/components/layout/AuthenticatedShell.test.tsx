@@ -27,8 +27,19 @@ let authFixture: AuthFixture = {
   updatePassword: vi.fn(async () => undefined),
 };
 
+vi.mock('@solvera/pace-core', () => ({
+  useUnifiedAuthContext: () => ({
+    user: authFixture.user,
+    session: null,
+  }),
+}));
+
 vi.mock('@solvera/pace-core/hooks', () => ({
   useUnifiedAuth: () => authFixture,
+}));
+
+vi.mock('@solvera/pace-core/providers', () => ({
+  OrganisationServiceProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
 vi.mock('@/hooks/useApprovalsData', () => ({
