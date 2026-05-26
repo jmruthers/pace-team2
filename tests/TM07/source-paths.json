@@ -1,0 +1,10 @@
+{
+  "slice_id": "TM07",
+  "requirements_doc": "docs/requirements/TM07-sub-organisations-requirements.md",
+  "tier": "lite",
+  "tier_justification": "Settings list + CRUD surface for core_organisations children; mutations use RBAC-checked RLS (upstream platform gate). No SECURITY DEFINER / trigger / view RLS surface to cover at SQL layer beyond what persistence tests hit via PostgREST.",
+  "source_paths": [
+    "src/pages/settings/SubOrganisationsPage.tsx",
+    "src/pages/settings/SubOrganisationsPage.test.tsx"
+  ]
+}

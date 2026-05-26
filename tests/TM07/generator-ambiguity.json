@@ -1,0 +1,32 @@
+{
+  "slice_id": "TM07",
+  "missing_primitives": [
+    {
+      "name": "createTestSubOrganisation",
+      "needed_for": "S-03 (AC-03): Create child org via dialog; S-06 (AC-06): Edit dialog mutations",
+      "proposed_shape": "createTestSubOrganisation(parentOrgId, attrs: { displayName: string, description?: string, isActive?: boolean }) -> { id: string, name: string, display_name: string }"
+    }
+  ],
+  "escalated_scenarios": [
+    {
+      "scenario": "S-03 (AC-03)",
+      "reason": "Create dialog form mutation; globally-unique name constraint (organisations_name_key) requires careful isolation across the entire platform, not just the test org",
+      "recommendation": "Manual verification"
+    },
+    {
+      "scenario": "S-06 (AC-06) / S-07 (AC-07)",
+      "reason": "Edit dialog mutation test; read-only name field inspection requires UI interaction",
+      "recommendation": "Manual verification"
+    },
+    {
+      "scenario": "S-08 (AC-08)",
+      "reason": "Deactivate toggle + Save + cascade verification requires mutation gate to be lifted (upstream RBAC-checked INSERT/UPDATE RLS policies on core_organisations)",
+      "recommendation": "Manual verification after upstream platform RLS migration lands"
+    },
+    {
+      "scenario": "S-09 (AC-09)",
+      "reason": "No primitive to seed deny-only RBAC (canRead=false without canCreate/canUpdate)",
+      "recommendation": "Manual verification with a non-admin user"
+    }
+  ]
+}
