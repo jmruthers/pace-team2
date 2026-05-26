@@ -200,29 +200,12 @@ describe('TM02 F-50 / BR-12 (AC-24) — RLS via authenticated user session', () 
     await userClient.auth.signOut();
   });
 
-  it('RLS-01 (F-50, BR-12, AC-24): authenticated admin reads their own member row', async () => {
-    // requirement_ref: F-50, BR-12 — RLS on core_member restricts SELECT.
-    //
-    // NARROWED ASSERTION — see generator-ambiguity.json entry "RLS-01-coverage-gap".
-    //
-    // The original intent was "admin sees all 27 org members". That requires
-    // every seeded member to have a core_member_role row binding them to the
-    // org via a role type the admin has access to — that's how production
-    // members become visible to org admins under the rbac_select_core_member
-    // policy. Our current sanctioned helper set (createTestOrg, createTestUser,
-    // createTestUsers, createTestPerson, createTestMember) does NOT include
-    // createRoleType / createMemberRole primitives, so the 26 named members
-    // are invisible to the admin (the policy's cp.user_id branch only matches
-    // the admin's OWN row).
-    //
-    // Until those primitives land in pace-core2, this test asserts the weaker
-    // (but still valid) property that the admin can SELECT their own member
-    // row via RLS. The service-role assertions earlier in this file already
-    // prove the 27 members exist in dev-db; this just narrows the RLS claim
-    // to what the current helpers can faithfully seed.
-    //
-    // When createRoleType + createMemberRole land, restore the original
-    // assertion: expect(data!.length).toBe(EXPECTED_MEMBER_COUNT).
+  it('RLS-01 (F-50, BR-12, AC-24): authenticated admin reads all org member rows', async () => {
+    // requirement_ref: F-50, BR-12 — RLS on core_member permits SELECT for org members.
+    // rbac_select_core_member passes when the target member has a core_member_role row
+    // in an org the viewer has access to (check_user_organisation_access).
+    // seedWorld now seeds core_member_role rows for all 26 named members, so the
+    // admin (org_admin in rbac_organisation_roles) can read all 27 rows.
     const { data, error } = await userClient
       .from('core_member')
       .select('id, organisation_id')
@@ -231,9 +214,10 @@ describe('TM02 F-50 / BR-12 (AC-24) — RLS via authenticated user session', () 
       .in('membership_status', ['Active', 'Suspended']);
 
     expect(error).toBeNull();
-    // Admin's own row is visible via the cp.user_id = me branch of the policy.
-    expect(data!.length).toBe(1);
-    expect(data![0].organisation_id).toBe(world.org.id);
+    expect(data!.length).toBe(EXPECTED_MEMBER_COUNT);
+    for (const row of data!) {
+      expect(row.organisation_id).toBe(world.org.id);
+    }
   });
 
   it('RLS-02 (F-50, BR-12, AC-24): authenticated admin receives zero rows querying a different org', async () => {

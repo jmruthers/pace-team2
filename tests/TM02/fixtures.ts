@@ -28,6 +28,7 @@ import {
   createTestMember,
   seedOrgPagePermissions,
   requireRunId,
+  getSupabaseTestClient,
 } from '@solvera/pace-core/test-helpers';
 import type { SeededWorld } from '@solvera/pace-core/test-helpers';
 
@@ -84,6 +85,7 @@ export async function seedWorld(): Promise<SeededWorld> {
   // Named persons + members created sequentially to stay within Supabase rate limits.
   const persons: Awaited<ReturnType<typeof createTestPerson>>[] = [];
   const members: Awaited<ReturnType<typeof createTestMember>>[] = [];
+  const supabase = getSupabaseTestClient();
 
   for (const spec of NAMED_PERSONS) {
     const person = await createTestPerson(org.id, {
@@ -91,6 +93,14 @@ export async function seedWorld(): Promise<SeededWorld> {
       lastName: spec.lastName,
     });
     const member = await createTestMember(org.id, person.id, { membershipStatus: 'Active' });
+    // core_member_role row required so rbac_select_core_member passes for org_admin viewers.
+    // Without it, RLS only grants a user visibility of their own member row (via person.user_id match).
+    await supabase.from('core_member_role').insert({
+      member_id: member.id,
+      organisation_id: org.id,
+      role_id: 4, // Youth Member — any valid role_id satisfies the policy
+      start_date: '2020-01-01',
+    });
     persons.push(person);
     members.push(member);
   }
