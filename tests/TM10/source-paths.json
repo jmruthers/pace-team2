@@ -1,0 +1,10 @@
+{
+  "slice_id": "TM10",
+  "requirements_doc": "docs/requirements/TM10-events-attendees-requirements.md",
+  "tier": "lite",
+  "tier_justification": "Read-only surface via two SECURITY DEFINER RPCs (app_org_event_summaries, app_org_event_attendees) not yet deployed on dev (§15 implementation gate). No data can be seeded without BASE-app event primitives. Minimal coverage: page entry + empty state only.",
+  "source_paths": [
+    "src/pages/events/EventsListPage.tsx",
+    "src/pages/events/EventDetailPage.tsx"
+  ]
+}

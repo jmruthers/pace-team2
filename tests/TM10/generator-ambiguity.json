@@ -1,0 +1,21 @@
+{
+  "slice_id": "TM10",
+  "missing_primitives": [
+    {
+      "name": "createTestEvent",
+      "needed_for": "All S-NN scenarios — events list and attendee detail both require core_events + base_application rows",
+      "proposed_shape": "createTestEvent(orgId, attrs: { name: string, date?: string }) -> { eventId: string, name: string }"
+    },
+    {
+      "name": "createTestEventApplication",
+      "needed_for": "S-detail: attendee list requires base_application rows linking a member to an event",
+      "proposed_shape": "createTestEventApplication(eventId, memberId, attrs: { status: 'submitted' | 'approved' | 'rejected' }) -> { applicationId: string }"
+    }
+  ],
+  "schema_gate": {
+    "functions": ["app_org_event_summaries", "app_org_event_attendees"],
+    "status": "SECURITY DEFINER RPCs not yet deployed on dev as of 2026-05-26",
+    "blocked_by": "§15 implementation gate — platform-DB engineers author RPC bodies",
+    "unblocked_when": "Both RPCs are deployed and accept (p_organisation_id uuid) and (p_organisation_id uuid, p_event_id uuid) signatures respectively"
+  }
+}
