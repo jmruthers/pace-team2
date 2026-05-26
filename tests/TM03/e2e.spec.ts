@@ -42,7 +42,8 @@ test.beforeAll(async () => {
         world = parsed;
         return;
       }
-    } catch {
+    } catch (err) {
+      console.warn('world.json cache miss, falling back to seedWorld()', err);
       // fall through to seedWorld()
     }
   }
