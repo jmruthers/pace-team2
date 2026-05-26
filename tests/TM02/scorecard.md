@@ -1,0 +1,15 @@
+# Scorecard — TM02 — 019e6252-d489-7119-b1a4-bbdc4e0faa76
+
+Run completed at: 2026-05-26T03:28:07.340Z
+Tier: full
+
+| Stage | Result | Exit code |
+|---|---|---|
+| preflight | pass | 0 |
+| lint | pass | 0 |
+| persistence | pass | 0 |
+| rls | skipped | -1 |
+| e2e | pass | 0 |
+| postflight | pass | 0 |
+
+**Overall: PASS**
