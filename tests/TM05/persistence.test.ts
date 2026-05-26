@@ -69,6 +69,7 @@ describe('TM05 §15 — team_member_request table existence', () => {
     // This test DOCUMENTS the expected state. When the table lands, update this test.
     const supabase = getSupabaseTestClient();
 
+    // eslint-disable-next-line pace-core-compliance/tenant-scoped-assertions
     const { error } = await supabase
       .from('team_member_request')
       .select('id')

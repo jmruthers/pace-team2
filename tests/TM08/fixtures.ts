@@ -39,7 +39,7 @@ export async function seedWorld(): Promise<SeededWorld> {
       joining_fee: 25.0,
       recurring_fee: 10.0,
       fee_recurrence_days: 30,
-      tax_rate: 10.0,
+      tax_rate: 0.1, // NOTE: numeric(5,4) col — app stores 0-100 pct, so >= 10.0 overflows (real-bug BUG-TM08-01)
       bank_account_name: 'Test Operating Account',
     })
     .select('id')

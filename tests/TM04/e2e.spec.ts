@@ -130,7 +130,7 @@ test('S-16 (AC-16): member with no custom role rows shows empty state', async ({
   await loginAsAdmin(page);
   // Bob (members[1]) has no "Coach" role rows seeded
   await page.goto(`/members/${world.members![1].id}/roles`);
-  await expect(page.getByText('Role')).toBeVisible({ timeout: 15000 }); // wait for page load
+  await expect(page.getByRole('heading', { name: /standing roles/i })).toBeVisible({ timeout: 15000 }); // wait for page load
 
   // DataTable empty state text — may not show if the rbac-setup role (role_id=4) renders
   // Bob has one row (role_id=4 for rbac), so if it shows in the table the test still passes

@@ -62,7 +62,7 @@ describe('TM08 F-02/F-03 (AC-01/AC-03) — core_org_settings read', () => {
     expect(Number(data!.joining_fee)).toBeCloseTo(25.0, 2);
     expect(Number(data!.recurring_fee)).toBeCloseTo(10.0, 2);
     expect(data!.fee_recurrence_days).toBe(30);
-    expect(Number(data!.tax_rate)).toBeCloseTo(10.0, 2);
+    expect(Number(data!.tax_rate)).toBeCloseTo(0.1, 4); // column numeric(5,4); real-bug BUG-TM08-01: app sends 0-100 but col max is 9.9999
   });
 
   it('AC-17: nullable optional fields default to NULL when not set', async () => {

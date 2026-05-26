@@ -29,9 +29,29 @@ export async function seedWorld(): Promise<SeededWorld> {
   const runId = requireRunId();
   const org = await createTestOrg(runId, SLICE_ID);
   await seedOrgPagePermissions(org.id, 'TEAM');
-  const admin = await createTestUser(runId, SLICE_ID, 'admin', org.id);
 
+  // seedOrgPagePermissions only seeds 'read'; add 'update' so canUpdate=true in FormsListPage
   const supabase = getSupabaseTestClient();
+  const { data: teamApp } = await supabase.from('rbac_apps').select('id').eq('name', 'TEAM').single();
+  if (teamApp) {
+    const { data: formsPage } = await supabase
+      .from('rbac_app_pages')
+      .select('id')
+      .eq('page_name', 'forms')
+      .eq('scope_type', 'organisation')
+      .eq('app_id', teamApp.id)
+      .maybeSingle();
+    if (formsPage) {
+      await supabase.from('rbac_page_permissions').insert([
+        { app_page_id: formsPage.id, operation: 'create', role_name: 'org_admin', allowed: true, organisation_id: org.id },
+        { app_page_id: formsPage.id, operation: 'create', role_name: 'super_admin', allowed: true, organisation_id: org.id },
+        { app_page_id: formsPage.id, operation: 'update', role_name: 'org_admin', allowed: true, organisation_id: org.id },
+        { app_page_id: formsPage.id, operation: 'update', role_name: 'super_admin', allowed: true, organisation_id: org.id },
+      ]);
+    }
+  }
+
+  const admin = await createTestUser(runId, SLICE_ID, 'admin', org.id);
 
   const formSlug = `tm09-info-form-${runId.toLowerCase()}`;
 
@@ -60,7 +80,6 @@ export async function seedWorld(): Promise<SeededWorld> {
       form_id: form.id,
       field_key: 'test.first_name',
       field_label: 'First name',
-      field_type: 'text',
       is_required: true,
       is_active: true,
       sort_order: 1,

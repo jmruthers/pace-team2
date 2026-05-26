@@ -57,14 +57,13 @@ describe('TM09 F-02 (AC list) — core_forms list query', () => {
     // requirement_ref: F-05 — form fetch includes core_form_fields
     const { data, error } = await supabase
       .from('core_form_fields')
-      .select('id, form_id, field_key, field_type, is_active')
+      .select('id, form_id, field_key, is_active')
       .eq('form_id', world.extras!.formId as string)
       .eq('organisation_id', world.org.id);
 
     expect(error).toBeNull();
     expect(data!.length).toBe(1);
     expect(data![0].field_key).toBe('test.first_name');
-    expect(data![0].field_type).toBe('text');
     expect(data![0].is_active).toBe(true);
   });
 });

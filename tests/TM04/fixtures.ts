@@ -39,6 +39,21 @@ export async function seedWorld(): Promise<SeededWorld> {
 
   await seedOrgPagePermissions(org.id, 'TEAM');
 
+  // seedOrgPagePermissions only seeds 'read'; add 'update' so canUpdate=true in MemberRolesPage
+  const supabaseEarly = getSupabaseTestClient();
+  const { data: memberRolesPage } = await supabaseEarly
+    .from('rbac_app_pages')
+    .select('id')
+    .eq('page_name', 'member-roles')
+    .eq('scope_type', 'organisation')
+    .maybeSingle();
+  if (memberRolesPage) {
+    await supabaseEarly.from('rbac_page_permissions').insert([
+      { app_page_id: memberRolesPage.id, operation: 'update', role_name: 'org_admin', allowed: true, organisation_id: org.id },
+      { app_page_id: memberRolesPage.id, operation: 'update', role_name: 'super_admin', allowed: true, organisation_id: org.id },
+    ]);
+  }
+
   const admin = await createTestUser(runId, SLICE_ID, 'admin', org.id);
 
   // Primary navigation target (Jane Doe — has two role rows for table rendering)

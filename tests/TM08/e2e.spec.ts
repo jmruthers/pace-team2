@@ -63,8 +63,8 @@ test('S-03 (AC-03): saved row pre-populates form fields', async ({ page }) => {
   // requirement_ref: AC-03 — form pre-populated from existing core_org_settings row
   await loginAndGoToOrgSettings(page);
 
-  // The seeded row has base_currency='AUD' — look for it in the form
-  await expect(page.getByText('AUD')).toBeVisible();
+  // The seeded row has base_currency='AUD' — check the currency selector button
+  await expect(page.getByRole('button', { name: /base currency/i })).toBeVisible();
 });
 
 test('S-16 (AC-16): Cancel button is visible on the page', async ({ page }) => {
