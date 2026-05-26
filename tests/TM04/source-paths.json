@@ -1,0 +1,10 @@
+{
+  "slice_id": "TM04",
+  "requirements_doc": "docs/requirements/TM04-standing-roles-requirements.md",
+  "tier": "lite",
+  "tier_justification": "UI surface for member role history; mutations use existing org_admin RLS gate; no SECURITY DEFINER / trigger / view RLS surface to cover at the SQL layer.",
+  "source_paths": [
+    "src/pages/members/MemberRolesPage.tsx",
+    "src/pages/members/MemberRolesPage.test.tsx"
+  ]
+}

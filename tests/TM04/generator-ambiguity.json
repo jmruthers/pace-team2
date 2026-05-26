@@ -1,0 +1,15 @@
+{
+  "slice_id": "TM04",
+  "missing_primitives": [
+    {
+      "name": "createTestRoleType",
+      "needed_for": "F-29 Add-role form — Role type select options must come from seeded org-scoped types",
+      "proposed_shape": "createTestRoleType(orgId, attrs: { name: string }) -> { id: number, name: string }"
+    },
+    {
+      "name": "createTestMemberRole",
+      "needed_for": "F-33 End-role dialog — needs an existing active role row as fixture precondition",
+      "proposed_shape": "createTestMemberRole(memberId, orgId, attrs: { roleId: number, startDate: string, endDate?: string }) -> { id: string }"
+    }
+  ]
+}
