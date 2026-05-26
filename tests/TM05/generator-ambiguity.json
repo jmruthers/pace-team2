@@ -1,0 +1,16 @@
+{
+  "slice_id": "TM05",
+  "missing_primitives": [
+    {
+      "name": "createTestMemberRequest",
+      "needed_for": "All S-NN scenarios except S-03, S-05, S-28 — the queue and review panel require team_member_request rows",
+      "proposed_shape": "createTestMemberRequest(runId, sliceId, orgId, attrs: { requestType: 'join'|'transfer', status: 'pending'|'on_hold'|'approved'|'rejected'|'withdrawn', applicantPersonId?: string }) -> TestMemberRequest"
+    }
+  ],
+  "schema_gate": {
+    "table": "team_member_request",
+    "status": "absent from dev-db as of 2026-05-26",
+    "blocked_by": "§15 implementation gate — upstream platform schema changes required",
+    "unblocked_when": "enum extensions (join/transfer/on_hold), column additions (target_organisation_id, etc.), and RPC updates land on dev-db"
+  }
+}

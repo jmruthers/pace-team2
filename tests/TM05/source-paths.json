@@ -1,0 +1,13 @@
+{
+  "slice_id": "TM05",
+  "requirements_doc": "docs/requirements/TM05-member-requests-review-requirements.md",
+  "tier": "lite",
+  "tier_justification": "Approval queue surface; resolve mutations go through app_resolve_member_request RPC. Lite because team_member_request table is absent from dev-db — psql RLS stage cannot run against a non-existent table.",
+  "source_paths": [
+    "src/pages/approvals/ApprovalsPage.tsx",
+    "src/pages/approvals/ApprovalsPage.test.tsx",
+    "src/pages/approvals/ApprovalReviewPanel.tsx",
+    "src/pages/approvals/ApprovalReviewPanel.test.tsx",
+    "src/pages/approvals/resolveDialogs.test.tsx"
+  ]
+}
