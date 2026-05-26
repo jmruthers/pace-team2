@@ -1,0 +1,22 @@
+{
+  "slice_id": "TM02",
+  "requirements_doc": "docs/requirements/TM02-member-directory-requirements.md",
+  "tier": "full",
+  "tier_justification": "Touches data integrity (org-scoped SELECTs, RLS on core_member/core_person/team_member_request), cross-tenant isolation assertions, and multi-user picker flow — all warrant the full pipeline.",
+  "source_paths": [
+    "src/pages/members/MemberDirectoryPage.tsx",
+    "src/hooks/useMemberDirectoryData.ts",
+    "src/hooks/useActiveOrganisationMembershipTypes.ts",
+    "src/lib/members/memberDirectory.columns.tsx",
+    "src/lib/members/memberDirectory.display.ts",
+    "src/lib/members/memberDirectory.picker.ts",
+    "src/lib/members/memberDirectory.types.ts"
+  ],
+  "rpcs_called": [],
+  "tables_touched": [
+    "core_member",
+    "core_person",
+    "core_membership_type",
+    "team_member_request"
+  ]
+}
