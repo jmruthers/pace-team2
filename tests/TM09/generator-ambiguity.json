@@ -1,0 +1,33 @@
+{
+  "slice_id": "TM09",
+  "missing_primitives": [],
+  "schema_gate": {
+    "table": "core_forms",
+    "constraint": "core_forms_workflow_type_check",
+    "status": "does not permit workflow_type='org_signup' as of 2026-05-26",
+    "blocked_by": "Q-DB-2 implementation gate — platform migration extending the CHECK constraint required",
+    "unblocked_when": "core_forms_workflow_type_check is extended to include 'org_signup' value"
+  },
+  "escalated_scenarios": [
+    {
+      "scenario": "S-create (AC-create): Create form via WorkflowFormAuthoringShell",
+      "reason": "Multi-step form mutation with WorkflowFormAuthoringShell; Save requires a valid form state; not practical to automate without a dedicated create helper",
+      "recommendation": "Manual verification"
+    },
+    {
+      "scenario": "S-edit: Edit existing form",
+      "reason": "Shell mutation test; form field editors are complex UI components",
+      "recommendation": "Manual verification"
+    },
+    {
+      "scenario": "S-delete: Delete form with ConfirmationDialog",
+      "reason": "Dependency check (core_form_responses count) + destructive dialog confirmation; zero-response path automatable in principle but requires form insert",
+      "recommendation": "Manual verification"
+    },
+    {
+      "scenario": "S-org_signup: org_signup workflow type",
+      "reason": "core_forms_workflow_type_check does not permit org_signup until Q-DB-2 migration lands on dev; any INSERT with workflow_type='org_signup' fails with 23514",
+      "recommendation": "Re-enable after Q-DB-2 lands"
+    }
+  ]
+}

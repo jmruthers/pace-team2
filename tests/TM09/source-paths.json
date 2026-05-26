@@ -1,0 +1,12 @@
+{
+  "slice_id": "TM09",
+  "requirements_doc": "docs/requirements/TM09-org-form-authoring-requirements.md",
+  "tier": "lite",
+  "tier_justification": "Form authoring CRUD surface (core_forms + core_form_fields); mutations use live check_user_is_org_admin RLS. Schema gate: core_forms_workflow_type_check does not yet permit org_signup (Q-DB-2). No SECURITY DEFINER surface to cover at SQL layer.",
+  "source_paths": [
+    "src/pages/forms/FormsListPage.tsx",
+    "src/pages/forms/FormsListPage.test.tsx",
+    "src/pages/forms/FormAuthoringPage.tsx",
+    "src/pages/forms/FormAuthoringPage.test.tsx"
+  ]
+}
