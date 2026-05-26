@@ -1,0 +1,27 @@
+{
+  "slice_id": "TM06",
+  "missing_primitives": [
+    {
+      "name": "createTestMembershipType",
+      "needed_for": "S-02 (AC-02): Create membership type via dialog — form mutation and uniqueness validation",
+      "proposed_shape": "createTestMembershipType(orgId, attrs: { name: string, isActive?: boolean }) -> { id: number, name: string, is_active: boolean }"
+    }
+  ],
+  "escalated_scenarios": [
+    {
+      "scenario": "S-02 (AC-02)",
+      "reason": "Form mutation test; create dialog requires UI interaction and unique-name (23505) constraint testing requires careful isolation. No createTestMembershipType primitive.",
+      "recommendation": "Manual verification or defer until createTestMembershipType is available"
+    },
+    {
+      "scenario": "S-06 (AC-06)",
+      "reason": "Cannot inject a 23505 unique constraint violation at the API layer in a controlled way without dedicated error-injection infrastructure",
+      "recommendation": "Covered by unique constraint on core_membership_type(organisation_id, name); test via DB migration verification"
+    },
+    {
+      "scenario": "S-07 (AC-07)",
+      "reason": "No primitive to seed deny-only RBAC (canCreate=false without canView=false)",
+      "recommendation": "Manual verification with a non-admin user"
+    }
+  ]
+}
