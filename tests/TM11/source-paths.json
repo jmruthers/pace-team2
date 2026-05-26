@@ -1,0 +1,9 @@
+{
+  "slice_id": "TM11",
+  "requirements_doc": "docs/requirements/TM11-report-builder-requirements.md",
+  "tier": "lite",
+  "tier_justification": "Report builder surface backed by core_field_list (platform-seeded, not controllable in tests) and core_report_template. UI-heavy with ReportBuilder component. Minimal coverage: page entry + core_field_list probe only.",
+  "source_paths": [
+    "src/pages/reports/ReportsPage.tsx"
+  ]
+}

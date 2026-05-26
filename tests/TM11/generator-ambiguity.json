@@ -1,0 +1,27 @@
+{
+  "slice_id": "TM11",
+  "missing_primitives": [
+    {
+      "name": "createTestReportTemplate",
+      "needed_for": "S-template: Save/load/delete template scenarios",
+      "proposed_shape": "createTestReportTemplate(orgId, userId, attrs: { name: string, selectedFields: string[], domain?: string }) -> { id: string, name: string }"
+    }
+  ],
+  "escalated_scenarios": [
+    {
+      "scenario": "S-run: Run report returns results",
+      "reason": "Depends on core_field_list platform-seeded rows with report_availability=true and 'participant'=ANY(report_domains); execution adapter requires team.participant explore to be registered in pace-core2 explore registry",
+      "recommendation": "Manual verification after platform field catalogue and explore registry are confirmed seeded"
+    },
+    {
+      "scenario": "S-template: Save/load/delete templates",
+      "reason": "Mutation test; requires creator-identity tracking (created_by = current user) which is not testable without UI login flow",
+      "recommendation": "Manual verification"
+    },
+    {
+      "scenario": "S-csv: CSV export",
+      "reason": "Depends on a results table having rows; requires Run to work first",
+      "recommendation": "Manual verification"
+    }
+  ]
+}
