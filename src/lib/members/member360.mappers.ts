@@ -12,6 +12,8 @@ type JoinedPerson = {
   user_id: string | null;
   residential_address_id: string | null;
   postal_address_id: string | null;
+  residential_address: { id: string; full_address: string | null } | null;
+  postal_address: { id: string; full_address: string | null } | null;
 };
 
 function mapCorePersonFields(
@@ -85,8 +87,8 @@ export function mapMemberRow(raw: MemberFetchRaw): MemberProfileRecord {
   const membershipType = (raw.core_membership_type ?? null) as { id: number; name: string | null } | null;
   const genderType = (raw.core_gender_type ?? null) as { id: number; name: string | null } | null;
   const pronounType = (raw.core_pronoun_type ?? null) as { id: number; name: string | null } | null;
-  const residentialAddress = (raw.residential_address ?? null) as { id: string; full_address: string | null } | null;
-  const postalAddress = (raw.postal_address ?? null) as { id: string; full_address: string | null } | null;
+  const residentialAddress = corePerson?.residential_address ?? null;
+  const postalAddress = corePerson?.postal_address ?? null;
 
   return {
     id: String(raw.id ?? ''),

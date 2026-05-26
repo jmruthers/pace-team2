@@ -71,12 +71,10 @@ export function useMember360Data({ memberId, organisationId }: UseMember360DataO
             'membership_status',
             'valid_from',
             'valid_to',
-            'core_person!inner(id, first_name, last_name, preferred_name, email, date_of_birth, gender_id, pronoun_id, user_id, residential_address_id, postal_address_id)',
+            'core_person!inner(id, first_name, last_name, preferred_name, email, date_of_birth, gender_id, pronoun_id, user_id, residential_address_id, postal_address_id, residential_address:core_address!core_person_residential_address_id_fkey(id, full_address), postal_address:core_address!core_person_postal_address_id_fkey(id, full_address))',
             'core_membership_type(id, name)',
             'core_gender_type(id, name)',
             'core_pronoun_type(id, name)',
-            'residential_address:core_address!core_person_residential_address_id_fkey(id, full_address)',
-            'postal_address:core_address!core_person_postal_address_id_fkey(id, full_address)',
           ].join(', ')
         )
         .eq('id', memberId)

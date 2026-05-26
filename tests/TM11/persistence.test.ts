@@ -41,7 +41,7 @@ describe('TM11 field catalogue — core_field_list probe', () => {
     // eslint-disable-next-line pace-core-compliance/tenant-scoped-assertions
     const { data, error } = await supabase
       .from('core_field_list')
-      .select('field_key, report_domains, report_availability')
+      .select('table_name, field_name, report_domains, report_availability')
       .eq('report_availability', true)
       .limit(5);
 
