@@ -1,0 +1,10 @@
+{
+  "slice_id": "TM08",
+  "requirements_doc": "docs/requirements/TM08-organisation-settings-financial-requirements.md",
+  "tier": "lite",
+  "tier_justification": "Single settings form for core_org_settings; upsert mutation gated on upstream RBAC-checked RLS migration. No SECURITY DEFINER / trigger / view RLS surface to cover at SQL layer.",
+  "source_paths": [
+    "src/pages/settings/OrganisationSettingsPage.tsx",
+    "src/pages/settings/OrganisationSettingsPage.test.tsx"
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "slice_id": "TM08",
+  "missing_primitives": [],
+  "escalated_scenarios": [
+    {
+      "scenario": "AC-04 (Save UPDATE path)",
+      "reason": "Mutation gated on upstream RBAC-checked INSERT/UPDATE RLS policies on core_org_settings (replacing prior check_user_is_org_admin gate); policies not yet deployed",
+      "recommendation": "Manual verification after upstream platform RLS migration lands"
+    },
+    {
+      "scenario": "AC-05 (Save INSERT / first-time create)",
+      "reason": "Same RLS gate; also requires a second test org with no core_org_settings row which conflicts with the single-org fixture approach",
+      "recommendation": "Manual verification"
+    },
+    {
+      "scenario": "AC-08 (23514 base_currency rejection)",
+      "reason": "Cannot inject a server-side CHECK violation from the test layer without directly crafting malformed payloads bypassing client validation",
+      "recommendation": "Manual verification via direct DB insert with invalid base_currency value"
+    },
+    {
+      "scenario": "AC-10 (Permission denied page)",
+      "reason": "No primitive to seed deny-only RBAC (canRead=false)",
+      "recommendation": "Manual verification with a non-admin user"
+    }
+  ]
+}
