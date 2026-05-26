@@ -1,0 +1,26 @@
+{
+  "slice_id": "TM13",
+  "missing_primitives": [],
+  "schema_gate": {
+    "edge_functions": [
+      "pump-resolve-pool",
+      "pump-send",
+      "pump-schedule",
+      "pump-send-test",
+      "pump-load-templates",
+      "pump-load-merge-fields",
+      "pump-cancel"
+    ],
+    "rpcs": ["pump_get_effective_sender_identity"],
+    "status": "PUMP Edge functions not yet deployed on dev as of 2026-05-26",
+    "blocked_by": "§15 implementation gate — PUMP repository deployment + gateway config seeding + template fixture seeding required",
+    "unblocked_when": "All PUMP Edge functions are deployed, pump_get_effective_sender_identity RPC exists, and rbac_app_pages has a CommsLog row for PUMP app_id"
+  },
+  "escalated_scenarios": [
+    {
+      "scenario": "All send/schedule/template scenarios",
+      "reason": "Every mutation path goes through PUMP Edge functions; page may not even load if pump_get_effective_sender_identity is absent",
+      "recommendation": "Manual verification after full PUMP deployment"
+    }
+  ]
+}

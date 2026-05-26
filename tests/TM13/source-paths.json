@@ -1,0 +1,9 @@
+{
+  "slice_id": "TM13",
+  "requirements_doc": "docs/requirements/TM13-communications-pump-requirements.md",
+  "tier": "lite",
+  "tier_justification": "Communications composer backed by PUMP Edge functions (pump-send, pump-schedule, pump-load-templates, pump-resolve-pool, etc.) not yet deployed. pump_get_effective_sender_identity RPC required for page load. Minimal coverage: page entry + empty state only.",
+  "source_paths": [
+    "src/pages/communications/CommunicationsPage.tsx"
+  ]
+}
