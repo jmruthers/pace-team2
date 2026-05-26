@@ -1,0 +1,9 @@
+{
+  "slice_id": "TM12",
+  "requirements_doc": "docs/requirements/TM12-photo-moderation-requirements.md",
+  "tier": "lite",
+  "tier_justification": "Read + delete surface via data_moderation_photo_list RPC (not yet deployed) and deleteAttachment helper. Requires RBAC-checked SELECT/DELETE policies on core_file_references (upstream platform gate). Minimal coverage: page entry + empty state only.",
+  "source_paths": [
+    "src/pages/moderation/PhotoModerationPage.tsx"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "slice_id": "TM12",
+  "missing_primitives": [
+    {
+      "name": "createTestProfilePhoto",
+      "needed_for": "All photo-dependent scenarios — photo list, preview dialog, remove action",
+      "proposed_shape": "createTestProfilePhoto(orgId, personId, attrs: { filePath: string, isPublic?: boolean }) -> { id: string, file_path: string }"
+    }
+  ],
+  "schema_gate": {
+    "function": "data_moderation_photo_list",
+    "status": "SECURITY DEFINER RPC not yet deployed on dev as of 2026-05-26",
+    "blocked_by": "§15 upstream platform work — RBAC-checked SELECT + DELETE policies on core_file_references + recommended RPC",
+    "unblocked_when": "data_moderation_photo_list(p_organisation_id uuid) is deployed and RBAC-checked policies on core_file_references are in place"
+  }
+}
