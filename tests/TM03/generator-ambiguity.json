@@ -1,0 +1,20 @@
+{
+  "slice_id": "TM03",
+  "missing_primitives": [
+    {
+      "name": "createTestMemberCard",
+      "needed_for": "F-41 member cards section — S-15 (Deactivate), S-16 (Reactivate)",
+      "proposed_shape": "createTestMemberCard(memberId, orgId, attrs: { cardIdentifier: string, isActive?: boolean }) -> TestMemberCard"
+    },
+    {
+      "name": "createTestContact",
+      "needed_for": "F-33 additional contacts section — S-13 (View details modal)",
+      "proposed_shape": "createTestContact(personId, orgId, attrs: { contactPersonId: string, contactTypeId?: number, permissionType?: string }) -> TestContact"
+    },
+    {
+      "name": "createTestApplication",
+      "needed_for": "F-49 applications section — S-17 (application rows with status badges)",
+      "proposed_shape": "createTestApplication(personId, orgId, attrs: { eventId?: string, status: string }) -> TestApplication"
+    }
+  ]
+}

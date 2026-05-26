@@ -1,0 +1,16 @@
+{
+  "slice_id": "TM03",
+  "requirements_doc": "docs/requirements/TM03-member-360-requirements.md",
+  "tier": "lite",
+  "tier_justification": "UI-detail surface; all writes use existing org_admin RLS gate; no SECURITY DEFINER / trigger / view RLS surface to cover at the SQL layer.",
+  "source_paths": [
+    "src/pages/members/Member360Page.tsx",
+    "src/pages/members/member360/Member360PageContent.tsx",
+    "src/pages/members/member360/Member360IdentitySection.tsx",
+    "src/pages/members/member360/Member360NotFound.tsx",
+    "src/pages/members/member360/Member360PageStates.tsx",
+    "src/pages/members/member360/Member360PageOverlays.tsx",
+    "src/pages/members/member360/Member360SectionError.tsx",
+    "src/pages/members/member360/useMember360TableColumns.tsx"
+  ]
+}
