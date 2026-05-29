@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { setupUser } from '@test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactNode } from 'react';
@@ -254,7 +254,7 @@ describe('Member360Page', () => {
   });
 
   it('shows edit portal CTA and launches edit mode URL helper', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     portalPermissionCanUpdate = true;
     portalPermissionCanRead = true;
 
@@ -270,7 +270,7 @@ describe('Member360Page', () => {
   });
 
   it('shows view portal CTA when update is denied but read is granted', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     portalPermissionCanUpdate = false;
     portalPermissionCanRead = true;
 
@@ -307,7 +307,7 @@ describe('Member360Page', () => {
   });
 
   it('shows destructive toast when card mutation fails', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     deactivateOrReactivateCardMock.mockRejectedValueOnce(new Error('card denied'));
 
     renderPage();
@@ -323,7 +323,7 @@ describe('Member360Page', () => {
   });
 
   it('opens discard dialog when cancelling a dirty edit form', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     formIsDirty = true;
 
     renderPage();
@@ -345,7 +345,7 @@ describe('Member360Page', () => {
   });
 
   it('navigates to standing roles route when View roles is clicked', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: /View roles/u }));
@@ -354,7 +354,7 @@ describe('Member360Page', () => {
   });
 
   it('navigates to members directory when Back to members is clicked', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: /Back to members/u }));

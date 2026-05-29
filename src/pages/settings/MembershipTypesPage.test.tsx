@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { setupUser } from '@test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { MembershipTypesPage } from './MembershipTypesPage';
@@ -127,7 +127,7 @@ describe('MembershipTypesPage', () => {
   });
 
   it('shows duplicate-name inline error for 23505 without destructive toast', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     createMembershipTypeMock.mockRejectedValue({
       code: '23505',
       message: 'duplicate',
@@ -152,7 +152,7 @@ describe('MembershipTypesPage', () => {
   });
 
   it('closes editor and shows default toast when organisation changes', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const rendered = renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Create' }));
@@ -184,7 +184,7 @@ describe('MembershipTypesPage', () => {
   });
 
   it('shows create success toast after save', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     createMembershipTypeMock.mockResolvedValue(undefined);
     renderPage();
 
@@ -200,7 +200,7 @@ describe('MembershipTypesPage', () => {
   });
 
   it('shows update success toast after edit save', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     updateMembershipTypeMock.mockResolvedValue(undefined);
     renderPage();
 
@@ -216,7 +216,7 @@ describe('MembershipTypesPage', () => {
   });
 
   it('shows deactivate success toast after confirmation', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     setMembershipTypeActiveMock.mockResolvedValue(undefined);
     renderPage();
 
@@ -232,7 +232,7 @@ describe('MembershipTypesPage', () => {
   });
 
   it('shows reactivate success toast for inactive row action', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     setMembershipTypeActiveMock.mockResolvedValue(undefined);
     useMembershipTypesDataMock.mockReturnValue(buildInactiveDataState());
     renderPage();

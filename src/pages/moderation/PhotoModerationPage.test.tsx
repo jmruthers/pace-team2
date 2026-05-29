@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { setupUser } from '@test-utils';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -57,27 +57,6 @@ vi.mock('@solvera/pace-core/rbac', () => ({
     isLoading: false,
   }),
   useSecureSupabase: () => ({}),
-}));
-
-vi.mock('@/components/moderation/PhotoPreviewDialog', () => ({
-  PhotoPreviewDialog: ({
-    open,
-    canDelete,
-    onRequestRemove,
-  }: {
-    open: boolean;
-    canDelete: boolean;
-    onRequestRemove: (row: unknown) => void;
-  }) =>
-    open ? (
-      <section data-testid="preview-dialog">
-        {canDelete ? (
-          <span role="button" tabIndex={0} onClick={() => onRequestRemove(samplePhoto)} onKeyDown={() => undefined}>
-            Preview remove
-          </span>
-        ) : null}
-      </section>
-    ) : null,
 }));
 
 vi.mock('@solvera/pace-core/components', async (importActual) => {
@@ -164,7 +143,7 @@ describe('PhotoModerationPage', () => {
       clearLocalRemovals: vi.fn(),
     });
 
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPage();
 
     expect(screen.getByText('Could not load profile photos.')).toBeTruthy();
@@ -184,7 +163,7 @@ describe('PhotoModerationPage', () => {
       clearLocalRemovals: vi.fn(),
     });
 
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Remove' }));
@@ -213,7 +192,7 @@ describe('PhotoModerationPage', () => {
       clearLocalRemovals: vi.fn(),
     });
 
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: 'Remove' }));
@@ -236,7 +215,7 @@ describe('PhotoModerationPage', () => {
 
   it('fires org-change toast when organisation changes with open confirm dialog', async () => {
     const { rerender } = renderPage();
-    const user = userEvent.setup();
+    const user = setupUser();
 
     await user.click(screen.getAllByRole('button', { name: 'Remove' })[0]!);
     expect(screen.getAllByRole('button', { name: 'Remove' }).length).toBeGreaterThan(1);

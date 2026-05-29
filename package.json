@@ -7,7 +7,7 @@
     "dev": "vite",
     "type-check": "tsc --noEmit -p tsconfig.app.json",
     "test": "vitest run --test-timeout=10000",
-    "test:coverage": "vitest run --test-timeout=10000 --coverage --coverage.provider=istanbul",
+    "test:coverage": "vitest run -c vitest.config.ts --coverage",
     "build": "tsc --noEmit -p tsconfig.app.json && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -20,7 +20,12 @@
     "env:status": "node -e \"const fs=require('node:fs');const p='.env';if(!fs.existsSync(p)){console.log('.env not found');process.exit(0);}const t=fs.readFileSync(p,'utf8');const g=(k)=>{const m=t.match(new RegExp('^'+k+'=(.*)$','m'));return m?m[1]:''};console.log('SUPABASE_ENV='+g('SUPABASE_ENV'));console.log('SUPABASE_PROJECT_REF='+g('SUPABASE_PROJECT_REF'));console.log('VITE_SUPABASE_URL='+g('VITE_SUPABASE_URL'));\"",
     "migrate:link": "node node_modules/@solvera/pace-core/scripts/supabase-link-from-env.cjs",
     "migrate:link:dev": "node node_modules/@solvera/pace-core/scripts/supabase-link-from-env.cjs dev",
-    "migrate:link:prod": "node node_modules/@solvera/pace-core/scripts/supabase-link-from-env.cjs prod"
+    "migrate:link:prod": "node node_modules/@solvera/pace-core/scripts/supabase-link-from-env.cjs prod",
+    "test:watch": "vitest -c vitest.config.ts",
+    "test:unit": "vitest run -c vitest.unit.config.ts",
+    "test:integration": "vitest run -c vitest.integration.config.ts",
+    "test:changed": "vitest run -c vitest.config.ts --changed HEAD~1",
+    "test:coverage:fast": "vitest run -c vitest.unit.config.ts --coverage --coverage.provider=v8"
   },
   "dependencies": {
     "@solvera/pace-core": "file:../pace-core2/packages/core",
@@ -52,6 +57,8 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.58.2",
     "vite": "^8.0.10",
-    "vitest": "^2.0.0"
+    "vitest": "^2.0.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "@vitest/coverage-v8": "^2.0.0"
   }
 }

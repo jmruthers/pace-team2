@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { setupUser } from '@test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { SubOrganisationsPage } from './SubOrganisationsPage';
@@ -143,7 +143,7 @@ describe('SubOrganisationsPage', () => {
   });
 
   it('shows duplicate-name inline error for 23505 without destructive toast', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     createSubOrganisationMock.mockRejectedValue({
       code: '23505',
       message: 'duplicate',
@@ -168,7 +168,7 @@ describe('SubOrganisationsPage', () => {
   });
 
   it('submits create and update payloads with expected shapes', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPage();
 
     await user.click(screen.getByRole('button', { name: '+ New sub-organisation' }));
@@ -201,7 +201,7 @@ describe('SubOrganisationsPage', () => {
   });
 
   it('shows validation alert and blocks submit when invalid', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     mockIsValid = false;
     mockIsSubmitted = true;
     mockErrors = { name: { message: 'Internal name is required.' } };
@@ -218,7 +218,7 @@ describe('SubOrganisationsPage', () => {
   });
 
   it('shows destructive toast only for non-23505 save failures', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     createSubOrganisationMock.mockRejectedValue(new Error('network down'));
 
     renderPage();
@@ -235,7 +235,7 @@ describe('SubOrganisationsPage', () => {
   });
 
   it('disables editable controls while mutation is pending', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     useSubOrganisationsDataMock.mockReturnValue({
       ...buildDataState(),
       createPending: true,
@@ -249,7 +249,7 @@ describe('SubOrganisationsPage', () => {
   });
 
   it('closes editor and shows default toast when organisation changes', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const rendered = renderPage();
 
     await user.click(screen.getByRole('button', { name: '+ New sub-organisation' }));

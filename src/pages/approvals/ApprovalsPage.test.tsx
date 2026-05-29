@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { setupUser } from '@test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
@@ -142,7 +142,7 @@ describe('ApprovalsPage route and layout behavior', () => {
 
   it('navigates to /approvals/:requestId when a queue row is activated', async () => {
     mockMatchMedia(true);
-    const user = userEvent.setup();
+    const user = setupUser();
     render(
       <MemoryRouter initialEntries={['/approvals']}>
         <Routes>

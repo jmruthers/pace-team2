@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { setupUser } from '@test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ApproveResolveDialog, HoldResolveDialog, RejectResolveDialog } from '@/components/approvals/resolveDialogs';
 import type { ApprovalRequestRow } from '@/lib/approvals/approvals.types';
@@ -54,7 +54,7 @@ describe('resolve dialog validation rules', () => {
   afterEach(() => cleanup());
 
   it('disables Reject confirm when trimmed note is shorter than 10', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     render(
       <RejectResolveDialog
         request={baseRequest}
@@ -75,7 +75,7 @@ describe('resolve dialog validation rules', () => {
   });
 
   it('disables Approve-with-input confirm when trimmed member number is empty', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     render(
       <ApproveResolveDialog
         request={baseRequest}
@@ -111,7 +111,7 @@ describe('resolve dialog validation rules', () => {
   });
 
   it('sends null member number when applicant already has one', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const onSubmit = vi.fn(async () => true);
     render(
       <ApproveResolveDialog

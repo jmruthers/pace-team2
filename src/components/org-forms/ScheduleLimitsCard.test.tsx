@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { setupUser } from '@test-utils';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -23,7 +23,7 @@ describe('ScheduleLimitsCard', () => {
   });
 
   it('renders "Form submission is required for this workflow" beside the Switch (F-34)', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const onChange = vi.fn();
 
     render(

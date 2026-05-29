@@ -12,7 +12,7 @@
 
 | scenario_ref | route_or_screen | steps | expected_result | result | notes |
 |---|---|---|---|---|---|
-| S-01 (AC-01) | `/communications` | Sign in with org and `read:page.CommsLog`; open route. | Heading "Communications"; recipient-mode card default All org members; composer email; pool preview visible. | [Pass/Fail] | Verify `PagePermissionGuard` resolves per requirement §15 if TEAM-only RBAC. |
+| S-01 (AC-01) | `/communications` | Sign in with org and `read:page.comms-log`; open route. | Heading "Communications"; recipient-mode card default All org members; composer email; pool preview visible. | [Pass/Fail] | Verify `PagePermissionGuard` resolves per requirement §15 if TEAM-only RBAC. |
 | S-02 (AC-02) | `/communications` | Load org with known sender identity RPC values. | Sender name, email (and phone when switched) match RPC. | [Pass/Fail] |  |
 | S-03 (AC-03) | `/communications` | Default All members; switch to Specific members with empty list. | "Choose members…" shown; pool preview shows estimated_count 0 after resolve. | [Pass/Fail] |  |
 | S-04 (AC-04) | `/communications` | Specific members; click Choose members… | `sessionStorage` payload set; navigates `/members` with comms picker intent. | [Pass/Fail] |  |
@@ -31,7 +31,7 @@
 | S-17 (AC-17) | `/communications` | Send test failure. | Destructive toast with failure message; draft unchanged. | [Pass/Fail] |  |
 | S-18 (AC-18) | `/communications` | Filters yield zero recipients; try Send now. | Inline "No recipients match these filters."; Send/Schedule disabled; bypass shows toast. | [Pass/Fail] |  |
 | S-19 (AC-19) | `/communications` | Specific members selected; switch org. | Resets to All members; clears manual, chips, include-inactive; sender RPC re-runs; default toast. | [Pass/Fail] |  |
-| S-20 (AC-20) | `/communications` | Without `read:page.CommsLog`. | `AccessDenied`; no recipient or composer UI. | [Pass/Fail] |  |
+| S-20 (AC-20) | `/communications` | Without `read:page.comms-log`. | `AccessDenied`; no recipient or composer UI. | [Pass/Fail] |  |
 | S-21 (AC-21) | `/communications` | Read+create but not update. | Read-only banner; inputs disabled; footer replaced by view-only alert. | [Pass/Fail] |  |
 | S-22 (AC-22) | `/communications` | In-progress draft; Cancel. | Navigates `/`; draft discarded. | [Pass/Fail] |  |
 | S-23 (AC-23) | `/communications` | Sender identity RPC fails on mount. | Sender fields empty; destructive toast per requirement copy. | [Pass/Fail] |  |

@@ -182,9 +182,9 @@ describe('CommunicationsPage', () => {
     cleanup();
   });
 
-  it('wraps content with PagePermissionGuard for CommsLog read without appName or scope', () => {
+  it('wraps content with PagePermissionGuard for comms-log read without appName or scope', () => {
     renderPage();
-    expect(pagePermissionGuardProps?.pageName).toBe('CommsLog');
+    expect(pagePermissionGuardProps?.pageName).toBe('comms-log');
     expect(pagePermissionGuardProps?.operation).toBe('read');
     expect(pagePermissionGuardProps).not.toHaveProperty('appName');
     expect(pagePermissionGuardProps).not.toHaveProperty('scope');

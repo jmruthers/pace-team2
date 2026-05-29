@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen } from '@testing-library/react';
 import { cleanup } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { setupUser } from '@test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildMemberColumns } from '@/lib/members/memberDirectory.columns';
 import type { MemberDirectoryRow } from '@/lib/members/memberDirectory.types';
@@ -26,7 +26,7 @@ describe('memberDirectory.columns', () => {
   });
 
   it('invokes primary action from the Name cell in normal mode', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const onPrimaryAction = vi.fn();
     const columns = buildMemberColumns({
       pickerMode: false,
@@ -46,7 +46,7 @@ describe('memberDirectory.columns', () => {
   });
 
   it('invokes primary action from the Name cell in picker mode', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const onPrimaryAction = vi.fn();
     const columns = buildMemberColumns({
       pickerMode: true,
@@ -66,7 +66,7 @@ describe('memberDirectory.columns', () => {
   });
 
   it('invokes primary action from non-name cells for row-click parity', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const onPrimaryAction = vi.fn();
     const columns = buildMemberColumns({
       pickerMode: false,

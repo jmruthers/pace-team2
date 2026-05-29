@@ -459,7 +459,8 @@ After TEAM-01 (and all slices) are built and before release, the following `rbac
 | `events` | TEAM-10 |
 | `reports` | TEAM-11 |
 | `moderation-photos` | TEAM-12 |
-| `CommsLog` | TEAM-13 |
+
+**PUMP-owned (do not seed under TEAM):** `/communications` uses `comms-log` registered under `data_get_app_id('PUMP')`. TEAM-13 consumes that page key; org-admin grants come from TEAM-DB-017 on the PUMP catalogue row.
 
 Existing legacy rows (`Activities`, `dashboard`, `Dashboard`, `Members`, `Reports`, `team-crm`, `team-relationships`) must be removed at the same time.
 

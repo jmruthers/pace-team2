@@ -46,7 +46,7 @@
 - implementation: TM01 shell, auth, layout baseline (`src/main.tsx`, `src/App.tsx`, `src/components/layout/AuthenticatedShell.tsx`); bootstrap contract fixes (`src/app.css`, entry import, Tailwind v4 Vite config)
 - AC (§11 checkboxes): 12 / 18 complete in requirements; pending TM01 QA pack scenarios (idle modal, passwords, toast)
 - RBAC seeds: canonical pages — [`docs/delivery/sql/seed-team-canonical-rbac-app-pages.sql`](sql/seed-team-canonical-rbac-app-pages.sql); see [`docs/delivery/sql/README-teambuild-sql.md`](sql/README-teambuild-sql.md)
-- MCP (`yihzsfcceciimdoiibif`, `2026-05-17`): **`rbac_apps.name='TEAM'`** present; all 12 canonical **`rbac_app_pages`** rows present with **`scope_type='organisation'`** (`home`, `members`, `member-roles`, `approvals`, `membership-types`, `organisations`, `org-settings`, `forms`, `events`, `reports`, `moderation-photos`, `CommsLog`); legacy **`page_name`** values from the seed **`DELETE`** block absent under that app
+- MCP (`yihzsfcceciimdoiibif`, `2026-05-17`): **`rbac_apps.name='TEAM'`** present; all 11 canonical TEAM **`rbac_app_pages`** rows present with **`scope_type='organisation'`** (`home`, `members`, `member-roles`, `approvals`, `membership-types`, `organisations`, `org-settings`, `forms`, `events`, `reports`, `moderation-photos`); comms uses PUMP-owned **`comms-log`** (not seeded under TEAM); legacy **`page_name`** values from the seed **`DELETE`** block absent under that app
 - **New environments / deploy targets:** run the same seed against each Supabase project the app will use (`SUPABASE_PROJECT_REF`); MCP evidence above is the verified-contract baseline only
 - tests (shell smoke): `src/components/layout/AuthenticatedShell.test.tsx` (3 pass)
 
@@ -158,7 +158,7 @@
 - validate: pass `202605191949` (253 tests); TM13 §13 unit/component coverage in `src/lib/communications/*` + `CommunicationsPage.test.tsx`
 - implementation: [`src/pages/communications/CommunicationsPage.tsx`](../../src/pages/communications/CommunicationsPage.tsx) mounts `CommComposer` (`blockSendOnUnresolvedTokens`, `blockSendWhenPoolEmpty`) via [`createTeamCommSendAdapter`](../../src/lib/communications/teamCommSendAdapter.ts); manual-pick [`commsManualPick.ts`](../../src/lib/communications/commsManualPick.ts); RBAC [`useCommsLogRbac`](../../src/hooks/useCommsLogRbac.ts); sender pre-fill [`usePumpEffectiveSenderIdentity`](../../src/hooks/usePumpEffectiveSenderIdentity.ts); route in [`src/App.tsx`](../../src/App.tsx)
 - MCP (`yihzsfcceciimdoiibif`, **2026-05-17**): **`pump_get_effective_sender_identity`** on `public` (SECURITY DEFINER; identity args match PUMP integration contract surface).
-- **Residual before Done**: TM13 §15 PUMP smoke (send / schedule / send-test); grants + `rbac_app_pages.CommsLog` row via TEAM seed (`docs/test-packs/TM13-qa-pack.md`)
+- **Residual before Done**: TM13 §15 PUMP smoke (send / schedule / send-test); verify PUMP `rbac_app_pages.comms-log` row + org-admin grants after platform migration (`docs/test-packs/TM13-qa-pack.md`)
 
 ### TEAM-04 — Standing roles
 

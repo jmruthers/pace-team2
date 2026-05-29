@@ -402,7 +402,7 @@ export function CommunicationsPage() {
   }
 
   return (
-    <PagePermissionGuard pageName="CommsLog" operation="read" fallback={<AccessDenied />}>
+    <PagePermissionGuard pageName="comms-log" operation="read" fallback={<AccessDenied />}>
       <CommunicationsPageInner key={organisationId} organisationId={organisationId} />
     </PagePermissionGuard>
   );

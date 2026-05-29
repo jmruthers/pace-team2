@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { setupUser } from '@test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactNode } from 'react';
@@ -205,7 +205,7 @@ describe('MemberDirectoryPage picker mode', () => {
   });
 
   it('clears picker selection and toasts when org changes', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const rendered = renderPickerRoute();
 
     await user.click(screen.getByRole('button', { name: 'mock-select-one' }));
@@ -232,7 +232,7 @@ describe('MemberDirectoryPage picker mode', () => {
   });
 
   it('writes picker payload and navigates on Done', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderRoute('/members', { intent: 'commsManualPick' });
 
     await user.click(screen.getByRole('button', { name: 'mock-select-one' }));
@@ -246,7 +246,7 @@ describe('MemberDirectoryPage picker mode', () => {
   });
 
   it('navigates on Cancel without overwriting existing payload', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const existingPayload = JSON.stringify({
       organisationId: 'org-1',
       memberIds: ['member-9'],
@@ -274,7 +274,7 @@ describe('MemberDirectoryPage picker mode', () => {
   });
 
   it('passes selected membership type into data hook for server-side refetch contract', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderRoute('/members');
 
     await user.click(screen.getByRole('button', { name: 'mock-select-type-1' }));
@@ -297,7 +297,7 @@ describe('MemberDirectoryPage members fetch error', () => {
   });
 
   it('renders Retry and calls refetchMembers when Retry is clicked', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const refetchMembers = vi.fn();
     resolveMemberDirectoryData = () =>
       createMemberDirectoryDataReturn({

@@ -17,7 +17,7 @@ QA pack:         docs/test-packs/TM13-qa-pack.md
 
 ## §2 Overview
 
-TEAM-13 delivers the org-admin communications composer at `/communications`. The page mounts the `CommComposer` from `@solvera/pace-core/comms`, lets an operator pick between a filtered organisation broadcast and a manually-curated member list, choose a channel (email or SMS), select an active org template, edit subject and body, preview merge tokens, and either send immediately or schedule for later via PUMP Edge functions. Recipient resolution, sender identity, suppression, and delivery are all PUMP-side concerns — TEAM submits a `RecipientPoolDescriptor`, never a resolved member list. The route is wrapped by `<PagePermissionGuard pageName="CommsLog" operation="read">` against the canonical PUMP-registered page resource. Manual recipient selection hands off to the directory picker at `/members` per the contract owned by TEAM-02.
+TEAM-13 delivers the org-admin communications composer at `/communications`. The page mounts the `CommComposer` from `@solvera/pace-core/comms`, lets an operator pick between a filtered organisation broadcast and a manually-curated member list, choose a channel (email or SMS), select an active org template, edit subject and body, preview merge tokens, and either send immediately or schedule for later via PUMP Edge functions. Recipient resolution, sender identity, suppression, and delivery are all PUMP-side concerns — TEAM submits a `RecipientPoolDescriptor`, never a resolved member list. The route is wrapped by `<PagePermissionGuard pageName="comms-log" operation="read">` against the canonical PUMP-registered page resource. Manual recipient selection hands off to the directory picker at `/members` per the contract owned by TEAM-02.
 
 ---
 
@@ -53,9 +53,9 @@ TEAM-13 does **not** own:
 
 **Pool descriptor, not resolved list.** When the operator initiates a send, the slice passes a `RecipientPoolDescriptor` (either `OrgMembersPool` or `ManualPool`) to the adapter. PUMP Edge resolves the descriptor server-side. Resolved member lists never leave the browser as a send payload.
 
-**Page guard.** `<PagePermissionGuard pageName="CommsLog" operation="read">` wraps the page content. The `pageName` value is the canonical page resource registered under the PUMP `rbac_apps` row — the same page key PUMP Edge uses for `isPermitted` checks. No `scope` prop is passed; no `appName` override prop is passed. Scope resolves from `OrganisationServiceProvider` context.
+**Page guard.** `<PagePermissionGuard pageName="comms-log" operation="read">` wraps the page content. The `pageName` value is the canonical page resource registered under the PUMP `rbac_apps` row — the same page key PUMP Edge uses for `isPermitted` checks. No `scope` prop is passed; no `appName` override prop is passed. Scope resolves from `OrganisationServiceProvider` context.
 
-**RBAC context for the composer.** The slice derives `CommRbacContext` from `useCan` calls against the canonical permission strings: `canCompose = useCan('create:page.CommsLog', { organisationId })`, `canSend = useCan('update:page.CommsLog', { organisationId })`, `canSchedule = useCan('update:page.CommsLog', { organisationId })`, `scopeType = 'organisation'`, `scopeId = selectedOrganisation.id`. The composer renders its own read-only state when `canSend === false`.
+**RBAC context for the composer.** The slice derives `CommRbacContext` from `useCan` calls against the canonical permission strings: `canCompose = useCan('create:page.comms-log', { organisationId })`, `canSend = useCan('update:page.comms-log', { organisationId })`, `canSchedule = useCan('update:page.comms-log', { organisationId })`, `scopeType = 'organisation'`, `scopeId = selectedOrganisation.id`. The composer renders its own read-only state when `canSend === false`.
 
 **No event scope.** TEAM is not event-scoped. The slice never sets `sourceContextType` or `sourceContextId` on the adapter or in the request; every send from TEAM v1 carries `source_context_type === undefined`, `source_context_id === undefined`. PUMP Edge enforces authorisation by `organisation_id` claim alone for TEAM-originated sends.
 
@@ -71,12 +71,12 @@ TEAM-13 does **not** own:
 
 ### Page-level guards and evaluation ordering
 
-The route `/communications` sits inside `AuthenticatedShell` (TEAM-01) and is wrapped by `<PagePermissionGuard pageName="CommsLog" operation="read">`. Evaluation order when context is absent:
+The route `/communications` sits inside `AuthenticatedShell` (TEAM-01) and is wrapped by `<PagePermissionGuard pageName="comms-log" operation="read">`. Evaluation order when context is absent:
 
 1. **Authentication check** — `ProtectedRoute` (TEAM-01) fires first. An unauthenticated user is redirected to `/login`; the guard never evaluates.
 2. **Org context loading** — `OrganisationServiceProvider` resolves memberships. While `isLoading === true`, `AuthenticatedShell` renders a loading state; no feature content or guard is shown.
 3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the "No organisation assigned. Please contact your administrator." empty state from TEAM-01. `PagePermissionGuard` is not reached; no RBAC query fires.
-4. **Page permission guard** — Once org context is resolved, `PagePermissionGuard` evaluates with `pageName: 'CommsLog'`, `operation: 'read'`. Scope is resolved internally; no `scope` prop is passed. While the RBAC check is in flight (`isLoading === true`) and no `loading` prop is supplied, the guard returns `null` (a brief blank inside the PaceMain content area is acceptable). On `can === false`, `<AccessDenied />` is rendered. On `can === true`, the page body renders.
+4. **Page permission guard** — Once org context is resolved, `PagePermissionGuard` evaluates with `pageName: 'comms-log'`, `operation: 'read'`. Scope is resolved internally; no `scope` prop is passed. While the RBAC check is in flight (`isLoading === true`) and no `loading` prop is supplied, the guard returns `null` (a brief blank inside the PaceMain content area is acceptable). On `can === false`, `<AccessDenied />` is rendered. On `can === true`, the page body renders.
 
 If `selectedOrganisation` somehow resolves to `null` after step 3 (a race during org switch), the RBAC engine evaluates with `organisationId: undefined`, the check returns pending, and the guard returns `null`. The no-org check at step 3 prevents this path under normal conditions.
 
@@ -86,7 +86,7 @@ If `selectedOrganisation` somehow resolves to `null` after step 3 (a race during
 
 ### Page entry / surface entry
 
-- **F-01** The route `/communications` renders for an authenticated user whose currently selected organisation has resolved and who has `read:page.CommsLog` permission.
+- **F-01** The route `/communications` renders for an authenticated user whose currently selected organisation has resolved and who has `read:page.comms-log` permission.
 - **F-02** On entry, the page sets `printTitle` to "Communications" via `usePaceMain`.
 - **F-03** The page heading is "Communications" (sentence case). No breadcrumb is rendered. No description sub-text is rendered.
 - **F-04** On mount with a resolved `selectedOrganisation`, the page calls `pump_get_effective_sender_identity` and seeds the composer's draft with the returned `senderName`, `fromAddress`, `senderPhone`, and `replyToAddress`. Null fields seed empty strings.
@@ -109,7 +109,7 @@ If `selectedOrganisation` somehow resolves to `null` after step 3 (a race during
 
 ### Error states
 
-- **F-15** A user without `read:page.CommsLog` sees `<AccessDenied />` rendered inside the `AuthenticatedShell` chrome with copy "You do not have permission to view this page." (the `AccessDenied` default).
+- **F-15** A user without `read:page.comms-log` sees `<AccessDenied />` rendered inside the `AuthenticatedShell` chrome with copy "You do not have permission to view this page." (the `AccessDenied` default).
 - **F-16** When `pump-resolve-pool` fails, the recipient pool preview card renders `<Alert variant="destructive">` with title "Recipient pool unavailable" and description set to the error message returned from the adapter. Send-now and Schedule remain disabled while the pool preview is in error. Switching channel or re-applying filters re-runs the resolve.
 - **F-17** When `pump-send` fails, a `'destructive'`-variant toast renders with the normalised error message returned from the adapter. The composer draft remains unchanged. No inline alert is added by TEAM-13; the composer's internal banners (read-only, strict-template, unresolved-tokens) continue to render based on their own conditions.
 - **F-18** When `pump-schedule` fails, behaviour matches F-17 — destructive toast, draft unchanged.
@@ -169,9 +169,9 @@ If `selectedOrganisation` somehow resolves to `null` after step 3 (a race during
 
 ### Permission-conditional rendering
 
-- **F-56** When `read:page.CommsLog` is denied, `<AccessDenied />` renders and no recipient-mode card or composer renders.
-- **F-57** When `read:page.CommsLog` is allowed but `create:page.CommsLog` is denied (`canCompose === false`), the composer renders the read-only banner ("You have view-only access to this message.") and disables all editable inputs.
-- **F-58** When `read:page.CommsLog` is allowed and `create:page.CommsLog` is allowed but `update:page.CommsLog` is denied (`canSend === false`, `canSchedule === false`), the composer renders the read-only banner; the CardFooter renders a single `<Alert role="status">` "You have view-only access to this message." in place of the Send-test, Schedule, Send-now, and Cancel buttons.
+- **F-56** When `read:page.comms-log` is denied, `<AccessDenied />` renders and no recipient-mode card or composer renders.
+- **F-57** When `read:page.comms-log` is allowed but `create:page.comms-log` is denied (`canCompose === false`), the composer renders the read-only banner ("You have view-only access to this message.") and disables all editable inputs.
+- **F-58** When `read:page.comms-log` is allowed and `create:page.comms-log` is allowed but `update:page.comms-log` is denied (`canSend === false`, `canSchedule === false`), the composer renders the read-only banner; the CardFooter renders a single `<Alert role="status">` "You have view-only access to this message." in place of the Send-test, Schedule, Send-now, and Cancel buttons.
 
 ### Navigation
 
@@ -320,9 +320,9 @@ Default duration 5000 ms. Notifications appear in an `aside[role="region"]` over
 |---|---|---|---|
 | Not authenticated | Redirect to `/login` (TEAM-01 ProtectedRoute) | n/a | n/a |
 | Authenticated, no org | TEAM-01 no-org empty state | n/a | n/a |
-| Authenticated, org, `read:page.CommsLog` denied | `<AccessDenied />` | Hidden | Hidden |
-| Authenticated, org, `read:page.CommsLog` allowed, `create:page.CommsLog` denied | Page visible | Read-only banner; inputs disabled | CardFooter shows read-only Alert; no buttons |
-| Authenticated, org, `read:page.CommsLog` allowed, `create:page.CommsLog` allowed, `update:page.CommsLog` denied | Page visible | Editable inputs | CardFooter shows read-only Alert; no buttons |
+| Authenticated, org, `read:page.comms-log` denied | `<AccessDenied />` | Hidden | Hidden |
+| Authenticated, org, `read:page.comms-log` allowed, `create:page.comms-log` denied | Page visible | Read-only banner; inputs disabled | CardFooter shows read-only Alert; no buttons |
+| Authenticated, org, `read:page.comms-log` allowed, `create:page.comms-log` allowed, `update:page.comms-log` denied | Page visible | Editable inputs | CardFooter shows read-only Alert; no buttons |
 | Authenticated, org, all three allowed | Page visible | Editable | All four buttons render with their normal gating (block-on-unresolved, schedule expansion) |
 
 ---
@@ -331,11 +331,11 @@ Default duration 5000 ms. Notifications appear in an `aside[role="region"]` over
 
 **BR-01 — Page access.**
 - Input: navigation to `/communications`.
-- Output: `<PagePermissionGuard pageName="CommsLog" operation="read">` evaluates with org scope from `OrganisationServiceProvider`. Deny → `<AccessDenied />`. Allow → page body renders.
+- Output: `<PagePermissionGuard pageName="comms-log" operation="read">` evaluates with org scope from `OrganisationServiceProvider`. Deny → `<AccessDenied />`. Allow → page body renders.
 - Edge: no-org → TEAM-01 no-org empty state fires before the guard.
 
 **BR-02 — `CommRbacContext` derivation.**
-- Input: `useCan` results for `create:page.CommsLog` and `update:page.CommsLog` evaluated against current org.
+- Input: `useCan` results for `create:page.comms-log` and `update:page.comms-log` evaluated against current org.
 - Output: `{ canCompose: <create>, canSend: <update>, canSchedule: <update>, scopeType: 'organisation', scopeId: selectedOrganisation.id }`.
 - Edge: when `canSend === false`, the composer renders its read-only state and CardFooter renders the read-only `<Alert>` in place of the four action buttons.
 
@@ -503,7 +503,7 @@ The PUMP Edge functions write to `pump_message`, `pump_message_recipient`, `pump
 
 - Confirm `pump_get_effective_sender_identity(uuid, text, uuid)` exists and returns the expected shape. Smoke-test with `selectedOrganisation.id` and null context.
 - Confirm `core_membership_type.is_active NOT NULL DEFAULT true`.
-- Confirm `rbac_app_pages` row exists with `page_name = 'CommsLog'`, `app_id = data_get_app_id('PUMP')`, `scope_type = 'organisation'`.
+- Confirm `rbac_app_pages` row exists with `page_name = 'comms-log'`, `app_id = data_get_app_id('PUMP')`, `scope_type = 'organisation'`.
 - Confirm PUMP Edge functions `pump-resolve-pool`, `pump-send`, `pump-schedule`, `pump-send-test`, `pump-load-templates`, `pump-load-merge-fields` are deployed on dev (`list_edge_functions`).
 - Confirm `pump_gateway_config` has at least one row per channel for the dev environment.
 - Confirm `pump_organisation_templates` has at least one fixture row per org per channel for demo.
@@ -524,7 +524,7 @@ The PUMP Edge functions write to `pump_message`, `pump_message_recipient`, `pump
 |---|---|---|
 | `useSecureSupabase` | `@solvera/pace-core/rbac` | Org-scoped Supabase client for the membership-type SELECT and the `pump_get_effective_sender_identity` RPC call |
 | `useCan` | `@solvera/pace-core/rbac` | Permission gating to derive `CommRbacContext` (`canCompose`, `canSend`, `canSchedule`) |
-| `PagePermissionGuard` | `@solvera/pace-core/rbac` | Page-level guard for `pageName="CommsLog"` `operation="read"` |
+| `PagePermissionGuard` | `@solvera/pace-core/rbac` | Page-level guard for `pageName="comms-log"` `operation="read"` |
 | `AccessDenied` | `@solvera/pace-core/rbac` | Fallback when the page guard denies |
 | `useOrganisationsContext` | `@solvera/pace-core/providers` | Read `selectedOrganisation` for org id, RBAC scope, RPC argument, descriptor population |
 | `usePaceMain` | `@solvera/pace-core/hooks` | Set `printTitle="Communications"` on page mount |
@@ -543,7 +543,7 @@ The PUMP Edge functions write to `pump_message`, `pump_message_recipient`, `pump
 - **`CommComposer` mounts with `blockSendOnUnresolvedTokens={true}`.** This overrides the composer's default of `false`. Send and Schedule will refuse to dispatch while any merge token in the draft cannot be resolved against the loaded `mergeFields` list.
 - **`CommComposer` `templates`, `mergeFields`, and `recipientPreview` props are not supplied.** The composer drives those queries internally via its own hooks. Supplying empty arrays would not change behaviour but supplying populated arrays would short-circuit the internal queries; TEAM v1 does not.
 - **`CommComposer` `onCancel` is wired to `navigate('/')`.** The button only renders because TEAM provides the prop. Omitting `onCancel` removes the Cancel button entirely.
-- **`PagePermissionGuard` page resolution is verify-then-confirm.** The slice mounts `<PagePermissionGuard pageName="CommsLog">` with no `appName` override, even though `CommsLog` is registered under the PUMP `rbac_apps` row. If the guard's page lookup is name-only, this passes; if it requires `(app_id, name)` matching against TEAM's app_id, it fails. §15 Done criteria carries the verification step. Do not pre-emptively add the override prop.
+- **`PagePermissionGuard` page resolution is verify-then-confirm.** The slice mounts `<PagePermissionGuard pageName="comms-log">` with no `appName` override, even though `comms-log` is registered under the PUMP `rbac_apps` row. If the guard's page lookup is name-only, this passes; if it requires `(app_id, name)` matching against TEAM's app_id, it fails. §15 Done criteria carries the verification step. Do not pre-emptively add the override prop.
 - **`toast` mounting dependency.** `toast(...)` requires `<ToastProvider>` to be mounted in an ancestor. TEAM-01 mounts it inside `AuthenticatedShell`. The slice does not mount `Toaster` itself.
 - **Sender-identity RPC argument ordering.** The slice calls `pump_get_effective_sender_identity` with `organisation_id`, `source_context_type`, `source_context_id` in that order. TEAM v1 passes the second and third arguments as `null`.
 - **Stale-org reset is a slice responsibility.** When `selectedOrganisation` changes mid-mount, the slice clears recipient mode, manual list, chip selection, and include-inactive state, then re-runs the sender-identity RPC. The composer's internal hooks re-run on their dependency change automatically.
@@ -556,33 +556,33 @@ The PUMP Edge functions write to `pump_message`, `pump_message_recipient`, `pump
 
 | Route | `pageName` | `operation` | Fallback |
 |---|---|---|---|
-| `/communications` | `CommsLog` | `read` | `<AccessDenied message="You do not have permission to view this page." />` (default copy) |
+| `/communications` | `comms-log` | `read` | `<AccessDenied message="You do not have permission to view this page." />` (default copy) |
 
 ### Action-level access
 
 | Action | Permission | Resolver | UI behaviour when denied |
 |---|---|---|---|
-| Read page (composer view) | `read:page.CommsLog` | `PagePermissionGuard` (page level) | `<AccessDenied />` |
-| Compose / edit draft | `create:page.CommsLog` | `useCan` → `canCompose` on `CommRbacContext` | Composer renders read-only banner; inputs disabled |
-| Send-now / Send-test | `update:page.CommsLog` | `useCan` → `canSend` on `CommRbacContext` | CardFooter renders read-only Alert in place of buttons |
-| Schedule | `update:page.CommsLog` | `useCan` → `canSchedule` on `CommRbacContext` | Schedule button hidden alongside Send-now (CardFooter Alert) |
+| Read page (composer view) | `read:page.comms-log` | `PagePermissionGuard` (page level) | `<AccessDenied />` |
+| Compose / edit draft | `create:page.comms-log` | `useCan` → `canCompose` on `CommRbacContext` | Composer renders read-only banner; inputs disabled |
+| Send-now / Send-test | `update:page.comms-log` | `useCan` → `canSend` on `CommRbacContext` | CardFooter renders read-only Alert in place of buttons |
+| Schedule | `update:page.comms-log` | `useCan` → `canSchedule` on `CommRbacContext` | Schedule button hidden alongside Send-now (CardFooter Alert) |
 
 ### Server-side enforcement
 
 - **`core_membership_type` SELECT** is enforced by the dev RLS policy `read_team_membership_types` (`USING is_authenticated_user()`).
 - **`pump_get_effective_sender_identity`** runs with caller authority and consults RLS / RBAC inside the function body.
-- **PUMP Edge functions** call pace-core `isPermitted()` against `{operation}:page.CommsLog` and validate the `organisation_id` claim. UI gating per `CommRbacContext` is UX only; Edge authority is the security boundary.
+- **PUMP Edge functions** call pace-core `isPermitted()` against `{operation}:page.comms-log` and validate the `organisation_id` claim. UI gating per `CommRbacContext` is UX only; Edge authority is the security boundary.
 
 ### Cross-app guard verification
 
-The page resource `CommsLog` is registered under the PUMP `rbac_apps` row, but `setupRBAC(...)` in TEAM-01 was called with `appName: 'TEAM'`. The slice mounts `<PagePermissionGuard pageName="CommsLog" operation="read">` without an `appName` override. §15 Done criteria includes a dev verification step to confirm this resolves. If verification fails, the slice is patched to add `appName="PUMP"` and a CR23 capability item is filed for cross-app guard resolution support.
+The page resource `comms-log` is registered under the PUMP `rbac_apps` row, but `setupRBAC(...)` in TEAM-01 was called with `appName: 'TEAM'`. The slice mounts `<PagePermissionGuard pageName="comms-log" operation="read">` without an `appName` override. §15 Done criteria includes a dev verification step to confirm this resolves. If verification fails, the slice is patched to add `appName="PUMP"` and a CR23 capability item is filed for cross-app guard resolution support.
 
 ---
 
 ## §11 Acceptance criteria
 
 **AC-01 — Page entry, authenticated, has org, has read permission.**
-Given a user is authenticated, has an org, and has `read:page.CommsLog`, when they navigate to `/communications`, then the page renders the heading "Communications", the recipient-mode Card with the radio defaulted to "All organisation members", and the composer Card with channel set to email, sender fields pre-filled from the effective sender identity, and the recipient pool preview Card visible below. (Traces F-01, F-03, F-04, F-06, F-07, F-22, F-26.)
+Given a user is authenticated, has an org, and has `read:page.comms-log`, when they navigate to `/communications`, then the page renders the heading "Communications", the recipient-mode Card with the radio defaulted to "All organisation members", and the composer Card with channel set to email, sender fields pre-filled from the effective sender identity, and the recipient pool preview Card visible below. (Traces F-01, F-03, F-04, F-06, F-07, F-22, F-26.)
 
 **AC-02 — Sender identity pre-fill.**
 Given an org whose `pump_get_effective_sender_identity` returns `senderName: 'Org Comms'`, `fromAddress: 'comms@example.org'`, `replyToAddress: 'replies@example.org'`, `senderPhone: null`, when the page mounts, then the composer's Sender name field shows "Org Comms", Sender email shows "comms@example.org", and Sender phone shows the empty string when the channel is later switched to SMS. (Traces F-04, BR-14.)
@@ -639,10 +639,10 @@ Given the recipient mode is "All organisation members" with filters that match n
 Given the recipient mode is "Specific members" with `member_ids.length === 5` for org A, when the user switches the org context to org B, then the recipient mode resets to "All organisation members", the manual list clears, the chip selection clears, the include-inactive checkbox unchecks, the sender-identity RPC re-runs against org B, and a `'default'`-variant toast renders with copy "Manual recipients cleared — organisation changed." (Traces F-51, BR-13.)
 
 **AC-20 — Permission denied — read.**
-Given a user is authenticated with org context but lacks `read:page.CommsLog`, when they navigate to `/communications`, then `<AccessDenied />` renders with copy "You do not have permission to view this page." inside the `AuthenticatedShell` chrome and no recipient-mode card or composer renders. (Traces F-15, F-56.)
+Given a user is authenticated with org context but lacks `read:page.comms-log`, when they navigate to `/communications`, then `<AccessDenied />` renders with copy "You do not have permission to view this page." inside the `AuthenticatedShell` chrome and no recipient-mode card or composer renders. (Traces F-15, F-56.)
 
 **AC-21 — Read-only mode (canSend false).**
-Given a user has `read:page.CommsLog` and `create:page.CommsLog` but not `update:page.CommsLog`, when they view `/communications`, then the composer renders the "Read-only mode" inline banner, all editable inputs are disabled, the CardFooter renders a single read-only `<Alert>` "You have view-only access to this message." in place of the Send-test, Schedule, Send-now, and Cancel buttons. (Traces F-58.)
+Given a user has `read:page.comms-log` and `create:page.comms-log` but not `update:page.comms-log`, when they view `/communications`, then the composer renders the "Read-only mode" inline banner, all editable inputs are disabled, the CardFooter renders a single read-only `<Alert>` "You have view-only access to this message." in place of the Send-test, Schedule, Send-now, and Cancel buttons. (Traces F-58.)
 
 **AC-22 — Cancel navigation.**
 Given the user has any in-progress draft and the Cancel button is enabled, when they click Cancel, then the app navigates to `/` and the draft is discarded. (Traces F-50, BR-15.)
@@ -662,18 +662,18 @@ Given any successful send or schedule from this slice, when the request reaches 
 
 - **MCP test — `pump_get_effective_sender_identity`.** Against MCP verification project (`yihzsfcceciimdoiibif`; [`npm run mcp:verification`](../../package.json); [`docs/delivery/mcp-verification-preflight-queries.md`](../delivery/mcp-verification-preflight-queries.md)), call the RPC with a known org id and `null` source context. Confirm the return shape matches `EffectivePumpSenderIdentity` (organisationId, sourceContextType, sourceContextId, senderName, fromAddress, replyToAddress, senderPhone, resolvedFrom, resolvedOrganisationId, canSendEmail, canSendSms).
 - **MCP test — `core_membership_type` for chip row.** Confirm `SELECT id, name FROM core_membership_type WHERE organisation_id = :orgId AND is_active = true ORDER BY name` returns at least one row for the demo org.
-- **MCP test — `rbac_app_pages` `CommsLog` row.** Confirm a row exists with `page_name = 'CommsLog'`, `app_id = data_get_app_id('PUMP')`, `scope_type = 'organisation'`.
+- **MCP test — `rbac_app_pages` `comms-log` row.** Confirm a row exists with `page_name = 'comms-log'`, `app_id = data_get_app_id('PUMP')`, `scope_type = 'organisation'`.
 - **MCP test — Edge function deployment.** Run `list_edge_functions` and confirm the presence of `pump-resolve-pool`, `pump-send`, `pump-schedule`, `pump-send-test`, `pump-load-templates`, `pump-load-merge-fields`. If any are missing, see §15 — implementation is gated.
 - **MCP test — `pump_gateway_config`.** Confirm at least one row exists per channel for the dev environment. If absent, dispatch will fail at PUMP Edge time.
 - **Fixture seed — `pump_organisation_templates`.** Seed at least one row per channel for the demo org, e.g. `{ id: <uuid>, organisation_id: <demoOrgId>, name: 'Welcome', channel: 'email', subject: 'Welcome', body_html: '<p>Hi {{first_name}}</p>', body_text: 'Hi {{first_name}}', is_active: true, require_merge_field_validation: false }`. Without at least one row, the templates section will not render.
-- **In-app demo flow — happy path send.** Sign in as a TEAM org-admin with all three `CommsLog` permissions. Visit `/communications`. Confirm the page heading, recipient-mode Card, composer Card, and pool preview Card render. Confirm the sender fields are pre-filled. Type a body. Click Send now. Confirm the success toast and the draft reset.
+- **In-app demo flow — happy path send.** Sign in as a TEAM org-admin with all three `comms-log` permissions. Visit `/communications`. Confirm the page heading, recipient-mode Card, composer Card, and pool preview Card render. Confirm the sender fields are pre-filled. Type a body. Click Send now. Confirm the success toast and the draft reset.
 - **In-app demo flow — schedule.** Repeat the happy path, but click Schedule, pick a future datetime, click Confirm schedule. Confirm the success toast.
 - **In-app demo flow — send-test.** With a valid draft, click Send test. Confirm the success toast and that the message was delivered to the signed-in user's contact.
 - **In-app demo flow — manual hand-off.** Switch recipient mode to "Specific members". Click "Choose members…". Confirm `/members` enters picker mode with the Members tab only. Select three members and click Done. Confirm return to `/communications` with "3 members selected" rendered and the pool preview showing 3 recipients.
 - **In-app demo flow — manual hand-off org switch.** Re-enter picker mode, select members, switch the org context. Confirm the stale-org toast renders and the manual list clears.
 - **In-app demo flow — strict template.** Seed a strict template (`require_merge_field_validation: true`). Select it. Type an unknown token like `{{not_a_field}}`. Click Send. Confirm the destructive toast "Resolve merge tokens before sending this strict template."
 - **In-app demo flow — block-on-unresolved.** Without a template selected, type `{{not_a_field}}` in the body. Confirm the unresolved-tokens banner renders, Send-now is disabled, and any direct adapter invocation is blocked.
-- **In-app demo flow — permission read-only.** Sign in as a user with `read:page.CommsLog` only. Confirm the composer renders read-only and the CardFooter shows the read-only Alert.
+- **In-app demo flow — permission read-only.** Sign in as a user with `read:page.comms-log` only. Confirm the composer renders read-only and the CardFooter shows the read-only Alert.
 
 ---
 
@@ -686,7 +686,7 @@ Given any successful send or schedule from this slice, when the request reaches 
 - Component test that asserts every adapter call carries `source_app === 'team'`, `source_context_type === undefined`, `source_context_id === undefined`, and that `bypass_suppression` is never set on the request.
 - Component test that asserts the success-toast copy includes "{N} recipients" and conditionally appends "{M} skipped (suppression)" and " Some recipients had unresolved tokens; check delivery in PUMP." per `result.suppression_skipped` and `result.warnings.length`.
 - Component test that asserts the zero-recipient guard blocks Send-now and Schedule and surfaces the "No recipients match these filters." copy.
-- Component test that asserts `<PagePermissionGuard pageName="CommsLog" operation="read">` is rendered with no `appName` and no `scope` prop.
+- Component test that asserts `<PagePermissionGuard pageName="comms-log" operation="read">` is rendered with no `appName` and no `scope` prop.
 - Otherwise: standard PDLC quality gates apply.
 
 ---
@@ -695,7 +695,7 @@ Given any successful send or schedule from this slice, when the request reaches 
 
 - All reads (membership types, sender-identity RPC) must go via `useSecureSupabase()`. Do not call `createClient` directly.
 - All sends, schedules, send-tests, template loads, merge-field loads, and pool resolves must go via the `CommSendAdapter` returned by `useCommSendAdapter`. Do not invoke `functions.invoke` directly. Do not write to `pump_message`, `pump_message_recipient`, `pump_delivery_event`, or `pump_suppression` from this slice.
-- Mount `<PagePermissionGuard pageName="CommsLog" operation="read">` with no `appName` override and no `scope` prop. If the verification step in §15 fails, patch the slice to add `appName="PUMP"` and file a CR23 capability item.
+- Mount `<PagePermissionGuard pageName="comms-log" operation="read">` with no `appName` override and no `scope` prop. If the verification step in §15 fails, patch the slice to add `appName="PUMP"` and file a CR23 capability item.
 - Mount `CommComposer` with `blockSendOnUnresolvedTokens={true}`, `sourceApp='team'`, `onCancel={() => navigate('/')}`. Do not supply `templates`, `mergeFields`, or `recipientPreview` props — let the composer drive its own queries.
 - Mount `useCommSendAdapter` with `{ organisationId: selectedOrganisation.id, sourceApp: 'team' }` only. Do not pass `sourceContextType` / `sourceContextId`.
 - Cast `core_membership_type.id` (integer) to string before placing it in `OrgMembersPool.filters.member_type_ids`.
@@ -713,8 +713,8 @@ Given any successful send or schedule from this slice, when the request reaches 
   - **(b)** `pump_gateway_config` is seeded with at least one row per channel for the dev environment so `pump-send` can dispatch.
   - **(c)** `pump_organisation_templates` is seeded with at least one fixture row per org per channel so the composer's templates section populates for demo.
   The v6 slice does not author the Edge function bodies. Until items (a), (b), and (c) are confirmed via Supabase MCP and a manual smoke-send succeeds, this slice cannot be marked Done.
-- **Cross-app guard verification.** Verify on dev that a user with PUMP `read:page.CommsLog` grant can pass `<PagePermissionGuard pageName="CommsLog">` even though TEAM's `setupRBAC` was called with `appName='TEAM'`. If the page lookup is name-only, this passes. If it requires `(app_id, name)` matching against TEAM's app_id, this fails — in which case the slice is patched to add `appName='PUMP'` override prop on the guard, and a CR23 capability item is filed for cross-app guard resolution support.
-- **TEAM org-admin role-template seeding.** Confirm the TEAM org-admin role template includes `read:page.CommsLog`, `create:page.CommsLog`, and `update:page.CommsLog` grants on dev. Without these grants, the page guard or the `useCan` checks deny and operators see `<AccessDenied />` or the read-only state. Seeding is a post-build platform task; absence does not block authoring but blocks Done.
+- **Cross-app guard verification.** Verify on dev that a user with PUMP `read:page.comms-log` grant can pass `<PagePermissionGuard pageName="comms-log">` even though TEAM's `setupRBAC` was called with `appName='TEAM'`. If the page lookup is name-only, this passes. If it requires `(app_id, name)` matching against TEAM's app_id, this fails — in which case the slice is patched to add `appName='PUMP'` override prop on the guard, and a CR23 capability item is filed for cross-app guard resolution support.
+- **TEAM org-admin role-template seeding.** Confirm the TEAM org-admin role template includes `read:page.comms-log`, `create:page.comms-log`, and `update:page.comms-log` grants on dev. Without these grants, the page guard or the `useCan` checks deny and operators see `<AccessDenied />` or the read-only state. Seeding is a post-build platform task; absence does not block authoring but blocks Done.
 - **Picker hand-off contract verified end-to-end.** A click on "Choose members…" writes the sessionStorage payload, the picker (TEAM-02) hydrates from it, the picker's Done writes the new payload, and `/communications` mount reads-and-clears it; the resulting `recipientPool` matches the chosen `memberIds`.
 - **Send / schedule / send-test invariants verified.** Inspect a successful adapter call request body and confirm `source_app === 'team'`, `source_context_type === undefined`, `source_context_id === undefined`, `bypass_suppression` omitted (or `false`).
 
@@ -743,7 +743,7 @@ Given any successful send or schedule from this slice, when the request reaches 
 ## §17 References
 
 - `/rebuild/project-brief.md` — admin-only mandate; communications scope; cross-app PUMP integration.
-- `/rebuild/architecture.md` — slice ownership, route registry, canonical `pageName` map (`CommsLog` registered under PUMP), comms-picker contract.
+- `/rebuild/architecture.md` — slice ownership, route registry, canonical `pageName` map (`comms-log` registered under PUMP), comms-picker contract.
 - **TEAM-01** — provides `ProtectedRoute`, `AuthenticatedShell`, `PaceAppLayout`, the navigation menu (Communications entry), and **mounts `<ToastProvider>` (which renders `<Toaster />` internally) inside `AuthenticatedShell`** so TEAM-13 can call `toast(...)`. TEAM-13 depends on this mount.
 - **TEAM-02** — owns `/members`. TEAM-13 hands off to the picker via `sessionStorage['pace:team:comms:manual-pick']` with shape `{ organisationId: string, memberIds: string[], updatedAt: number }`. The picker enforces the soft cap (500) and hard cap (2000) on the manual list; TEAM-13 is the consumer side and displays only.
 - **TEAM-06** — owns `core_membership_type` mutations. TEAM-13 reads `core_membership_type.id` and `name` for the chip row.
@@ -756,7 +756,7 @@ Given any successful send or schedule from this slice, when the request reaches 
 - **Platform prerequisite — PUMP Edge deployment.** PUMP Edge functions `pump-resolve-pool`, `pump-send`, `pump-schedule`, `pump-send-test`, `pump-load-templates`, `pump-load-merge-fields` must be deployed on dev before TEAM-13 can be marked Done. Currently absent on dev as of the audit. Listed in §15.
 - **Platform prerequisite — `pump_gateway_config` seeding.** At least one row per channel must exist on dev for `pump-send` to dispatch. Currently zero rows. Listed in §15.
 - **Demo prerequisite — `pump_organisation_templates` seeding.** At least one fixture row per org per channel is needed for the templates section to render. Currently zero rows. Listed in §12 / §15.
-- **Platform prerequisite — TEAM org-admin role-template seeding.** TEAM org-admin role template must include `read:page.CommsLog`, `create:page.CommsLog`, and `update:page.CommsLog` grants on dev. Listed in §15.
+- **Platform prerequisite — TEAM org-admin role-template seeding.** TEAM org-admin role template must include `read:page.comms-log`, `create:page.comms-log`, and `update:page.comms-log` grants on dev. Listed in §15.
 - **Capability item (non-blocking) — CR23 `lockSenderIdentity` prop.** The composer renders Sender name / Sender email / Sender phone as editable inputs. TEAM v1 pre-fills from `pump_get_effective_sender_identity` and §16 bars typing arbitrary from-addresses, but the composer does not currently accept a prop to lock or hide these inputs. CR23 should add a `lockSenderIdentity` prop in a follow-up so consumer apps can enforce platform-managed identity at the UI layer.
 - **Doc fix (non-blocking) — CR23 §Visual specification updated to match the single-column rendered layout in `components.tsx`.** The CR23 spec describes a "two-column desktop layout"; the package source `components.tsx` renders a single-column Card with the recipient pool preview as a sibling Card below. The doc should be corrected to reflect actual rendering. This slice's §5 describes the actual rendered layout, not the doc's recipe.
 - **Deferred — `unit_ids` and `age_min`/`age_max` filters.** Deferred to a v2 follow-up. Re-introduction depends on PUMP Edge resolver support for the `unit_ids` field and on validated DOB / age data; revive `team_unit` is out of scope.

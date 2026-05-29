@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { setupUser } from '@test-utils';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -163,7 +163,7 @@ describe('FormsListPage', () => {
   });
 
   it('renders error alert with Retry when list query fails and Retry refetches', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const refetchFormsList = vi.fn();
     useOrgFormsDataMock.mockImplementation(() => ({
       tableRows: [],
@@ -188,7 +188,7 @@ describe('FormsListPage', () => {
   });
 
   it('does not delete when user cancels destructive dialog', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     orgHarness.organisation = { id: 'org-1', display_name: 'Org One', name: 'Org One' };
     fetchResponseCountFn = vi.fn(async () => ({ ok: true as const, count: 0 }));
     renderFlat();
@@ -204,7 +204,7 @@ describe('FormsListPage', () => {
   });
 
   it('closes destructive dialog on Escape without delete', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     orgHarness.organisation = { id: 'org-1', display_name: 'Org One', name: 'Org One' };
     fetchResponseCountFn = vi.fn(async () => ({ ok: true as const, count: 0 }));
     renderFlat();
@@ -231,7 +231,7 @@ describe('FormsListPage', () => {
   });
 
   it('routes Create form to /forms/new', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderFlat();
     await user.click(screen.getByRole('button', { name: /Create form/i }));
     expect(navigateSpy).toHaveBeenCalledWith('/forms/new');
@@ -248,7 +248,7 @@ describe('FormsListPage', () => {
   });
 
   it('toasts destructive when portal URL is unset and Copy URL runs', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     vi.unstubAllEnvs();
     vi.stubEnv('VITE_FORM_PORTAL_URL', '');
     renderFlat();
@@ -261,7 +261,7 @@ describe('FormsListPage', () => {
   });
 
   it('opens confirmation dialog when deleting with zero responses and calls delete mutation', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     orgHarness.organisation = { id: 'org-1', display_name: 'Org One', name: 'Org One' };
     fetchResponseCountFn = vi.fn(async () => ({ ok: true as const, count: 0 }));
     renderFlat();
@@ -280,7 +280,7 @@ describe('FormsListPage', () => {
   });
 
   it('toasts success with form name when delete confirms', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     orgHarness.organisation = { id: 'org-1', display_name: 'Org One', name: 'Org One' };
     fetchResponseCountFn = vi.fn(async () => ({ ok: true as const, count: 0 }));
     renderFlat();
@@ -297,7 +297,7 @@ describe('FormsListPage', () => {
   });
 
   it('shows blocked dialog when responses exist', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     fetchResponseCountFn = vi.fn(async () => ({ ok: true as const, count: 3 }));
     renderFlat();
 
@@ -310,7 +310,7 @@ describe('FormsListPage', () => {
   });
 
   it('closes blocked delete dialog when organisation context switches (F-59)', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     fetchResponseCountFn = vi.fn(async () => ({ ok: true as const, count: 3 }));
     const view = renderFlat();
 
@@ -328,7 +328,7 @@ describe('FormsListPage', () => {
   });
 
   it('toasts destructive when response-count lookup fails before delete (F-17)', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     fetchResponseCountFn = vi.fn(async (): Promise<OrgFormsResponseCountOutcome> => ({
       ok: false as const,
       error: new Error('count query failed'),
@@ -348,7 +348,7 @@ describe('FormsListPage', () => {
   });
 
   it('closes delete confirmation after failed DELETE mutation (F-19)', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     deleteFormAsyncMock.mockRejectedValueOnce(new Error('RLS deny'));
     renderFlat();
 
@@ -367,7 +367,7 @@ describe('FormsListPage', () => {
   });
 
   it('copies portal URL when env is configured and shows success toast (AC-18)', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const writeText = vi.fn(async () => undefined);
     const prevDesc = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
     Object.defineProperty(navigator, 'clipboard', {

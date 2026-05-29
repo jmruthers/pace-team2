@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { setupUser } from '@test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 import { OrganisationSettingsPage } from './OrganisationSettingsPage';
@@ -181,7 +181,7 @@ describe('OrganisationSettingsPage', () => {
   });
 
   it('shows success toast after save', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     saveOrganisationSettingsMock.mockResolvedValue({
       id: 'settings-1',
       organisationId: 'org-1',
@@ -208,7 +208,7 @@ describe('OrganisationSettingsPage', () => {
   });
 
   it('shows inline 23514 currency alert and does not show destructive toast', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     saveOrganisationSettingsMock.mockRejectedValue({
       code: '23514',
       message: 'check violation',
@@ -229,7 +229,7 @@ describe('OrganisationSettingsPage', () => {
   });
 
   it('shows destructive toast for 42501 save denial', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     saveOrganisationSettingsMock.mockRejectedValue({
       code: '42501',
       message: 'permission denied',
@@ -250,7 +250,7 @@ describe('OrganisationSettingsPage', () => {
   });
 
   it('sends payload with current organisation id', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     saveOrganisationSettingsMock.mockResolvedValue({
       id: 'settings-1',
       organisationId: 'org-1',
@@ -277,7 +277,7 @@ describe('OrganisationSettingsPage', () => {
   });
 
   it('reverts financial fields when Cancel is clicked', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     useOrganisationSettingsDataMock.mockReturnValue(
       buildDataState({
         hasExistingRow: true,
@@ -309,7 +309,7 @@ describe('OrganisationSettingsPage', () => {
   });
 
   it('shows destructive toast for generic save failures', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     saveOrganisationSettingsMock.mockRejectedValue(new Error('upstream timeout'));
     renderPage();
 
@@ -326,7 +326,7 @@ describe('OrganisationSettingsPage', () => {
   });
 
   it('shows org-switch toast when user has unsaved edits', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const rendered = renderPage();
     const joiningFeeInput = screen.getAllByPlaceholderText('0.00')[0];
     await user.type(joiningFeeInput, '1');

@@ -3,8 +3,8 @@ import { useUnifiedAuth } from '@solvera/pace-core/hooks';
 import { isPermittedCached, useResolvedScope, type Permission } from '@solvera/pace-core/rbac';
 
 const COMMS_PERMISSIONS = [
-  'create:page.CommsLog',
-  'update:page.CommsLog',
+  'create:page.comms-log',
+  'update:page.comms-log',
 ] as const satisfies readonly Permission[];
 
 export type CommsLogRbacState = {
@@ -23,7 +23,7 @@ const DENIED: CommsLogRbacState = {
   hasPermissionError: false,
 };
 
-/** TM13 F-28 / F-21 — CommsLog page permissions with explicit RPC error detection. */
+/** TM13 F-28 / F-21 — comms-log page permissions with explicit RPC error detection. */
 export function useCommsLogRbac(organisationId: string): CommsLogRbacState {
   const auth = useUnifiedAuth();
   const resolved = useResolvedScope();

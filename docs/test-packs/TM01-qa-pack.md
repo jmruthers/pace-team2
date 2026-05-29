@@ -46,7 +46,8 @@ Before release, seed the canonical TEAM `rbac_app_pages` rows (`scope_type='orga
 - `events`
 - `reports`
 - `moderation-photos`
-- `CommsLog`
+
+**Not a TEAM row:** `/communications` uses PUMP-owned `comms-log` (see TM13-qa-pack).
 
 Remove legacy rows in the same change window:
 

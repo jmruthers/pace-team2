@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { setupUser } from '@test-utils';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactNode } from 'react';
@@ -212,7 +212,7 @@ describe('MemberRolesPage', () => {
   });
 
   it('opens add role modal from header action', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     renderPage();
     await user.click(screen.getByRole('button', { name: 'Add role' }));
     expect(screen.getByText('Record a new standing role for this member.')).toBeTruthy();
@@ -224,7 +224,7 @@ describe('MemberRolesPage', () => {
   });
 
   it('closes End role dialog when mutation fails', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     const endRole = vi.fn().mockRejectedValue(new Error('rls denied'));
     useMemberRolesDataMock.mockReturnValue({
       ...buildHookState(),

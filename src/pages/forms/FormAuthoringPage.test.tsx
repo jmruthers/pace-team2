@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import { setupUser } from '@test-utils';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { WorkflowAuthoringState } from '@solvera/pace-core/forms';
@@ -320,7 +320,7 @@ describe('FormAuthoringPage', () => {
   });
 
   it('shows destructive toast and keeps authoring shell visible when save fails with unique violation', async () => {
-    const user = userEvent.setup();
+    const user = setupUser();
     updateFormAsyncMock.mockRejectedValueOnce({ code: '23505', message: 'Duplicate slug' });
 
     render(<Harness />);

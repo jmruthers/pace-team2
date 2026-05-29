@@ -19,7 +19,8 @@
     "types": ["vite/client"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@test-utils": ["./src/test-utils.ts"]
     }
   },
   "include": ["src", "supabase.ts"]
