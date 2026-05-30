@@ -3,6 +3,7 @@ import {
   serializeReportTemplateConfig,
 } from '@solvera/pace-core/reporting';
 import type {
+  ReportingExploreKey,
   ReportingTemplateRecord,
   ReportingTemplateSaveInput,
   ReportingTemplateStore,
@@ -90,16 +91,21 @@ export function createTeamReportingTemplateStore(
   const { getClient, organisationId, userId } = options;
 
   return {
-    listTemplates: async () => {
+    listTemplates: async (exploreKey: ReportingExploreKey) => {
       const client = getClient();
       if (client == null) return [];
+
+      const [appId, domainId] = exploreKey.split('.', 2);
+      if (appId == null || appId === '' || domainId == null || domainId === '') {
+        return [];
+      }
 
       const { data, error } = await client
         .from('core_report_template')
         .select(TEMPLATE_LIST_SELECT)
         .eq('organisation_id', organisationId)
-        .eq('app_id', 'team')
-        .eq('domain_id', 'participant')
+        .eq('app_id', appId)
+        .eq('domain_id', domainId)
         .order('updated_at', { ascending: false });
 
       if (error != null) {

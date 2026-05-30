@@ -9,6 +9,7 @@ const repoRoot = path.dirname(fileURLToPath(import.meta.url));
  */
 export const domUnitTestTsFiles: string[] = [
   'src/hooks/useOrgFormsData.test.ts',
+  'src/hooks/useCommsLogRbac.test.ts',
 ];
 
 export const resolveAlias = {
@@ -46,8 +47,18 @@ export const coverageConfig = {
     /** Pure utilities (when present). */
     'src/utils/**/*.ts': { statements: 90, lines: 90 },
     /**
-     * Data hooks are exercised through page integration tests with mocked Supabase/RBAC;
-     * enforce coverage on domain logic and UI instead of duplicating hook-only suites.
+     * Domain lib subfolders targeted by meaningful-coverage work (see team testing notes).
+     * Global lib gate remains until all lib folders meet a higher bar.
+     */
+    /** Baseline after template-store tests; raise when teamReporting.execution gains coverage. */
+    'src/lib/reports/**/*.ts': { statements: 66, lines: 66 },
+    /** Baseline after orgForms.persist tests; raise when mappers.payload/authoring are covered. */
+    'src/lib/forms/**/*.ts': { statements: 47, lines: 47 },
+    'src/lib/approvals/**/*.ts': { statements: 70, lines: 70 },
+    /**
+     * Data hooks without dedicated tests are exercised via page integration tests with mocked
+     * Supabase/RBAC at the page boundary (Standard 8 hooks ≥90% deferred intentionally).
+     * Add hook tests only for non-trivial RBAC/query branching (e.g. useCommsLogRbac).
      */
     'src/lib/**/*.ts': { statements: 63, lines: 63 },
     'src/components/**/*.tsx': { statements: 70, lines: 70 },
