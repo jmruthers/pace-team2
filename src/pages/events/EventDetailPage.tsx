@@ -1,3 +1,4 @@
+import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { DataTableColumn } from '@solvera/pace-core/components';
@@ -196,7 +197,7 @@ function EventDetailPageContent() {
       <DataTable<OrgEventAttendeeRow>
         data={attendees}
         columns={columns}
-        rbac={{ pageName: 'events' }}
+        rbac={{ pageName: PAGE_NAMES.events }}
         description={`${rawCount} attendees`}
         isLoading={isFetching && attendees.length > 0}
         loadingSpinnerLabel="Loading table"
@@ -220,7 +221,7 @@ function EventDetailPageContent() {
 
 export function EventDetailPage() {
   return (
-    <PagePermissionGuard pageName="events" operation="read" fallback={<AccessDenied />}>
+    <PagePermissionGuard pageName={PAGE_NAMES.events} operation="read" fallback={<AccessDenied />}>
       <EventDetailPageContent />
     </PagePermissionGuard>
   );

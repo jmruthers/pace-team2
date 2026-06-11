@@ -234,7 +234,7 @@ Three-layer vertical layout:
 ### Components
 
 **`PaceLoginPage`**
-- `appName="TEAM"` — logo rendered from `/logos/TEAM_logo_square.svg`; "TEAM" shown as display name.
+- `appName="TEAM"` — logo rendered from `/logos/team-logo-square.svg` (login) and shell favicon/wide logos from `/logos/team-favicon.svg` / `/logos/team-logo-wide.svg`; "TEAM" shown as display name.
 - `onSuccessRedirectPath="/"` (default; may be omitted).
 
 **`PaceAppLayout`**
@@ -641,7 +641,7 @@ Given a user is authenticated and inside the `AuthenticatedShell`, when any desc
 - Confirm change-password dialog is defined in `AuthenticatedShell` and wired to `onUserMenuChangePassword`.
 - Confirm `EventServiceProvider` is absent from the provider stack.
 - Confirm all 9 top-level nav items (and Settings children) are present in the `navItems` array.
-- Confirm `/logos/TEAM_logo_square.svg` exists in the public directory. If absent, note as a known asset gap and raise with the product team — do not block build on this.
+- Confirm `/logos/team-logo-square.svg`, `/logos/team-favicon.svg`, and `/logos/team-logo-wide.svg` exist in the public directory. If absent, note as a known asset gap and raise with the product team — do not block build on this.
 - Against MCP verification project (`yihzsfcceciimdoiibif`; [`npm run mcp:verification`](../../package.json); [`docs/delivery/mcp-verification-preflight-queries.md`](../delivery/mcp-verification-preflight-queries.md)): confirm `rbac_apps` row `name = 'TEAM'` is active.
 
 ---

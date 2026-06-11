@@ -1,3 +1,4 @@
+import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { useMemo, useState, type ReactElement, type RefObject } from 'react';
 
 import type { DataTableAction, DataTableColumn } from '@solvera/pace-core/components';
@@ -172,7 +173,7 @@ export function TeamReportTemplatesTable({
       <DataTable<ReportsTemplatePanelRow>
         data={resolvedRows}
         columns={columns}
-        rbac={{ pageName: 'reports' }}
+        rbac={{ pageName: PAGE_NAMES.reports }}
         description={templatesDescription}
         initialPageSize={10}
         getRowId={(row) => row.id}

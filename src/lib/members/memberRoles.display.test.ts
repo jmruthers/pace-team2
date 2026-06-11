@@ -15,6 +15,7 @@ describe('memberRoles.display', () => {
       getMemberRolesDisplayName({
         id: 'member-1',
         organisationId: 'org-1',
+        membershipTypeId: null,
         firstName: 'Jane',
         lastName: 'Doe',
         preferredName: 'JD',
@@ -35,6 +36,7 @@ describe('memberRoles.display', () => {
       startDate: '2026-05-01',
       endDate: null,
       roleName: 'Leader',
+      title: null,
     };
     expect(getRoleStatusLabel(row)).toBe('Active');
     expect(getRoleStatusVariant(row)).toBe('soft-main-normal');
@@ -49,6 +51,7 @@ describe('memberRoles.display', () => {
       startDate: '2026-05-01',
       endDate: null,
       roleName: 'First Aid',
+      title: null,
     };
     expect(roleMatchesSearch(row, 'aid')).toBe(true);
     expect(roleMatchesSearch(row, 'leader')).toBe(false);

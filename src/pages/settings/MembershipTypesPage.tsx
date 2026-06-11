@@ -1,3 +1,4 @@
+import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DataTableColumn } from '@solvera/pace-core/components';
 import {
@@ -61,7 +62,7 @@ function MembershipTypesPageContent() {
   usePaceMain({ printTitle: 'Membership types', ariaLabel: 'Membership types' });
 
   const { selectedOrganisation } = useOrganisationsContext();
-  const permissions = useResourcePermissions('membership-types');
+  const permissions = useResourcePermissions(PAGE_NAMES.membershipTypes);
   const organisationId = selectedOrganisation?.id ?? null;
 
   const {
@@ -260,7 +261,7 @@ function MembershipTypesPageContent() {
         <DataTable
           data={tableRows}
           columns={columns}
-          rbac={{ pageName: 'membership-types' }}
+          rbac={{ pageName: PAGE_NAMES.membershipTypes }}
           isLoading={isLoading}
           getRowId={(row) => String(row.id)}
           initialPageSize={25}
@@ -451,7 +452,7 @@ function MembershipTypesPageContent() {
 export function MembershipTypesPage() {
   return (
     <PagePermissionGuard
-      pageName="membership-types"
+      pageName={PAGE_NAMES.membershipTypes}
       operation="read"
       fallback={<AccessDenied message="You do not have permission to view this page." />}
     >

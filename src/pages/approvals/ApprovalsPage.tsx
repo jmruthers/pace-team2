@@ -1,3 +1,4 @@
+import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
@@ -22,7 +23,7 @@ import type { DataTableColumn } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
 import { AccessDenied, PagePermissionGuard } from '@solvera/pace-core/rbac';
-import { ApprovalReviewPanel } from './ApprovalReviewPanel';
+import { ApprovalReviewPanel } from '@/components/approvals/ApprovalReviewPanel';
 import { useApprovalsData } from '@/hooks/useApprovalsData';
 import { getPersonDisplayName, requestTypeLabel, statusLabel } from '@/lib/approvals/approvals.mappers';
 import type { ApprovalRequestRow, ApprovalRequestTypeFilter } from '@/lib/approvals/approvals.types';
@@ -237,7 +238,7 @@ function ApprovalsPageContent() {
       <DataTable<ApprovalRequestRow>
         data={rows}
         columns={view === 'open' ? openColumns : closedColumns}
-        rbac={{ pageName: 'approvals' }}
+        rbac={{ pageName: PAGE_NAMES.approvals }}
         description={`${rows.length} ${view}`}
         isLoading={loading}
         getRowId={(row) => row.id}
@@ -330,7 +331,7 @@ function ApprovalsPageContent() {
 
 export function ApprovalsPage() {
   return (
-    <PagePermissionGuard pageName="approvals" operation="read" fallback={<AccessDenied />}>
+    <PagePermissionGuard pageName={PAGE_NAMES.approvals} operation="read" fallback={<AccessDenied />}>
       <ApprovalsPageContent />
     </PagePermissionGuard>
   );

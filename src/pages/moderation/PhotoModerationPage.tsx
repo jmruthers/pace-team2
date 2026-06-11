@@ -1,3 +1,4 @@
+import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { DataTableAction, DataTableColumn } from '@solvera/pace-core/components';
@@ -32,7 +33,7 @@ function PhotoModerationPageContent() {
   const organisationId = selectedOrganisation?.id ?? null;
 
   const { canDelete: canDeletePermission, isLoading: permissionsLoading } =
-    useResourcePermissions('moderation-photos');
+    useResourcePermissions(PAGE_NAMES.moderationPhotos);
   const canDelete = canDeletePermission === true && permissionsLoading !== true;
 
   const {
@@ -236,7 +237,7 @@ function PhotoModerationPageContent() {
             <DataTable<ModerationPhotoTableRow>
               data={photos}
               columns={columns}
-              rbac={{ pageName: 'moderation-photos' }}
+              rbac={{ pageName: PAGE_NAMES.moderationPhotos }}
               title="Profile photos"
               isLoading={isLoading}
               loadingSpinnerLabel="Loading photos"
@@ -306,7 +307,7 @@ function PhotoModerationPageContent() {
 export function PhotoModerationPage() {
   return (
     <PagePermissionGuard
-      pageName="moderation-photos"
+      pageName={PAGE_NAMES.moderationPhotos}
       operation="read"
       fallback={<AccessDenied message="You do not have permission to view this page." />}
     >

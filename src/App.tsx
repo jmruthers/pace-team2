@@ -2,6 +2,7 @@ import { Link, Route, Routes } from 'react-router-dom';
 import type { NavigationItem } from '@solvera/pace-core/components';
 import { Card, CardContent, CardHeader, CardTitle, PaceLoginPage, ProtectedRoute } from '@solvera/pace-core/components';
 import { AccessDenied, PagePermissionGuard } from '@solvera/pace-core/rbac';
+import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { usePaceMain, useUnifiedAuth } from '@solvera/pace-core/hooks';
 import { AuthenticatedShell } from './components/layout/AuthenticatedShell';
 import { MemberDirectoryPage } from './pages/members/MemberDirectoryPage';
@@ -149,7 +150,7 @@ function App() {
           <Route
             index
             element={(
-              <PagePermissionGuard pageName="home" operation="read" fallback={<AccessDenied />}>
+              <PagePermissionGuard pageName={PAGE_NAMES.home} operation="read" fallback={<AccessDenied />}>
                 <HomePage />
               </PagePermissionGuard>
             )}
@@ -169,7 +170,7 @@ function App() {
           <Route
             path="approvals"
             element={(
-              <PagePermissionGuard pageName="approvals" operation="read" fallback={<AccessDenied />}>
+              <PagePermissionGuard pageName={PAGE_NAMES.approvals} operation="read" fallback={<AccessDenied />}>
                 <ApprovalsPage />
               </PagePermissionGuard>
             )}
@@ -177,7 +178,7 @@ function App() {
           <Route
             path="approvals/:requestId"
             element={(
-              <PagePermissionGuard pageName="approvals" operation="read" fallback={<AccessDenied />}>
+              <PagePermissionGuard pageName={PAGE_NAMES.approvals} operation="read" fallback={<AccessDenied />}>
                 <ApprovalsPage />
               </PagePermissionGuard>
             )}

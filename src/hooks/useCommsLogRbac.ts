@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { useUnifiedAuth } from '@solvera/pace-core/hooks';
-import { isPermittedCached, useResolvedScope, type Permission } from '@solvera/pace-core/rbac';
+import { isPermittedCached, toPagePermission, useResolvedScope, type Permission } from '@solvera/pace-core/rbac';
+import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 
 const COMMS_PERMISSIONS = [
-  'create:page.comms-log',
-  'update:page.comms-log',
+  toPagePermission(PAGE_NAMES.commsLog, 'create'),
+  toPagePermission(PAGE_NAMES.commsLog, 'update'),
 ] as const satisfies readonly Permission[];
 
 export type CommsLogRbacState = {

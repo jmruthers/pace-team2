@@ -4,8 +4,6 @@ import {
   Alert,
   AlertDescription,
   AlertTitle,
-  Avatar,
-  Badge,
   Button,
   Card,
   CardContent,
@@ -16,18 +14,24 @@ import {
 } from '@solvera/pace-core/components';
 import { AccessDenied, PagePermissionGuard, useResourcePermissions } from '@solvera/pace-core/rbac';
 import { useApprovalRequestDetail } from '@/hooks/useApprovalRequestDetail';
+import { useIssuingOrganisation } from '@/hooks/useIssuingOrganisation';
 import { useResolveMemberRequest } from '@/hooks/useResolveMemberRequest';
 import {
-  formatRequestSubmittedAt,
+  buildMembershipIssuingOrgMessage,
+  buildTransferClosureMessage,
+} from '@/lib/approvals/approvals.optionA.copy';
+import {
   formatResolvedDateHeading,
-  getApprovalApplicantAvatarName,
   getPersonDisplayName,
   getResolverDisplayName,
-  hasDistinctApprovalPreferredName,
-  requestTypeLabel,
   statusLabel,
 } from '@/lib/approvals/approvals.mappers';
+import {
+  ApprovalReviewApplicantAside,
+} from '@/components/approvals/ApprovalReviewApplicantAside';
+import { ApprovalReviewFormResponsesAside } from '@/components/approvals/ApprovalReviewFormResponsesAside';
 import type { ApprovalRequestRow } from '@/lib/approvals/approvals.types';
+import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { ApproveResolveDialog, HoldResolveDialog, RejectResolveDialog } from '@/components/approvals/resolveDialogs';
 
 interface ApprovalReviewPanelProps {
@@ -53,7 +57,7 @@ function ApprovalReviewPanelContent({ requestId, organisationId }: ApprovalRevie
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [holdOpen, setHoldOpen] = useState(false);
-  const { canUpdate } = useResourcePermissions('approvals', ['update']);
+  const { canUpdate } = useResourcePermissions(PAGE_NAMES.approvals, ['update']);
   const {
     request,
     requestLoading,
@@ -69,6 +73,19 @@ function ApprovalReviewPanelContent({ requestId, organisationId }: ApprovalRevie
     requestId,
     () => navigate('/approvals')
   );
+
+  const resolveFromOrganisationId =
+    request?.targetOrganisationId ?? request?.organisationId ?? organisationId;
+
+  const {
+    issuingOrganisationName,
+    showIssuingContext,
+    issuingOrgLoading,
+  } = useIssuingOrganisation({
+    selectedOrganisationId: organisationId,
+    resolveFromOrganisationId,
+    knownIssuingOrganisationId: request?.subjectMemberOrganisationId ?? null,
+  });
 
   useEffect(() => {
     if (requestLoading || requestErrorMessage != null || requestId == null) {
@@ -128,9 +145,18 @@ function ApprovalReviewPanelContent({ requestId, organisationId }: ApprovalRevie
   const canResolve = canUpdate && request.status === 'pending';
   const showMemberLink = request.subjectMemberId != null && request.subjectMemberDeletedAt == null;
   const applicantName = getPersonDisplayName(request);
-  const avatarName = getApprovalApplicantAvatarName(request);
   const resolveWithApplicantToast = { applicantDisplayNameForToast: applicantName };
-  const showPreferredLine = hasDistinctApprovalPreferredName(request);
+  const membershipIssuingOrgMessage = showIssuingContext
+    ? buildMembershipIssuingOrgMessage(issuingOrganisationName)
+    : null;
+  const transferClosureMessage =
+    request.requestType === 'transfer' && request.status === 'pending'
+      ? buildTransferClosureMessage(request.sourceOrganisationName)
+      : null;
+  const showPlacementsLink =
+    request.status === 'approved' &&
+    request.subjectMemberId != null &&
+    request.subjectMemberDeletedAt == null;
 
   return (
     <main className="grid gap-4">
@@ -174,119 +200,24 @@ function ApprovalReviewPanelContent({ requestId, organisationId }: ApprovalRevie
           ) : null}
 
           <section className="grid gap-6 lg:grid lg:grid-cols-[380px_minmax(0,1fr)] lg:items-start lg:gap-8">
-            <aside className="grid gap-6" aria-label="Applicant and request">
-              <article className="grid gap-3">
-                <h3>Applicant</h3>
-                <dl className="grid">
-                  <dt className="mb-1">Full name</dt>
-                  <dd className="mb-3">
-                    <p>{applicantName}</p>
-                  </dd>
-                  {showPreferredLine ? (
-                    <>
-                      <dt className="mb-1">Preferred name</dt>
-                      <dd className="mb-3">
-                        <p>{request.subjectPreferredName}</p>
-                      </dd>
-                    </>
-                  ) : null}
-                  <dt className="mb-1">Email</dt>
-                  <dd className="mb-3">
-                    <p>{request.subjectEmail ?? '—'}</p>
-                  </dd>
-                  <dt className="mb-1">Photo</dt>
-                  <dd>
-                    <Avatar name={avatarName} />
-                  </dd>
-                </dl>
-              </article>
-
-              <article className="grid gap-3">
-                <h3>Request</h3>
-                <dl className="grid">
-                  <dt className="mb-1">Request type</dt>
-                  <dd className="mb-3">
-                    <p>
-                      <Badge>{requestTypeLabel(request.requestType)}</Badge>
-                    </p>
-                  </dd>
-                  <dt className="mb-1">Submitted</dt>
-                  <dd className="mb-3">
-                    <p>{formatRequestSubmittedAt(request.createdAt)}</p>
-                  </dd>
-                  <dt className="mb-1">Target organisation</dt>
-                  <dd className="mb-3">
-                    <p>{request.targetOrganisationName ?? '—'}</p>
-                  </dd>
-                  <dt className="mb-1">Source organisation</dt>
-                  <dd className="mb-3">
-                    <p>{request.requestType === 'transfer' ? (request.sourceOrganisationName ?? '—') : '—'}</p>
-                  </dd>
-                  <dt className="mb-1">Membership type</dt>
-                  <dd className="mb-3">
-                    <p>{request.membershipTypeName ?? '—'}</p>
-                  </dd>
-                  <dt className="mb-1">Applicant member number</dt>
-                  <dd className="mb-3">
-                    <p>{request.applicantMemberNumber ?? '—'}</p>
-                  </dd>
-                  <dt className="mb-1">Status</dt>
-                  <dd>
-                    <p>
-                      <Badge>{statusLabel(request.status)}</Badge>
-                    </p>
-                  </dd>
-                </dl>
-              </article>
-
-              {showMemberLink ? (
-                <nav aria-label="Member actions">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => navigate(`/members/${request.subjectMemberId}`)}
-                  >
-                    View member 360 →
-                  </Button>
-                </nav>
-              ) : null}
-            </aside>
-
-            <aside className="grid gap-3 lg:border-l lg:border-border lg:pl-8" aria-label="Form responses">
-              <h3>Form responses</h3>
-              {formResponsesLoading ? <LoadingSpinner label="Loading form responses" /> : null}
-              {formResponseErrorMessage != null ? (
-                <>
-                  <Alert variant="destructive">
-                    <AlertTitle>Could not load form responses</AlertTitle>
-                    <AlertDescription>{formResponseErrorMessage}</AlertDescription>
-                  </Alert>
-                  <nav aria-label="Form responses retry">
-                    <Button type="button" onClick={() => void refetchFormResponses()}>
-                      Retry
-                    </Button>
-                  </nav>
-                </>
-              ) : null}
-              {!formResponsesLoading && formResponseErrorMessage == null && formResponses.length === 0 ? (
-                <section className="grid gap-2">
-                  <p>No form configured for this request type.</p>
-                  <p>Configure your org signup form at /forms.</p>
-                  <nav>
-                    <Button type="button" variant="link" onClick={() => navigate('/forms')}>
-                      Configure org signup form
-                    </Button>
-                  </nav>
-                </section>
-              ) : null}
-              {!formResponsesLoading &&
-                formResponseErrorMessage == null &&
-                formResponses.map((entry) => (
-                  <p key={entry.fieldKey}>
-                    {entry.label} → {entry.value}
-                  </p>
-                ))}
-            </aside>
+            <ApprovalReviewApplicantAside
+              request={request}
+              applicantName={applicantName}
+              membershipIssuingOrgMessage={membershipIssuingOrgMessage}
+              issuingOrgLoading={issuingOrgLoading}
+              transferClosureMessage={transferClosureMessage}
+              showMemberLink={showMemberLink}
+              showPlacementsLink={showPlacementsLink}
+              onViewMember={() => navigate(`/members/${request.subjectMemberId}`)}
+              onViewPlacements={() => navigate(`/members/${request.subjectMemberId}/roles`)}
+            />
+            <ApprovalReviewFormResponsesAside
+              formResponses={formResponses}
+              formResponsesLoading={formResponsesLoading}
+              formResponseErrorMessage={formResponseErrorMessage}
+              onRetry={() => void refetchFormResponses()}
+              onConfigureForms={() => navigate('/forms')}
+            />
           </section>
         </CardContent>
       </Card>
@@ -340,7 +271,7 @@ function ApprovalReviewPanelContent({ requestId, organisationId }: ApprovalRevie
 
 export function ApprovalReviewPanel(props: ApprovalReviewPanelProps) {
   return (
-    <PagePermissionGuard pageName="approvals" operation="read" fallback={<AccessDenied />}>
+    <PagePermissionGuard pageName={PAGE_NAMES.approvals} operation="read" fallback={<AccessDenied />}>
       <ApprovalReviewPanelContent {...props} />
     </PagePermissionGuard>
   );

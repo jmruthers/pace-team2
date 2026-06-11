@@ -109,23 +109,23 @@ Use production only for pre-release verification, never as the source for rebuil
 
 | Route pattern | `PagePermissionGuard` pageName |
 |---------------|-------------------------------|
-| `/` | `home` |
-| `/members` | `members` |
-| `/members/:memberId` | `members` |
-| `/members/:memberId/roles` | `member-roles` |
-| `/approvals`; `/approvals/:requestId` | `approvals` |
-| `/settings/membership-types` | `membership-types` |
-| `/settings/organisations` | `organisations` |
-| `/settings/org` | `org-settings` |
-| `/forms` | `forms` |
-| `/forms/new` | `forms` |
-| `/forms/:formId` | `forms` |
-| `/events`; `/events/:eventId` | `events` |
-| `/reports` | `reports` |
-| `/moderation/photos` | `moderation-photos` |
-| `/communications` | `comms-log` (PUMP-owned; do not seed under TEAM) |
+| `/` | `HomePage` |
+| `/members` | `MembersPage` |
+| `/members/:memberId` | `MembersPage` |
+| `/members/:memberId/roles` | `MemberRolesPage` |
+| `/approvals`; `/approvals/:requestId` | `ApprovalsPage` |
+| `/settings/membership-types` | `MembershipTypesPage` |
+| `/settings/organisations` | `OrganisationsPage` |
+| `/settings/org` | `OrgSettingsPage` |
+| `/forms` | `FormsPage` |
+| `/forms/new` | `FormsPage` |
+| `/forms/:formId` | `FormsPage` |
+| `/events`; `/events/:eventId` | `EventsPage` |
+| `/reports` | `ReportsPage` |
+| `/moderation/photos` | `ModerationPhotosPage` |
+| `/communications` | `CommsLogPage` (PUMP-owned; do not seed under TEAM) |
 
-Actions on a loaded page use the same page row with operation-specific checks and any tighter resource checks required by the slice. If a registry row is absent during early build, keep the same pageName and allow the post-build RBAC seeding pass to add it; do **not** substitute local permission logic. External contracts already fixed in other apps remain fixed here: **Portal** uses **`member-profile`** and **PUMP/TEAM comms** use **`comms-log`** (registered under the PUMP `rbac_apps` row).
+Actions on a loaded page use the same page row with operation-specific checks and any tighter resource checks required by the slice. If a registry row is absent during early build, keep the same pageName and allow the post-build RBAC seeding pass to add it; do **not** substitute local permission logic. External contracts already fixed in other apps remain fixed here: **Portal** uses **`MemberProfilePage`** and **PUMP/TEAM comms** use **`CommsLogPage`** (registered under the PUMP `rbac_apps` row). Implementation imports canonical strings from `src/lib/rbac/pageNames.ts`.
 
 Implementation must follow pace-core2 RBAC standards: call `setupRBAC` before guarded routes render, use `PagePermissionGuard` directly rather than wrapper guards, use `useSecureSupabase()` without passing a base client, use canonical DB page-name strings for `useResourcePermissions`, and use Edge-side `isPermitted()` rather than custom helper functions.
 
@@ -220,7 +220,7 @@ These **close or park** open questions from planning so slice requirements can p
 | **PUMP / communications** | **Frozen for TEAM v1 (2026-04-20; schedule confirmed):** Integration contract is **pace-core2 CR23** (`CommComposer`, `CommSendAdapter`, PUMP Edge **`pump-resolve-pool`**, **`pump-send`**, **`pump-schedule`**). TEAM: **`/communications`**, **send + schedule**, **no TEAM drafts**, **no TEAM scheduled-message management / cancel surface**, **email + SMS**, **template dropdown**, **`OrgMembersPool`** (inline filters) + **`ManualPool`** (directory picker **B2**). **PUMP app** owns template/settings/analytics UIs. **Blocked until CR23 `@solvera/pace-core/comms` package export and `DB-change-decisions-p4.md` PUMP rollout land on dev.** |
 | **Portal view-as-proxy / staff delegation** | **pace-portal** owns RPC/RLS/Page guards; **TEAM-03** defines RBAC-conditional handoff — **`/profile/edit/:memberId`** for staff with `update:member-profiles`; **`/profile/view/:memberId`** for staff with `read:member-profiles` only (no proxy session, RBAC-only path). Both: **new tab**, **no `returnUrl`**. Portal **derives org from target `core_member`**. Additional contacts (with `Full` tier) continue to use `/profile/edit/:memberId` from their own `LinkedProfileCard`; the `view` additional-contact tier is removed (see CR23 + DB-412). CR24 owns URL building/launch consistency; DB-p4/PR08 owns making delegated org-admin access allowed. |
 | **RBAC routes / `rbac_apps`** | **Resolved:** implementation uses canonical `PagePermissionGuard` pageName strings from this document. `rbac_app_pages` rows and role-template grants are added **after the build** and before release. Missing rows during early build are not a reason to invent local RBAC or change page names. |
-| **Member requests vs org forms** | **Resolved (2026-04-21; membership status clarified 2026-04-21):** **TEAM-05** owns **`/approvals`** (queue + review + resolve via platform RPCs). **TEAM-09** owns **all org form authoring** at **`/forms`**, including **`org_signup`**. **TEAM-08** — **Financial** + **Operational** on **`/settings/org`**. **Directory** (**TEAM-02**): default **Members** list = **`Active` + `Suspended`**; separate **Pending** view = **`Provisional`** rows cross-referenced with **open** **`team_member_request`** (`pending` / `on_hold`). **Exclude** **`Resigned`**, **`Lapsed`**, **`Revoked`** from default directory (optional staff filters may surface them). **`core_member`** has **six** statuses only — **no** request-outcome values on membership. **Platform convention:** **`withdrawn`** / **`cancelled`** (where used) = **participant-initiated** on **request** tables; **`rejected`** = org-initiated on **`team_member_request`**; **`Revoked`** = org-initiated **membership** discipline on **`core_member`** — not the same as **`rejected`**. |
+| **Member requests vs org forms** | **Resolved (2026-04-21; Option A 2026-06):** **TEAM-05** owns **`/approvals`** (queue + review + resolve via platform RPCs). **TEAM-09** owns **all org form authoring** at **`/forms`**, including **`org_signup`**. **TEAM-08** — **Financial** + **Operational** on **`/settings/org`**. **Option A (membership at issuing org):** `app_submit_member_request` creates **`core_member` at the root/issuing org** (via `org_ancestors`); **`team_member_request.organisation_id`** stays at the selected sub-org for admin review; sub-org visibility uses **`core_member_role` placements** on approve. **Directory** (**TEAM-02**): **Members** = **`Active` + `Suspended`** via placement and/or flat-org `core_member.organisation_id`; **Pending** = open **`team_member_request`** at selected org joined to issuing-org **`core_member`**. **Exclude** **`Resigned`**, **`Lapsed`**, **`Revoked`** from default directory. **`core_member`** has **six** statuses only. **Platform convention:** **`withdrawn`** = participant-initiated; **`rejected`** = org-initiated on **`team_member_request`**; **`Revoked`** = org-initiated membership discipline on **`core_member`**. |
 | **Communications URL** | **`/communications`** only for v1 (**TEAM-13**); sub-routes if added later must stay owned by this slice. |
 | **Dependency gates** | **TEAM-01:** none. **TEAM-02:** none beyond TEAM-01; comms picker mode is activated when TEAM-13 exists. **TEAM-03 Portal CTA:** CR24 package export for URL launch plus DB-p4 DB-417/PR08 delegated org-admin access; core Member 360 can build with CTA gated. **TEAM-04:** none beyond TEAM-03 and dev-db role constraint/RLS validation. **TEAM-05:** DB-p4 DB-418 member-request schema/RPCs. **TEAM-06:** platform-approved membership-type mutation path. **TEAM-07:** dev-db org hierarchy RLS/mutation validation. **TEAM-08:** DB-p4 DB-419 `member_validation_config` for Operational settings; Financial can build earlier. **TEAM-09:** CR21 + DB-414 (`DB301` verified on dev). **TEAM-10:** dev-db event/application join and RLS verification. **TEAM-11:** CR22 public reporting package/export. **TEAM-12:** platform file-reference deactivation contract. **TEAM-13:** CR23 `@solvera/pace-core/comms` export + DB-p4 PUMP rollout. |
 | **Prod vs dev schema** | **Target dev** for build and docs; **validate promotion** to prod before release — **do not** assume prod matches dev (see snapshot section). |

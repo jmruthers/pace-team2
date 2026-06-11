@@ -2,10 +2,12 @@ import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSecureSupabase } from '@solvera/pace-core/rbac';
 import { HandleSupabaseError } from '@solvera/pace-core/utils';
+import { isMemberAccessibleInOrganisation } from '@/lib/members/memberOrgAccess';
 import { apiErr, apiOk } from '@/lib/apiResult';
 import type { ApiResult, ApiError } from '@/lib/apiResult';
 import type {
   AddMemberRolePayload,
+  EditMemberRolePayload,
   EndMemberRolePayload,
   MemberRoleRow,
   MemberRolesMemberRecord,
@@ -70,6 +72,7 @@ export async function runAddMemberRole(
       role_id: payload.roleId,
       organisation_id: payload.organisationId,
       start_date: payload.startDate,
+      title: payload.title?.trim() ? payload.title.trim() : null,
     })
     .select()
     .single()) as SupabaseQueryResult<{ id: string } | null>;
@@ -109,10 +112,38 @@ export async function runEndMemberRole(
   return apiOk<void, MemberRolesApiError>(undefined);
 }
 
+export async function runEditMemberRole(
+  secureSupabase: SecureSupabaseClientLike,
+  payload: EditMemberRolePayload
+): Promise<ApiResult<void, MemberRolesApiError>> {
+  const result = (await secureSupabase
+    .from('core_member_role')
+    .update({
+      role_id: payload.roleId,
+      title: payload.title?.trim() ? payload.title.trim() : null,
+    })
+    .eq('id', payload.roleEntryId)
+    .eq('organisation_id', payload.organisationId)
+    .is('end_date', null)
+    .select()
+    .single()) as SupabaseQueryResult<{ id: string } | null>;
+
+  if (result.error != null) {
+    return apiErr<void, MemberRolesApiError>({
+      context: 'core_member_role',
+      message: HandleSupabaseError(result.error, 'core_member_role').message,
+      cause: result.error,
+    });
+  }
+
+  return apiOk<void, MemberRolesApiError>(undefined);
+}
+
 function mapMemberRow(
   raw: {
     id: string;
     organisation_id: string;
+    membership_type_id: number | null;
     core_person: {
       first_name: string | null;
       last_name: string | null;
@@ -126,6 +157,7 @@ function mapMemberRow(
   return {
     id: raw.id,
     organisationId: raw.organisation_id,
+    membershipTypeId: raw.membership_type_id,
     firstName: raw.core_person?.first_name ?? '',
     lastName: raw.core_person?.last_name ?? '',
     preferredName: raw.core_person?.preferred_name ?? null,
@@ -140,6 +172,7 @@ function mapRoleRows(
     organisation_id: string;
     start_date: string;
     end_date: string | null;
+    title: string | null;
     core_role_type: RoleJoinRow | RoleJoinRow[] | null;
   }> | null
 ): MemberRoleRow[] {
@@ -153,16 +186,20 @@ function mapRoleRows(
       startDate: row.start_date,
       endDate: row.end_date,
       roleName: roleType?.name ?? null,
+      title: row.title,
     };
   });
 }
 
-function mapRoleTypeRows(rows: Array<{ id: number; name: string | null }> | null): MemberRoleTypeOption[] {
+function mapRoleTypeRows(
+  rows: Array<{ id: number; name: string | null; membership_type_id: number | null }> | null
+): MemberRoleTypeOption[] {
   return (rows ?? [])
     .filter((row) => row.name != null && row.name.trim().length > 0)
     .map((row) => ({
       id: row.id,
       name: row.name ?? '',
+      membershipTypeId: row.membership_type_id,
     }));
 }
 
@@ -180,13 +217,13 @@ export function useMemberRolesData({ memberId, organisationId }: UseMemberRolesD
 
       const { data, error } = (await secureSupabase
         .from('core_member')
-        .select('id, organisation_id, core_person!inner(first_name, last_name, preferred_name)')
+        .select('id, organisation_id, membership_type_id, core_person!inner(first_name, last_name, preferred_name)')
         .eq('id', memberId)
-        .eq('organisation_id', organisationId)
         .is('deleted_at', null)
         .maybeSingle()) as SupabaseQueryResult<{
           id: string;
           organisation_id: string;
+          membership_type_id: number | null;
           core_person: {
             first_name: string | null;
             last_name: string | null;
@@ -202,16 +239,55 @@ export function useMemberRolesData({ memberId, organisationId }: UseMemberRolesD
     },
   });
 
+  const placementQuery = useQuery({
+    queryKey: ['member', memberId, 'placement', organisationId],
+    enabled: memberId != null && organisationId != null && secureSupabase != null,
+    queryFn: async (): Promise<boolean> => {
+      if (memberId == null || organisationId == null || secureSupabase == null) {
+        return false;
+      }
+
+      const { data, error } = (await secureSupabase
+        .from('core_member_role')
+        .select('id')
+        .eq('member_id', memberId)
+        .eq('organisation_id', organisationId)
+        .is('end_date', null)
+        .maybeSingle()) as SupabaseQueryResult<{ id: string } | null>;
+
+      if (error != null) {
+        throw error;
+      }
+
+      return data != null;
+    },
+  });
+
+  const memberAccessibleInSelectedOrg = useMemo(() => {
+    if (memberQuery.data == null || organisationId == null) {
+      return false;
+    }
+    return isMemberAccessibleInOrganisation(
+      memberQuery.data.organisationId,
+      organisationId,
+      placementQuery.data === true
+    );
+  }, [memberQuery.data, organisationId, placementQuery.data]);
+
   const rolesQuery = useQuery({
     queryKey: ['member', memberId, 'roles', organisationId],
-    enabled: memberId != null && organisationId != null && secureSupabase != null,
+    enabled:
+      memberId != null &&
+      organisationId != null &&
+      secureSupabase != null &&
+      memberAccessibleInSelectedOrg,
     queryFn: async (): Promise<MemberRoleRow[]> => {
       if (memberId == null || organisationId == null || secureSupabase == null) {
         return [];
       }
       const { data, error } = (await secureSupabase
         .from('core_member_role')
-        .select('id, member_id, role_id, organisation_id, start_date, end_date, core_role_type(id, name)')
+        .select('id, member_id, role_id, organisation_id, start_date, end_date, title, core_role_type(id, name)')
         .eq('member_id', memberId)
         .eq('organisation_id', organisationId)
         .order('start_date', { ascending: false })) as SupabaseQueryResult<Array<{
@@ -221,6 +297,7 @@ export function useMemberRolesData({ memberId, organisationId }: UseMemberRolesD
           organisation_id: string;
           start_date: string;
           end_date: string | null;
+          title: string | null;
           core_role_type: RoleJoinRow | RoleJoinRow[] | null;
         }> | null>;
 
@@ -241,9 +318,11 @@ export function useMemberRolesData({ memberId, organisationId }: UseMemberRolesD
 
       const { data, error } = (await secureSupabase
         .from('core_role_type')
-        .select('id, name')
+        .select('id, name, membership_type_id')
         .eq('organisation_id', organisationId)
-        .order('name', { ascending: true })) as SupabaseQueryResult<Array<{ id: number; name: string | null }> | null>;
+        .order('name', { ascending: true })) as SupabaseQueryResult<
+          Array<{ id: number; name: string | null; membership_type_id: number | null }> | null
+        >;
 
       if (error != null) {
         throw error;
@@ -267,6 +346,22 @@ export function useMemberRolesData({ memberId, organisationId }: UseMemberRolesD
     },
   });
 
+  const editRoleMutation = useMutation({
+    mutationFn: async (payload: EditMemberRolePayload): Promise<void> => {
+      if (secureSupabase == null) {
+        throw new Error('Secure client unavailable');
+      }
+      const result = await runEditMemberRole(secureSupabase, payload);
+      if (result.ok === false) {
+        throw result.error.cause ?? result.error;
+      }
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['member', memberId, 'roles', organisationId] });
+      await queryClient.invalidateQueries({ queryKey: ['member', memberId, 'placement', organisationId] });
+    },
+  });
+
   const endRoleMutation = useMutation({
     mutationFn: async (payload: EndMemberRolePayload): Promise<void> => {
       if (secureSupabase == null) {
@@ -279,8 +374,16 @@ export function useMemberRolesData({ memberId, organisationId }: UseMemberRolesD
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['member', memberId, 'roles', organisationId] });
+      await queryClient.invalidateQueries({ queryKey: ['member', memberId, 'placement', organisationId] });
     },
   });
+
+  const editRoleErrorMessage = useMemo(() => {
+    if (!editRoleMutation.isError) {
+      return null;
+    }
+    return HandleSupabaseError(editRoleMutation.error, 'core_member_role').message;
+  }, [editRoleMutation.error, editRoleMutation.isError]);
 
   const memberErrorMessage = useMemo(() => {
     if (!memberQuery.isError) {
@@ -317,7 +420,8 @@ export function useMemberRolesData({ memberId, organisationId }: UseMemberRolesD
 
   return {
     member: memberQuery.data ?? null,
-    memberLoading: memberQuery.isLoading,
+    memberAccessibleInSelectedOrg,
+    memberLoading: memberQuery.isLoading || placementQuery.isLoading,
     memberErrorMessage,
     refetchMember: memberQuery.refetch,
 
@@ -335,6 +439,11 @@ export function useMemberRolesData({ memberId, organisationId }: UseMemberRolesD
     addRolePending: addRoleMutation.isPending,
     addRoleError,
     resetAddRole: addRoleMutation.reset,
+
+    editRole: editRoleMutation.mutateAsync,
+    editRolePending: editRoleMutation.isPending,
+    editRoleErrorMessage,
+    resetEditRole: editRoleMutation.reset,
 
     endRole: endRoleMutation.mutateAsync,
     endRolePending: endRoleMutation.isPending,

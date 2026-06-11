@@ -1,3 +1,4 @@
+import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { CommDraft, CommRbacContext, CommScheduleCompletePayload, CommSendResult, RecipientPoolDescriptor } from '@solvera/pace-core/comms';
@@ -402,7 +403,7 @@ export function CommunicationsPage() {
   }
 
   return (
-    <PagePermissionGuard pageName="comms-log" operation="read" fallback={<AccessDenied />}>
+    <PagePermissionGuard pageName={PAGE_NAMES.commsLog} operation="read" fallback={<AccessDenied />}>
       <CommunicationsPageInner key={organisationId} organisationId={organisationId} />
     </PagePermissionGuard>
   );

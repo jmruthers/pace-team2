@@ -20,55 +20,39 @@ import {
 import { formatOptionalText, formatShortDate } from '@/lib/members/member360.display.format';
 import { member360IdentitySchema } from '@/lib/members/member360.validation';
 import type { IdentityFormValues } from '@/lib/members/member360.types';
-import { parseDateInput, toDateInputValue } from '@/pages/members/member360/member360DateInput';
+import { parseDateInput, toDateInputValue } from '@/lib/members/member360/member360DateInput';
+import type { Member360IdentitySectionProps } from '@/components/members/member360/member360IdentitySection.types';
 
-interface Member360IdentitySectionProps {
-  memberName: string;
-  memberEmail: string;
-  phonesText: string;
-  residentialAddress: string;
-  postalAddress: string;
-  allowUpdate: boolean;
-  showPortalEdit: boolean;
-  showPortalView: boolean;
-  onPortalEdit: () => void;
-  onPortalView: () => void;
-  editing: boolean;
-  setEditing: (editing: boolean) => void;
-  memberStatusLabel: string;
-  memberStatusVariant: Parameters<typeof Badge>[0]['variant'];
-  initialValues: IdentityFormValues;
-  onSubmit: (values: IdentityFormValues) => Promise<void>;
-  onDirtyCancel: () => void;
-  savePending: boolean;
-  genderOptions: Array<{ id: number; name: string }>;
-  pronounOptions: Array<{ id: number; name: string }>;
-  membershipTypeOptions: Array<{ id: number; name: string }>;
-}
-
-export function Member360IdentitySection({
-  memberName,
-  memberEmail,
-  phonesText,
-  residentialAddress,
-  postalAddress,
-  allowUpdate,
-  showPortalEdit,
-  showPortalView,
-  onPortalEdit,
-  onPortalView,
-  editing,
-  setEditing,
-  memberStatusLabel,
-  memberStatusVariant,
-  initialValues,
-  onSubmit,
-  onDirtyCancel,
-  savePending,
-  genderOptions,
-  pronounOptions,
-  membershipTypeOptions,
-}: Member360IdentitySectionProps) {
+export function Member360IdentitySection({ display, form }: Member360IdentitySectionProps) {
+  const {
+    memberName,
+    memberEmail,
+    phonesText,
+    residentialAddress,
+    postalAddress,
+    showIssuingOrganisation,
+    issuingOrganisationName,
+    placementOrganisationName,
+    activePlacementStartDate,
+    allowUpdate,
+    showPortalEdit,
+    showPortalView,
+    onPortalEdit,
+    onPortalView,
+    memberStatusLabel,
+    memberStatusVariant,
+  } = display;
+  const {
+    editing,
+    setEditing,
+    initialValues,
+    onSubmit,
+    onDirtyCancel,
+    savePending,
+    genderOptions,
+    pronounOptions,
+    membershipTypeOptions,
+  } = form;
   return (
     <Card>
       <CardHeader className="grid grid-cols-[1fr_auto] gap-4 items-start">
@@ -136,6 +120,20 @@ export function Member360IdentitySection({
                 <h2>Membership status</h2>
                 <p>{memberStatusLabel}</p>
               </article>
+              {showIssuingOrganisation ? (
+                <article>
+                  <h2>Issued by</h2>
+                  <p>{formatOptionalText(issuingOrganisationName)}</p>
+                </article>
+              ) : null}
+              {activePlacementStartDate != null && placementOrganisationName != null ? (
+                <article>
+                  <h2>Placement</h2>
+                  <p>
+                    Placed at: {placementOrganisationName} (since {formatShortDate(activePlacementStartDate)})
+                  </p>
+                </article>
+              ) : null}
               <article>
                 <h2>Valid from</h2>
                 <p>{formatShortDate(initialValues.validFrom)}</p>

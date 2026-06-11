@@ -1,6 +1,7 @@
 export interface MemberRolesMemberRecord {
   id: string;
   organisationId: string;
+  membershipTypeId: number | null;
   firstName: string;
   lastName: string;
   preferredName: string | null;
@@ -9,6 +10,7 @@ export interface MemberRolesMemberRecord {
 export interface MemberRoleTypeOption {
   id: number;
   name: string;
+  membershipTypeId: number | null;
 }
 
 export interface MemberRoleRow extends Record<string, unknown> {
@@ -19,6 +21,7 @@ export interface MemberRoleRow extends Record<string, unknown> {
   startDate: string;
   endDate: string | null;
   roleName: string | null;
+  title: string | null;
 }
 
 export interface AddMemberRolePayload {
@@ -26,6 +29,14 @@ export interface AddMemberRolePayload {
   roleId: number;
   organisationId: string;
   startDate: string;
+  title?: string | null;
+}
+
+export interface EditMemberRolePayload {
+  roleEntryId: string;
+  organisationId: string;
+  roleId: number;
+  title?: string | null;
 }
 
 export interface EndMemberRolePayload {

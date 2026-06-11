@@ -1,3 +1,4 @@
+import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -185,7 +186,7 @@ function MemberDirectoryPageContent() {
             <DataTable<MemberDirectoryRow>
               data={members}
               columns={memberColumns}
-              rbac={{ pageName: 'members' }}
+              rbac={{ pageName: PAGE_NAMES.members }}
               description={`${members.length} members`}
               isLoading={membersLoading}
               getRowId={(row) => row.id}
@@ -243,7 +244,7 @@ function MemberDirectoryPageContent() {
               <DataTable<PendingDirectoryRow>
                 data={pendingMembers}
                 columns={pendingColumns}
-                rbac={{ pageName: 'members' }}
+                rbac={{ pageName: PAGE_NAMES.members }}
                 description={`${pendingMembers.length} pending members`}
                 isLoading={pendingLoading}
                 getRowId={(row) => row.id}
@@ -305,7 +306,7 @@ function MemberDirectoryPageContent() {
 
 export function MemberDirectoryPage() {
   return (
-    <PagePermissionGuard pageName="members" operation="read" fallback={<AccessDenied />}>
+    <PagePermissionGuard pageName={PAGE_NAMES.members} operation="read" fallback={<AccessDenied />}>
       <MemberDirectoryPageContent />
     </PagePermissionGuard>
   );

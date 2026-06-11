@@ -10,6 +10,7 @@ interface JoinedPerson {
 
 interface JoinedMember {
   id?: string;
+  organisation_id?: string | null;
   deleted_at?: string | null;
 }
 
@@ -192,10 +193,11 @@ function mapSubjectPersonFields(person: JoinedPerson | null): Pick<
 
 function mapSubjectMemberFields(member: JoinedMember | null): Pick<
   ApprovalRequestRow,
-  'subjectMemberId' | 'subjectMemberDeletedAt'
+  'subjectMemberId' | 'subjectMemberOrganisationId' | 'subjectMemberDeletedAt'
 > {
   return {
     subjectMemberId: (member?.id as string | undefined) ?? null,
+    subjectMemberOrganisationId: member?.organisation_id ?? null,
     subjectMemberDeletedAt: member?.deleted_at ?? null,
   };
 }

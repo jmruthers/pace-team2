@@ -1,6 +1,6 @@
 import { Alert, AlertDescription, AlertTitle, Button, LoadingSpinner } from '@solvera/pace-core/components';
 import { ChevronLeft } from '@solvera/pace-core/icons';
-import { Member360NotFound } from '@/pages/members/member360/Member360NotFound';
+import { Member360NotFound } from '@/components/members/member360/Member360NotFound';
 
 export function Member360LoadingState() {
   return (

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { matchPendingRequests } from '@/lib/members/memberDirectory.display';
+import {
+  buildPendingDirectoryFromRequests,
+  matchPendingRequests,
+} from '@/lib/members/memberDirectory.display';
 import { getPickerBannerState, readManualPickPayload } from '@/lib/members/memberDirectory.picker';
 import {
   type MemberDirectoryRow,
@@ -86,6 +89,44 @@ describe('memberDirectory shared', () => {
     expect(matched.find((row) => row.id === 'member-1')?.requestedAt).toBe('2026-05-07T08:00:00.000Z');
     expect(matched.find((row) => row.id === 'member-2')?.requestType).toBe('join');
     expect(matched.some((row) => row.id === 'member-3')).toBe(false);
+  });
+
+  it('builds pending rows from open requests and issuing-org member rows', () => {
+    const members: MemberDirectoryRow[] = [
+      {
+        id: 'member-root',
+        personId: 'person-1',
+        membershipNumber: null,
+        membershipStatus: 'Active',
+        membershipTypeId: 1,
+        membershipTypeName: 'Adult',
+        organisationId: 'root-org',
+        firstName: 'Ava',
+        lastName: 'Zeal',
+        preferredName: null,
+        email: 'ava@example.com',
+      },
+    ];
+    const membersById = new Map(members.map((member) => [member.id, member]));
+    const membersByPersonId = new Map(members.map((member) => [member.personId, member]));
+    const requests = [
+      {
+        id: 'req-1',
+        organisation_id: 'child-org',
+        subject_member_id: 'member-root',
+        subject_person_id: 'person-1',
+        request_type: 'join' as const,
+        status: 'pending' as const,
+        created_at: '2026-05-07T08:00:00.000Z',
+      },
+    ];
+
+    const matched = buildPendingDirectoryFromRequests(requests, membersById, membersByPersonId);
+
+    expect(matched).toHaveLength(1);
+    expect(matched[0]?.id).toBe('member-root');
+    expect(matched[0]?.membershipStatus).toBe('Active');
+    expect(matched[0]?.requestType).toBe('join');
   });
 
   it('hydrates picker selection only when org matches payload', () => {

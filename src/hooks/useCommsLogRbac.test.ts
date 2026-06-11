@@ -13,6 +13,7 @@ const useUnifiedAuthMock = vi.fn();
 vi.mock('@solvera/pace-core/rbac', () => ({
   isPermittedCached: (...args: unknown[]) => isPermittedCachedMock(...args),
   useResolvedScope: () => useResolvedScopeMock(),
+  toPagePermission: (pageName: string, operation: string) => `${operation}:page.${pageName}`,
 }));
 
 vi.mock('@solvera/pace-core/hooks', () => ({
@@ -40,7 +41,7 @@ describe('useCommsLogRbac (TM13)', () => {
 
   it('TM13 F-28: sets hasPermissionError when permission RPC fails', async () => {
     isPermittedCachedMock.mockImplementation(async ({ permission }: { permission: string }) => {
-      if (permission === 'create:page.comms-log') {
+      if (permission === 'create:page.CommsLogPage') {
         return { ok: false, error: 'rpc failed' };
       }
       return { ok: true, data: true };
@@ -60,10 +61,10 @@ describe('useCommsLogRbac (TM13)', () => {
 
   it('grants compose when create is allowed and send/schedule follow update', async () => {
     isPermittedCachedMock.mockImplementation(async ({ permission }: { permission: string }) => {
-      if (permission === 'create:page.comms-log') {
+      if (permission === 'create:page.CommsLogPage') {
         return { ok: true, data: true };
       }
-      if (permission === 'update:page.comms-log') {
+      if (permission === 'update:page.CommsLogPage') {
         return { ok: true, data: true };
       }
       return { ok: true, data: false };
@@ -83,10 +84,10 @@ describe('useCommsLogRbac (TM13)', () => {
 
   it('denies send and schedule when update permission is false', async () => {
     isPermittedCachedMock.mockImplementation(async ({ permission }: { permission: string }) => {
-      if (permission === 'create:page.comms-log') {
+      if (permission === 'create:page.CommsLogPage') {
         return { ok: true, data: true };
       }
-      if (permission === 'update:page.comms-log') {
+      if (permission === 'update:page.CommsLogPage') {
         return { ok: true, data: false };
       }
       return { ok: true, data: false };

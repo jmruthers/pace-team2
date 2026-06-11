@@ -27,7 +27,6 @@ function renderPrimaryActionCell<T extends MemberDirectoryRow>(
     <Button
       type="button"
       variant="link"
-      className="h-auto p-0"
       onClick={() => onPrimaryAction(row)}
       aria-label={pickerMode ? `Select ${getMemberDisplayName(row)}` : `Open ${getMemberDisplayName(row)}`}
     >

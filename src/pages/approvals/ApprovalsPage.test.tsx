@@ -27,7 +27,7 @@ vi.mock('@solvera/pace-core/rbac', () => ({
   PagePermissionGuard: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
-vi.mock('@/pages/approvals/ApprovalReviewPanel', () => ({
+vi.mock('@/components/approvals/ApprovalReviewPanel', () => ({
   ApprovalReviewPanel: ({ requestId }: { requestId?: string }) => <p>review-panel:{requestId ?? 'none'}</p>,
 }));
 
@@ -91,6 +91,7 @@ const row: ApprovalRequestRow = {
   subjectEmail: null,
   sourceOrganisationName: null,
   subjectMemberId: null,
+  subjectMemberOrganisationId: null,
   subjectMemberDeletedAt: null,
   resolverFirstName: null,
   resolverLastName: null,

@@ -3,16 +3,30 @@ import { useQuery } from '@tanstack/react-query';
 import { useSecureSupabase } from '@solvera/pace-core/rbac';
 import { HandleSupabaseError } from '@solvera/pace-core/utils';
 import { useActiveOrganisationMembershipTypes } from '@/hooks/useActiveOrganisationMembershipTypes';
+import {
+  buildPendingDirectoryFromRequests,
+  mergeMemberDirectoryRows,
+} from '../lib/members/memberDirectory.display';
 import type {
   MemberDirectoryRow,
   MembershipStatus,
   PendingDirectoryRow,
   TeamMemberRequestMatchRecord,
 } from '../lib/members/memberDirectory.types';
-import { matchPendingRequests } from '../lib/members/memberDirectory.display';
 
 const OPEN_REQUEST_STATUSES = ['pending', 'on_hold'] as const;
 const OPEN_REQUEST_TYPES = ['join', 'transfer'] as const;
+
+const MEMBER_SELECT_FIELDS = [
+  'id',
+  'person_id',
+  'membership_number',
+  'membership_status',
+  'membership_type_id',
+  'organisation_id',
+  'core_person!inner(id, first_name, last_name, preferred_name, email)',
+  'core_membership_type(id, name)',
+].join(', ');
 
 interface PersonRecord {
   id: string;
@@ -106,14 +120,64 @@ function mapCoreMemberRow(record: CoreMemberRecord): MemberDirectoryRow {
   };
 }
 
-function sortRowsByName<T extends MemberDirectoryRow>(rows: T[]): T[] {
-  return [...rows].sort((a, b) => {
-    const byLastName = a.lastName.localeCompare(b.lastName);
-    if (byLastName !== 0) {
-      return byLastName;
-    }
-    return a.firstName.localeCompare(b.firstName);
+function indexMembersByIdAndPerson(rows: MemberDirectoryRow[]): {
+  membersById: Map<string, MemberDirectoryRow>;
+  membersByPersonId: Map<string, MemberDirectoryRow>;
+} {
+  const membersById = new Map<string, MemberDirectoryRow>();
+  const membersByPersonId = new Map<string, MemberDirectoryRow>();
+  rows.forEach((row) => {
+    membersById.set(row.id, row);
+    membersByPersonId.set(row.personId, row);
   });
+  return { membersById, membersByPersonId };
+}
+
+async function fetchActiveMembersForOrganisation(
+  secureSupabase: SupabaseLike,
+  organisationId: string,
+  membershipTypeFilter: number | null
+): Promise<MemberDirectoryRow[]> {
+  let flatOrgQuery = secureSupabase
+    .from('core_member')
+    .select(MEMBER_SELECT_FIELDS)
+    .eq('organisation_id', organisationId)
+    .is('deleted_at', null)
+    .in('membership_status', ['Active', 'Suspended'])
+    .order('last_name', { ascending: true, referencedTable: 'core_person' })
+    .order('first_name', { ascending: true, referencedTable: 'core_person' });
+
+  let placementQuery = secureSupabase
+    .from('core_member')
+    .select(`${MEMBER_SELECT_FIELDS}, core_member_role!inner(organisation_id, end_date)`)
+    .eq('core_member_role.organisation_id', organisationId)
+    .is('core_member_role.end_date', null)
+    .is('deleted_at', null)
+    .in('membership_status', ['Active', 'Suspended'])
+    .order('last_name', { ascending: true, referencedTable: 'core_person' })
+    .order('first_name', { ascending: true, referencedTable: 'core_person' });
+
+  if (membershipTypeFilter != null) {
+    flatOrgQuery = flatOrgQuery.eq('membership_type_id', membershipTypeFilter);
+    placementQuery = placementQuery.eq('membership_type_id', membershipTypeFilter);
+  }
+
+  const [flatOrgResult, placementResult] = (await Promise.all([flatOrgQuery, placementQuery])) as [
+    { data: CoreMemberRecord[]; error: unknown },
+    { data: CoreMemberRecord[]; error: unknown },
+  ];
+
+  if (flatOrgResult.error != null) {
+    throw flatOrgResult.error;
+  }
+  if (placementResult.error != null) {
+    throw placementResult.error;
+  }
+
+  return mergeMemberDirectoryRows(
+    (flatOrgResult.data ?? []).map(mapCoreMemberRow),
+    (placementResult.data ?? []).map(mapCoreMemberRow)
+  );
 }
 
 export function useMemberDirectoryData(
@@ -131,40 +195,7 @@ export function useMemberDirectoryData(
         return [];
       }
 
-      let query = secureSupabase
-        .from('core_member')
-        .select(
-          [
-            'id',
-            'person_id',
-            'membership_number',
-            'membership_status',
-            'membership_type_id',
-            'organisation_id',
-            'core_person!inner(id, first_name, last_name, preferred_name, email)',
-            'core_membership_type(id, name)',
-          ].join(', ')
-        )
-        .eq('organisation_id', organisationId)
-        .is('deleted_at', null)
-        .in('membership_status', ['Active', 'Suspended'])
-        .order('last_name', { ascending: true, referencedTable: 'core_person' })
-        .order('first_name', { ascending: true, referencedTable: 'core_person' });
-
-      if (membershipTypeFilter != null) {
-        query = query.eq('membership_type_id', membershipTypeFilter);
-      }
-
-      const { data, error } = (await query) as {
-          data: CoreMemberRecord[];
-          error: unknown;
-        };
-
-      if (error != null) {
-        throw error;
-      }
-
-      return sortRowsByName((data ?? []).map(mapCoreMemberRow));
+      return fetchActiveMembersForOrganisation(secureSupabase, organisationId, membershipTypeFilter);
     },
   });
 
@@ -176,50 +207,51 @@ export function useMemberDirectoryData(
         return [];
       }
 
-      const membersPromise = secureSupabase
-        .from('core_member')
-        .select(
-          [
-            'id',
-            'person_id',
-            'membership_number',
-            'membership_status',
-            'membership_type_id',
-            'organisation_id',
-            'core_person!inner(id, first_name, last_name, preferred_name, email)',
-            'core_membership_type(id, name)',
-          ].join(', ')
-        )
-        .eq('organisation_id', organisationId)
-        .is('deleted_at', null)
-        .eq('membership_status', 'Provisional')
-        .order('last_name', { ascending: true, referencedTable: 'core_person' })
-        .order('first_name', { ascending: true, referencedTable: 'core_person' });
-
-      const requestsPromise = secureSupabase
+      const { data: requestData, error: requestError } = (await secureSupabase
         .from('team_member_request')
         .select('id, organisation_id, subject_member_id, subject_person_id, request_type, status, created_at')
         .eq('organisation_id', organisationId)
         .in('status', [...OPEN_REQUEST_STATUSES])
         .in('request_type', [...OPEN_REQUEST_TYPES])
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })) as {
+        data: TeamMemberRequestMatchRecord[];
+        error: unknown;
+      };
 
-      const [{ data: memberData, error: memberError }, { data: requestData, error: requestError }] = (await Promise.all([
-        membersPromise,
-        requestsPromise,
-      ])) as [
-        { data: CoreMemberRecord[]; error: unknown },
-        { data: TeamMemberRequestMatchRecord[]; error: unknown },
-      ];
-
-      if (memberError != null) {
-        throw memberError;
-      }
       if (requestError != null) {
         throw requestError;
       }
 
-      return matchPendingRequests((memberData ?? []).map(mapCoreMemberRow), requestData ?? []);
+      const requests = requestData ?? [];
+      const memberIds = [
+        ...new Set(
+          requests
+            .map((request) => request.subject_member_id)
+            .filter((id): id is string => id != null)
+        ),
+      ];
+
+      if (memberIds.length === 0) {
+        return [];
+      }
+
+      const { data: memberData, error: memberError } = (await secureSupabase
+        .from('core_member')
+        .select(MEMBER_SELECT_FIELDS)
+        .in('id', memberIds)
+        .is('deleted_at', null)) as {
+        data: CoreMemberRecord[];
+        error: unknown;
+      };
+
+      if (memberError != null) {
+        throw memberError;
+      }
+
+      const members = (memberData ?? []).map(mapCoreMemberRow);
+      const { membersById, membersByPersonId } = indexMembersByIdAndPerson(members);
+
+      return buildPendingDirectoryFromRequests(requests, membersById, membersByPersonId);
     },
   });
 

@@ -1,3 +1,4 @@
+import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DataTableColumn } from '@solvera/pace-core/components';
 import {
@@ -77,7 +78,7 @@ function SubOrganisationsPageContent() {
   usePaceMain({ printTitle: 'Sub-organisations', ariaLabel: 'Sub-organisations' });
 
   const { selectedOrganisation } = useOrganisationsContext();
-  const permissions = useResourcePermissions('organisations') as {
+  const permissions = useResourcePermissions(PAGE_NAMES.organisations) as {
     canCreate: boolean;
     canUpdate: boolean;
     isLoading?: boolean;
@@ -227,7 +228,7 @@ function SubOrganisationsPageContent() {
             <DataTable
               data={subOrganisations}
               columns={columns}
-              rbac={{ pageName: 'organisations' }}
+              rbac={{ pageName: PAGE_NAMES.organisations }}
               title="Sub-organisations"
               isLoading={isLoading}
               getRowId={(row) => String(row.id)}
@@ -426,7 +427,7 @@ function SubOrganisationsPageContent() {
 export function SubOrganisationsPage() {
   return (
     <PagePermissionGuard
-      pageName="organisations"
+      pageName={PAGE_NAMES.organisations}
       operation="read"
       fallback={<AccessDenied message="You do not have permission to view this page." />}
     >

@@ -1,3 +1,4 @@
+import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -17,7 +18,7 @@ import { TeamReportTemplatesTable } from '@/components/reports/TeamReportTemplat
 
 export function ReportsPage() {
   return (
-    <PagePermissionGuard pageName="reports" operation="read" fallback={<AccessDenied />}>
+    <PagePermissionGuard pageName={PAGE_NAMES.reports} operation="read" fallback={<AccessDenied />}>
       <ReportsPageOrganisationScope />
     </PagePermissionGuard>
   );
@@ -41,7 +42,7 @@ function ReportsPageContent() {
   const { user } = useUnifiedAuth();
   const userId = user?.id ?? null;
 
-  const permissions = useResourcePermissions('reports') as {
+  const permissions = useResourcePermissions(PAGE_NAMES.reports) as {
     canCreate: boolean;
     canUpdate: boolean;
     canDelete: boolean;
@@ -134,7 +135,7 @@ function ReportsPageContent() {
           confirmLabel: 'Delete',
           cancelLabel: 'Cancel',
         }}
-        reportResultsRbac={{ pageName: 'reports' }}
+        reportResultsRbac={{ pageName: PAGE_NAMES.reports }}
         canCreateTemplates={canCreateTemplates}
         canDeleteTemplates={canDeleteTemplates}
         suppressInlineSavedTemplates

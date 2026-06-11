@@ -174,6 +174,10 @@ function baseHookState() {
       postalAddressId: null,
       postalAddress: null,
     },
+    memberAccessibleInSelectedOrg: true,
+    showIssuingOrganisation: false,
+    issuingOrganisationName: null,
+    activePlacementAtSelectedOrg: null,
     memberLoading: false,
     memberErrorMessage: null,
     refetchMember: vi.fn(),
@@ -299,6 +303,7 @@ describe('Member360Page', () => {
         ...baseHookState().member,
         organisationId: 'org-2',
       },
+      memberAccessibleInSelectedOrg: false,
     }));
 
     renderPage();

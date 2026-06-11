@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import type { ReactNode } from 'react';
-import { ApprovalReviewPanel } from '@/pages/approvals/ApprovalReviewPanel';
+import { ApprovalReviewPanel } from '@/components/approvals/ApprovalReviewPanel';
 import type { ApprovalRequestRow } from '@/lib/approvals/approvals.types';
 
 const useApprovalRequestDetailMock = vi.fn();
@@ -12,6 +12,15 @@ const useResourcePermissionsMock = vi.fn();
 
 vi.mock('@/hooks/useApprovalRequestDetail', () => ({
   useApprovalRequestDetail: (...args: unknown[]) => useApprovalRequestDetailMock(...args),
+}));
+
+vi.mock('@/hooks/useIssuingOrganisation', () => ({
+  useIssuingOrganisation: () => ({
+    issuingOrganisationId: null,
+    issuingOrganisationName: null,
+    showIssuingContext: false,
+    issuingOrgLoading: false,
+  }),
 }));
 
 vi.mock('@/hooks/useResolveMemberRequest', () => ({
@@ -62,6 +71,7 @@ const baseRequest: ApprovalRequestRow = {
   subjectEmail: null,
   sourceOrganisationName: null,
   subjectMemberId: null,
+  subjectMemberOrganisationId: null,
   subjectMemberDeletedAt: null,
   resolverFirstName: null,
   resolverLastName: null,

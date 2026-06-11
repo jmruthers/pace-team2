@@ -44,6 +44,7 @@ const baseRequest: ApprovalRequestRow = {
   subjectEmail: null,
   sourceOrganisationName: null,
   subjectMemberId: null,
+  subjectMemberOrganisationId: null,
   subjectMemberDeletedAt: null,
   resolverFirstName: null,
   resolverLastName: null,

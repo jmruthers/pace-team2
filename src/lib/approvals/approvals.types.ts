@@ -23,6 +23,7 @@ export interface ApprovalRequestRow extends Record<string, unknown> {
   subjectEmail: string | null;
   sourceOrganisationName: string | null;
   subjectMemberId: string | null;
+  subjectMemberOrganisationId: string | null;
   subjectMemberDeletedAt: string | null;
   resolverFirstName: string | null;
   resolverLastName: string | null;

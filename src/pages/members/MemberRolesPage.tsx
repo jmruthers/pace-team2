@@ -1,3 +1,4 @@
+import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { DataTableColumn } from '@solvera/pace-core/components';
@@ -10,30 +11,16 @@ import {
   Card,
   CardContent,
   DataTable,
-  DatePickerWithTimezone,
-  Dialog,
-  DialogBody,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogPortal,
-  DialogTitle,
-  Label,
   LoadingSpinner,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   toast,
 } from '@solvera/pace-core/components';
 import { ChevronLeft } from '@solvera/pace-core/icons';
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
 import { AccessDenied, PagePermissionGuard, useResourcePermissions } from '@solvera/pace-core/rbac';
-import { HandleSupabaseError } from '@solvera/pace-core/utils';
 import { useMemberRolesData } from '@/hooks/useMemberRolesData';
+import { MemberRoleDialogs, runEndRoleWithToast } from '@/components/members/MemberRoleDialogs';
+import { filterRoleTypesForMembership } from '@/lib/members/memberRoleTypes';
 import {
   formatRoleDate,
   getMemberRolesDisplayName,
@@ -89,16 +76,21 @@ function MemberRolesPageContent() {
   const navigate = useNavigate();
   const { memberId } = useParams();
   const { selectedOrganisation } = useOrganisationsContext();
-  const rolesPermissions = useResourcePermissions('member-roles');
+  const rolesPermissions = useResourcePermissions(PAGE_NAMES.memberRoles);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogRow, setEditDialogRow] = useState<MemberRoleRow | null>(null);
   const [endDialogRow, setEndDialogRow] = useState<MemberRoleRow | null>(null);
   const [selectedRoleId, setSelectedRoleId] = useState<string>('');
+  const [appointmentTitle, setAppointmentTitle] = useState('');
+  const [editRoleId, setEditRoleId] = useState<string>('');
+  const [editAppointmentTitle, setEditAppointmentTitle] = useState('');
   const [startDate, setStartDate] = useState<Date>(todayDateValue());
   const [endDate, setEndDate] = useState<Date>(todayDateValue());
 
   const organisationId = selectedOrganisation?.id ?? null;
   const {
     member,
+    memberAccessibleInSelectedOrg,
     memberLoading,
     memberErrorMessage,
     refetchMember,
@@ -111,6 +103,10 @@ function MemberRolesPageContent() {
     addRolePending,
     addRoleError,
     resetAddRole,
+    editRole,
+    editRolePending,
+    editRoleErrorMessage,
+    resetEditRole,
     endRole,
     endRolePending,
     resetEndRole,
@@ -138,12 +134,28 @@ function MemberRolesPageContent() {
     });
   }, [addRoleError]);
 
-  const isOrgMismatch = member != null && selectedOrganisation != null && member.organisationId !== selectedOrganisation.id;
+  const isOrgMismatch =
+    member != null && selectedOrganisation != null && memberAccessibleInSelectedOrg === false;
+  const filteredRoleTypes = useMemo(
+    () => filterRoleTypesForMembership(roleTypes, member?.membershipTypeId ?? null),
+    [member?.membershipTypeId, roleTypes]
+  );
   const selectedRoleIdNumber = Number.parseInt(selectedRoleId, 10);
   const hasSelectedRole = selectedRoleId.trim().length > 0 && Number.isFinite(selectedRoleIdNumber);
+  const editRoleIdNumber = Number.parseInt(editRoleId, 10);
+  const hasEditRole = editRoleId.trim().length > 0 && Number.isFinite(editRoleIdNumber);
   const startDateValue = toDateOnlyValue(startDate);
   const selectedRoleHasActiveDuplicate = hasSelectedRole
     && roles.some((role) => role.roleId === selectedRoleIdNumber && role.endDate == null);
+  const editRoleHasActiveDuplicate =
+    editDialogRow != null &&
+    hasEditRole &&
+    roles.some(
+      (role) =>
+        role.id !== editDialogRow.id &&
+        role.roleId === editRoleIdNumber &&
+        role.endDate == null
+    );
 
   const endDateInvalid = endDialogRow != null && endDate < parseDateValue(endDialogRow.startDate);
 
@@ -155,6 +167,14 @@ function MemberRolesPageContent() {
       sortable: true,
       searchable: true,
       cell: ({ row }) => row.roleName ?? '—',
+    },
+    {
+      id: 'title',
+      accessorKey: 'title',
+      header: 'Appointment title',
+      sortable: true,
+      searchable: true,
+      cell: ({ row }) => row.title ?? '',
     },
     {
       id: 'startDate',
@@ -189,17 +209,31 @@ function MemberRolesPageContent() {
           return null;
         }
         return (
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={() => setEndDialogRow(row)}
-          >
-            End role
-          </Button>
+          <section className="grid grid-flow-col auto-cols-max gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setEditDialogRow(row);
+                setEditRoleId(String(row.roleId));
+                setEditAppointmentTitle(row.title ?? '');
+                resetEditRole();
+              }}
+            >
+              Edit role
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => setEndDialogRow(row)}
+            >
+              End role
+            </Button>
+          </section>
         );
       },
     },
-  ], [rolesPermissions.canUpdate]);
+  ], [resetEditRole, rolesPermissions.canUpdate]);
 
   const roleTableFeatures = useMemo(() => ({
     import: false,
@@ -270,10 +304,10 @@ function MemberRolesPageContent() {
         <h1>{memberName} — Standing roles</h1>
         {rolesPermissions.canUpdate ? (
           <section className="grid justify-items-start md:justify-items-end">
-            <Button type="button" onClick={() => setAddDialogOpen(true)} disabled={roleTypes.length === 0}>
+            <Button type="button" onClick={() => setAddDialogOpen(true)} disabled={filteredRoleTypes.length === 0}>
               Add role
             </Button>
-            {roleTypes.length === 0 && (
+            {filteredRoleTypes.length === 0 && (
               <p>No role types configured for this organisation. Contact your administrator.</p>
             )}
           </section>
@@ -298,7 +332,7 @@ function MemberRolesPageContent() {
             <DataTable<MemberRoleRow>
               data={roles}
               columns={roleColumns}
-              rbac={{ pageName: 'member-roles' }}
+              rbac={{ pageName: PAGE_NAMES.memberRoles }}
               description={`${roles.length} roles`}
               isLoading={rolesLoading}
               getRowId={(row) => row.id}
@@ -314,162 +348,116 @@ function MemberRolesPageContent() {
         </CardContent>
       </Card>
 
-      <Dialog
-        open={addDialogOpen}
-        onOpenChange={(open) => {
-          setAddDialogOpen(open);
-          if (!open) {
-            setSelectedRoleId('');
-            setStartDate(todayDateValue());
-            resetAddRole();
-          }
+      <MemberRoleDialogs
+        filteredRoleTypes={filteredRoleTypes}
+        add={{
+          open: addDialogOpen,
+          onOpenChange: (open) => {
+            setAddDialogOpen(open);
+            if (!open) {
+              setSelectedRoleId('');
+              setAppointmentTitle('');
+              setStartDate(todayDateValue());
+              resetAddRole();
+            }
+          },
+          selectedRoleId,
+          onSelectedRoleIdChange: setSelectedRoleId,
+          appointmentTitle,
+          onAppointmentTitleChange: setAppointmentTitle,
+          startDate,
+          onStartDateChange: setStartDate,
+          selectedRoleHasActiveDuplicate,
+          hasSelectedRole,
+          pending: addRolePending,
+          onSubmit: async () => {
+            if (organisationId == null || memberId == null || !hasSelectedRole || selectedRoleHasActiveDuplicate) {
+              return;
+            }
+            await addRole({
+              memberId,
+              roleId: selectedRoleIdNumber,
+              organisationId,
+              startDate: startDateValue,
+              title: appointmentTitle,
+            });
+            setAddDialogOpen(false);
+            toast({
+              title: 'Role added.',
+              variant: 'success',
+            });
+          },
         }}
-      >
-        <DialogPortal>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add role</DialogTitle>
-              <DialogDescription>Record a new standing role for this member.</DialogDescription>
-            </DialogHeader>
-            <DialogBody>
-              <section className="grid gap-3">
-                <Label htmlFor="add-role-role-type">
-                  Role type
-                  <Select value={selectedRoleId} onValueChange={(value) => setSelectedRoleId(value ?? '')}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select role type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roleTypes.map((roleType) => (
-                        <SelectItem key={roleType.id} value={String(roleType.id)}>
-                          {roleType.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Label>
-                {selectedRoleHasActiveDuplicate && (
-                  <p>This member already has an active role of this type.</p>
-                )}
-                <Label htmlFor="add-role-start-date">
-                  Start date
-                  <DatePickerWithTimezone
-                    value={startDate}
-                    onChange={(nextDate) => setStartDate(nextDate)}
-                  />
-                </Label>
-              </section>
-            </DialogBody>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setAddDialogOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                onClick={async () => {
-                  if (organisationId == null || memberId == null || !hasSelectedRole || selectedRoleHasActiveDuplicate) {
-                    return;
-                  }
-                  await addRole({
-                    memberId,
-                    roleId: selectedRoleIdNumber,
-                    organisationId,
-                    startDate: startDateValue,
-                  });
-                  setAddDialogOpen(false);
-                  toast({
-                    title: 'Role added.',
-                    variant: 'success',
-                  });
-                }}
-                disabled={!hasSelectedRole || selectedRoleHasActiveDuplicate || addRolePending}
-              >
-                {addRolePending ? <LoadingSpinner /> : null}
-                Add role
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </DialogPortal>
-      </Dialog>
-
-      <Dialog
-        open={endDialogRow != null}
-        onOpenChange={(open) => {
-          if (!open) {
+        edit={{
+          row: editDialogRow,
+          onRowChange: (row) => {
+            setEditDialogRow(row);
+            if (row == null) {
+              setEditRoleId('');
+              setEditAppointmentTitle('');
+              resetEditRole();
+            }
+          },
+          roleId: editRoleId,
+          onRoleIdChange: setEditRoleId,
+          appointmentTitle: editAppointmentTitle,
+          onAppointmentTitleChange: setEditAppointmentTitle,
+          hasActiveDuplicate: editRoleHasActiveDuplicate,
+          hasRole: hasEditRole,
+          errorMessage: editRoleErrorMessage,
+          pending: editRolePending,
+          onSubmit: async () => {
+            if (editDialogRow == null || organisationId == null || !hasEditRole || editRoleHasActiveDuplicate) {
+              return;
+            }
+            await editRole({
+              roleEntryId: editDialogRow.id,
+              organisationId,
+              roleId: editRoleIdNumber,
+              title: editAppointmentTitle,
+            });
+            setEditDialogRow(null);
+            toast({
+              title: 'Role updated.',
+              variant: 'success',
+            });
+          },
+        }}
+        end={{
+          row: endDialogRow,
+          onRowChange: (row) => {
+            setEndDialogRow(row);
+            if (row == null) {
+              setEndDate(todayDateValue());
+              resetEndRole();
+            }
+          },
+          endDate,
+          onEndDateChange: setEndDate,
+          endDateInvalid,
+          pending: endRolePending,
+          onSubmit: async () => {
+            if (endDialogRow == null || organisationId == null || endDateInvalid) {
+              return;
+            }
+            await runEndRoleWithToast(async () => {
+              await endRole({
+                roleEntryId: endDialogRow.id,
+                organisationId,
+                endDate: toDateOnlyValue(endDate),
+              });
+            });
             setEndDialogRow(null);
-            setEndDate(todayDateValue());
-            resetEndRole();
-          }
+          },
         }}
-      >
-        <DialogPortal>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>End role?</DialogTitle>
-              <DialogDescription>
-                {(endDialogRow?.roleName ?? '—')} will be marked ended on {formatRoleDate(toDateOnlyValue(endDate))}.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogBody>
-              <section className="grid gap-3">
-                <Label htmlFor="end-role-date">
-                  End date
-                  <DatePickerWithTimezone
-                    value={endDate}
-                    onChange={(nextDate) => setEndDate(nextDate)}
-                  />
-                </Label>
-                <p>You can&apos;t reverse this from this page.</p>
-                {endDateInvalid && <p>End date must be on or after start date.</p>}
-              </section>
-            </DialogBody>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEndDialogRow(null)}>
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={async () => {
-                  if (endDialogRow == null || organisationId == null || endDateInvalid) {
-                    return;
-                  }
-                  try {
-                    await endRole({
-                      roleEntryId: endDialogRow.id,
-                      organisationId,
-                      endDate: toDateOnlyValue(endDate),
-                    });
-                    toast({
-                      title: 'Role ended.',
-                      variant: 'success',
-                    });
-                  } catch (error: unknown) {
-                    toast({
-                      title: 'Could not end role',
-                      description: HandleSupabaseError(error, 'core_member_role').message,
-                      variant: 'destructive',
-                    });
-                  } finally {
-                    setEndDialogRow(null);
-                  }
-                }}
-                disabled={endDateInvalid || endRolePending}
-              >
-                {endRolePending ? <LoadingSpinner /> : null}
-                End role
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </DialogPortal>
-      </Dialog>
+      />
     </main>
   );
 }
 
 export function MemberRolesPage() {
   return (
-    <PagePermissionGuard pageName="member-roles" operation="read" fallback={<AccessDenied />}>
+    <PagePermissionGuard pageName={PAGE_NAMES.memberRoles} operation="read" fallback={<AccessDenied />}>
       <MemberRolesPageContent />
     </PagePermissionGuard>
   );

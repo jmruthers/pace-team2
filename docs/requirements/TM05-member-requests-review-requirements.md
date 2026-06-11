@@ -145,6 +145,10 @@ If `selectedOrganisation` resolves to `null` after step 3 (for example a race du
 - **F-40** The **Request** group lists, in this order: request-type badge (Join / Transfer per F-26), submitted-at (`team_member_request.created_at` as full date and time, e.g. "5 May 2026 at 14:30"), target organisation name (`core_organisations.name` via `target_organisation_id`), source organisation name (only when `request_type='transfer'`; via `source_organisation_id`), membership type (`core_membership_type.name` via `membership_type_id`; em-dash when null), applicant-supplied member number (`team_member_request.applicant_member_number`; em-dash when null), and current status badge (per F-30 / F-35).
 - **F-41** When BR-12 is satisfied, a `<Button variant="outline">View member 360 →</Button>` renders below the Request group, navigating to `/members/:memberId` using `core_member.id` on click.
 - **F-42** When BR-12 is not satisfied (no `subject_member_id`, or member row deleted), the "View member 360" link is suppressed; no replacement copy renders.
+- **F-42a (Option A)** When the resolved issuing org differs from the request's selected org, the **Request** group shows **Membership issuing org** with copy `Membership record will be held at: {issuing org name}` (resolved client-side via org hierarchy or `subject_member.organisation_id` when present).
+- **F-42b (Option A)** When `request_type='transfer'` and `status='pending'`, the **Request** group shows **Transfer closure** with copy `Membership at {source org name} will be closed on approval.`
+- **F-42c (Option A)** When `status='approved'` and BR-12 is satisfied, a `<Button variant="outline">View placements →</Button>` renders beside the member 360 link, navigating to `/members/:memberId/roles`, with helper copy that a standing role may be required for directory visibility.
+- **F-42d (Option A)** Approve resolve calls `app_resolve_member_request` with `p_placement_role_id = null` explicitly (role assignment deferred to TEAM-04).
 
 ### Primary content — Review panel right column
 
@@ -441,11 +445,12 @@ The review panel is a single container occupying the right pane (`md+`) or the f
 - Output: include rows WHERE `team_member_request.organisation_id = :orgId` AND `team_member_request.status IN ('approved','rejected','withdrawn')` AND `team_member_request.request_type IN ('join','transfer')`.
 
 **BR-04 — Approve resolve transition (server-side, atomic).**
-- Input: Approve confirm action — calls `app_resolve_member_request(p_request_id, p_status='approved', p_review_notes=null, p_member_number)`.
+- Input: Approve confirm action — calls `app_resolve_member_request(p_request_id, p_status='approved', p_review_notes=null, p_member_number)` (optional `p_placement_role_id` deferred for MVP).
 - Server-side outputs (executed atomically inside the RPC):
-  - UPDATE `team_member_request` SET `status='approved'`, `resolved_by`, `resolved_at`, audit columns WHERE `id=:requestId AND status='pending'`.
-  - UPDATE the joined provisional `core_member` SET `membership_status='Active'`, `membership_number=:p_member_number ?? :request.applicant_member_number ?? :platform-generated`.
-  - When `request_type='transfer'` AND `team_member_request.source_organisation_id IS NOT NULL`: UPDATE the source-org `core_member` SET `membership_status='Resigned'` WHERE `core_member.organisation_id=:source_organisation_id AND core_member.person_id=:subject_person_id`.
+  - UPDATE `team_member_request` SET `status='approved'`, `resolved_by`, `resolved_at`, audit columns WHERE `id=:requestId AND status IN ('pending','on_hold')`.
+  - UPDATE the issuing-org `core_member` (via `subject_member_id`) SET `membership_status='Active'`, `membership_number=:p_member_number ?? :request.applicant_member_number`.
+  - When issuing org ≠ selected (sub-org) org AND `p_placement_role_id IS NOT NULL`: INSERT `core_member_role` placement at the request's selected org. MVP: TEAM admin assigns standing role separately after approval when placement role is not supplied.
+  - When `request_type='transfer'` AND `source_organisation_id IS NOT NULL`: close the active `core_member_role` at the source sub-org (`end_date = CURRENT_DATE`). Issuing-org `core_member` stays `Active` (no auto-resign when last placement closes in v1).
   - On success: returns TRUE.
 - Edge: stale call (status no longer pending/on_hold) raises `'Resolvable request not found'`. UI catches and surfaces destructive toast + refetch (BR-10).
 - Edge: duplicate member number raises `'Membership number already exists for this organisation'` (or equivalent normalised message). UI surfaces destructive toast + leaves dialog open.
@@ -456,7 +461,7 @@ The review panel is a single container occupying the right pane (`md+`) or the f
 - Validation (client-side): trimmed `p_review_notes` length ≥ 10. Confirm button disabled until valid.
 - Server-side outputs:
   - UPDATE `team_member_request` SET `status='rejected'`, `review_notes=trim(:p_review_notes)`, `resolved_by`, `resolved_at`, audit columns WHERE `id=:requestId`.
-  - DELETE the joined provisional `core_member` row identified by `subject_member_id`. FK ON DELETE SET NULL clears `team_member_request.subject_member_id`.
+  - DELETE the issuing-org `core_member` row only when `membership_status = 'Provisional'` and no other active placements exist. Second-placement reject leaves the existing Active issuing-org membership intact. FK ON DELETE SET NULL clears `team_member_request.subject_member_id` when the row is deleted.
 - Client never writes `core_member` directly.
 
 **BR-06 — Put-on-hold transition (server-side).**
@@ -961,7 +966,7 @@ Given the open-count query at key `['approvals', 'open-count', selectedOrganisat
 - **In-app demo flow — stale resolve.** Open the same request in two browser tabs as the same admin. In tab A, click Approve and confirm. In tab B, click Approve and confirm. Confirm tab B receives the destructive toast "This request has already been resolved by another admin. Refreshing the queue." and navigates back to `/approvals`.
 - **In-app demo flow — org switch with detail open.** Navigate to `/approvals/:requestId` for org A. Switch the org context to org B. Confirm the slice navigates to `/approvals` for org B and the default-variant toast appears with copy "Switched organisations. Showing approvals for {newOrgName}."
 - **In-app demo flow — open count badge.** Visit `/approvals` for an org with 5 pending requests. Confirm TEAM-01's nav badge for "Approvals" reads `5`. Approve one request. Confirm the badge updates to `4` after the resolve success.
-- **Transfer-approve smoke test.** Create a transfer request from Org A to Org B; approve as Org B admin; verify (a) `team_member_request.status = 'approved'`, (b) Org B's provisional `core_member` row becomes `Active` with assigned member number, (c) Org A's source `core_member` row becomes `Resigned`. Confirms BR-04 atomic transfer-approve side-effects.
+- **Transfer-approve smoke test.** Create a transfer request from sub-org A to sub-org B under the same issuing org; approve as Org B admin; verify (a) `team_member_request.status = 'approved'`, (b) issuing-org `core_member` becomes `Active` with assigned member number, (c) source sub-org `core_member_role.end_date` is set, (d) issuing-org membership remains `Active`. Confirms BR-04 Option A transfer-approve side-effects.
 
 ---
 
@@ -1001,8 +1006,8 @@ Given the open-count query at key `['approvals', 'open-count', selectedOrganisat
   - **(a)** `team_member_request_type` enum is extended with `'join'` and `'transfer'` on verified-contract project `yihzsfcceciimdoiibif` (backend-ready MCP target).
   - **(b)** `team_member_request_status` enum is extended with `'on_hold'` on dev.
   - **(c)** `team_member_request` table extended with columns `target_organisation_id` (uuid NOT NULL, FK `core_organisations.id`), `source_organisation_id` (uuid NULL, FK `core_organisations.id`), `membership_type_id` (uuid NULL, FK `core_membership_type.id`), `applicant_member_number` (text NULL), and `review_notes` (text NULL) on dev.
-  - **(d)** `app_resolve_member_request` RPC accepts `p_status='on_hold'` and a `p_member_number` parameter, and executes member-side effects atomically server-side per BR-04 / BR-05 / BR-06 (Approve → set `core_member.membership_status='Active'` and assign member number; transfer-Approve → also set source-org `core_member.membership_status='Resigned'`; Reject → DELETE provisional `core_member` row; On-hold → no `core_member` change).
-  - **(e)** `app_submit_member_request` RPC accepts a `request_type` parameter and inserts the provisional `core_member` row server-side at submission time when `request_type IN ('join','transfer')`. (Owned by TEAM-09 + Portal; verified for upstream readiness only.)
+  - **(d)** `app_resolve_member_request` RPC accepts `p_status='on_hold'` and a `p_member_number` parameter, and executes member-side effects atomically server-side per BR-04 / BR-05 / BR-06 (Approve → set issuing-org `core_member.membership_status='Active'` and assign member number; optional placement `core_member_role` when `p_placement_role_id` supplied; transfer-Approve → close source placement; Reject → DELETE `Provisional` `core_member` only when no active placements; On-hold → no `core_member` change).
+  - **(e)** `app_submit_member_request` RPC (TEAM-DB-018 Option A) provisions `core_member` at the issuing org when `request_type IN ('join','transfer')` and returns `issuing_org_id`. (Owned by TEAM-09 + Portal; verified for upstream readiness only.)
 
   The v6 slice does not author the migration. Until items (a) through (e) are confirmed via Supabase MCP against dev, this slice cannot be marked Done.
 

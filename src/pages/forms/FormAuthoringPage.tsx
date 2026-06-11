@@ -1,3 +1,4 @@
+import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
@@ -62,7 +63,7 @@ function FormAuthoringPageContent() {
 
   const detailEligible = !isCreate && organisationId != null && effectiveFormId != null;
 
-  const permissions = useResourcePermissions('forms') as {
+  const permissions = useResourcePermissions(PAGE_NAMES.forms) as {
     canCreate: boolean;
     canUpdate: boolean;
     isLoading?: boolean;
@@ -382,7 +383,7 @@ function FormAuthoringPageContent() {
 export function FormAuthoringPage() {
   return (
     <PagePermissionGuard
-      pageName="forms"
+      pageName={PAGE_NAMES.forms}
       operation="read"
       fallback={<AccessDenied message="You do not have permission to view this page." />}
     >

@@ -1,3 +1,4 @@
+import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
@@ -47,7 +48,7 @@ function OrganisationSettingsPageContent() {
 
   const { selectedOrganisation } = useOrganisationsContext();
   const organisationId = selectedOrganisation?.id ?? null;
-  const permissions = useResourcePermissions('org-settings') as {
+  const permissions = useResourcePermissions(PAGE_NAMES.orgSettings) as {
     canCreate: boolean;
     canUpdate: boolean;
     isLoading?: boolean;
@@ -442,7 +443,7 @@ function OrganisationSettingsPageContent() {
 export function OrganisationSettingsPage() {
   return (
     <PagePermissionGuard
-      pageName="org-settings"
+      pageName={PAGE_NAMES.orgSettings}
       operation="read"
       fallback={<AccessDenied message="You do not have permission to view this page." />}
     >

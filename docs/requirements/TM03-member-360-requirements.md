@@ -117,6 +117,8 @@ If `selectedOrganisation` resolves to `null` mid-render (for example a race duri
 - **F-17** **Card mutation error.** Failures on Deactivate / Reactivate are normalised through `HandleSupabaseError(error, { context: 'core_member_card' })` and surfaced as a `destructive` toast. The row's `is_active` reverts to its prior value on failure (no optimistic update committed).
 - **F-18** **Permission denied (read).** A user without `read:page.members` sees `<AccessDenied />` rendered inside the `AuthenticatedShell` chrome with copy "You do not have permission to view this page." (the `AccessDenied` default).
 - **F-19** **Org-mismatch.** When `selectedOrganisation` changes mid-render and the loaded member's `organisation_id` no longer matches, the page replaces its content with `<Alert variant="destructive">` titled "This member is not in the current organisation", description "Switch back, or return to the members directory.", and a `<Button variant="outline">Back to members</Button>` that navigates to `/members`.
+- **F-19a (Option A)** **Issuing org display.** When `core_member.organisation_id` (issuing org) differs from `selectedOrganisation.id`, the Identity read-only grid shows **Issued by** with the issuing organisation display name. Omitted when issuing org equals selected org (flat org).
+- **F-19b (Option A)** **Placement display.** When the member has an active `core_member_role` at `selectedOrganisation.id` (`end_date IS NULL`), the Identity read-only grid shows **Placement** as `Placed at: {selected org name} (since {start_date})`. Omitted when no active placement exists at the selected org.
 
 ### Primary content — Member details (Identity)
 

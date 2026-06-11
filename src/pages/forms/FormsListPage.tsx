@@ -1,3 +1,4 @@
+import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { DataTableAction, DataTableColumn } from '@solvera/pace-core/components';
@@ -46,7 +47,7 @@ function FormsListPageContent() {
   const { selectedOrganisation } = useOrganisationsContext();
   const organisationId = selectedOrganisation?.id ?? null;
 
-  const permissions = useResourcePermissions('forms') as {
+  const permissions = useResourcePermissions(PAGE_NAMES.forms) as {
     canCreate: boolean;
     canUpdate: boolean;
     canDelete: boolean;
@@ -306,7 +307,7 @@ function FormsListPageContent() {
             <DataTable<OrgFormsTableRow>
               data={tableRows}
               columns={columns}
-              rbac={{ pageName: 'forms' }}
+              rbac={{ pageName: PAGE_NAMES.forms }}
               description={`${rawCount} forms`}
               isLoading={isLoading}
               loadingSpinnerLabel="Loading forms"
@@ -409,7 +410,7 @@ function FormsListPageContent() {
 export function FormsListPage() {
   return (
     <PagePermissionGuard
-      pageName="forms"
+      pageName={PAGE_NAMES.forms}
       operation="read"
       fallback={<AccessDenied message="You do not have permission to view this page." />}
     >

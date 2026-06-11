@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSecureSupabase } from '@solvera/pace-core/rbac';
 import { HandleSupabaseError } from '@solvera/pace-core/utils';
+import { fetchOrganisationName, shouldShowIssuingOrganisationContext } from '@/lib/members/issuingOrganisation';
+import { isMemberAccessibleInOrganisation } from '@/lib/members/memberOrgAccess';
 import { lookupContainsId } from '@/lib/members/member360.display.format';
 import { mapMemberRow, parseInteger } from '@/lib/members/member360.mappers';
 import {
@@ -80,7 +82,6 @@ export function useMember360Data({ memberId, organisationId }: UseMember360DataO
           ].join(', ')
         )
         .eq('id', memberId)
-        .eq('organisation_id', organisationId)
         .is('deleted_at', null)
         .maybeSingle()) as SupabaseQueryResult<MemberFetchRaw | null>;
 
@@ -95,10 +96,75 @@ export function useMember360Data({ memberId, organisationId }: UseMember360DataO
     },
   });
 
+  const placementQuery = useQuery({
+    queryKey: ['member', memberId, 'placement', organisationId],
+    enabled: memberId != null && organisationId != null && secureSupabase != null,
+    queryFn: async (): Promise<{ startDate: string } | null> => {
+      if (memberId == null || organisationId == null || secureSupabase == null) {
+        return null;
+      }
+
+      const { data, error } = (await secureSupabase
+        .from('core_member_role')
+        .select('id, start_date')
+        .eq('member_id', memberId)
+        .eq('organisation_id', organisationId)
+        .is('end_date', null)
+        .maybeSingle()) as SupabaseQueryResult<{ id: string; start_date: string } | null>;
+
+      if (error != null) {
+        throw error;
+      }
+
+      if (data == null) {
+        return null;
+      }
+
+      return { startDate: data.start_date };
+    },
+  });
+
+  const issuingOrganisationNameQuery = useQuery({
+    queryKey: ['member', memberId, 'issuing-org-name', memberQuery.data?.organisationId],
+    enabled:
+      memberQuery.data != null &&
+      organisationId != null &&
+      secureSupabase != null &&
+      shouldShowIssuingOrganisationContext(memberQuery.data.organisationId, organisationId),
+    queryFn: async (): Promise<string | null> => {
+      if (memberQuery.data == null || secureSupabase == null) {
+        return null;
+      }
+      const result = await fetchOrganisationName(secureSupabase, memberQuery.data.organisationId);
+      if (result.ok === false) {
+        throw result.error;
+      }
+      return result.data;
+    },
+  });
+
+  const memberAccessibleInSelectedOrg = useMemo(() => {
+    if (memberQuery.data == null || organisationId == null) {
+      return false;
+    }
+    return isMemberAccessibleInOrganisation(
+      memberQuery.data.organisationId,
+      organisationId,
+      placementQuery.data != null
+    );
+  }, [memberQuery.data, organisationId, placementQuery.data]);
+
+  const showIssuingOrganisation = useMemo(() => {
+    if (memberQuery.data == null || organisationId == null) {
+      return false;
+    }
+    return shouldShowIssuingOrganisationContext(memberQuery.data.organisationId, organisationId);
+  }, [memberQuery.data, organisationId]);
+
   const memberLists = useMember360MemberQueries({
     memberId,
     organisationId,
-    member: memberQuery.data,
+    member: memberAccessibleInSelectedOrg ? memberQuery.data : null,
     secureSupabase,
   });
 
@@ -181,7 +247,11 @@ export function useMember360Data({ memberId, organisationId }: UseMember360DataO
 
   return {
     member: memberQuery.data ?? null,
-    memberLoading: memberQuery.isLoading,
+    memberAccessibleInSelectedOrg,
+    showIssuingOrganisation,
+    issuingOrganisationName: issuingOrganisationNameQuery.data ?? null,
+    activePlacementAtSelectedOrg: placementQuery.data ?? null,
+    memberLoading: memberQuery.isLoading || placementQuery.isLoading,
     memberErrorMessage,
     refetchMember: memberQuery.refetch,
     ...memberLists,

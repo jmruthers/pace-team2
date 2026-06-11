@@ -1,8 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   buildResolveInvalidationTargets,
   buildResolveSuccessInvalidationTargets,
   getResolveErrorOutcome,
+  runResolveMemberRequestRpc,
 } from '@/hooks/useResolveMemberRequest';
 
 describe('useResolveMemberRequest contracts', () => {
@@ -38,6 +39,18 @@ describe('useResolveMemberRequest contracts', () => {
       shouldNavigateToList: false,
       shouldInvalidateAll: false,
       keepDialogOpen: true,
+    });
+  });
+
+  it('passes p_placement_role_id null on resolve RPC', async () => {
+    const rpc = vi.fn(async () => ({ error: null }));
+    await runResolveMemberRequestRpc({ rpc }, { requestId: 'req-1', status: 'approved' });
+    expect(rpc).toHaveBeenCalledWith('app_resolve_member_request', {
+      p_request_id: 'req-1',
+      p_status: 'approved',
+      p_review_notes: null,
+      p_member_number: null,
+      p_placement_role_id: null,
     });
   });
 });

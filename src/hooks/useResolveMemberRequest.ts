@@ -98,6 +98,7 @@ export async function runResolveMemberRequestRpc(
     p_status: payload.status,
     p_review_notes: payload.reviewNotes ?? null,
     p_member_number: payload.memberNumber ?? null,
+    p_placement_role_id: null,
   });
 
   if (error != null) {
