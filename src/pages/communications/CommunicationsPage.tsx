@@ -14,6 +14,7 @@ import {
   Checkbox,
   Label,
   LoadingSpinner,
+  PageHeader,
   toast,
 } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
@@ -253,7 +254,40 @@ function CommunicationsPageInner({ organisationId }: CommunicationsPageInnerProp
 
   return (
     <main className="grid gap-4 pb-28">
-      <h1>Communications</h1>
+      <PageHeader
+        title="Communications"
+        subtitle="Compose and send email or SMS to members in your organisation."
+        actions={
+          <Button type="button" variant="outline" onClick={() => navigate('/communications/log')}>
+            Send log
+          </Button>
+        }
+      />
+
+      {showComposerLoading ? (
+        <section className="grid place-items-center py-16">
+          <LoadingSpinner aria-label="Loading communications composer" />
+        </section>
+      ) : (
+        <>
+          {showZeroRecipientCopy && <p>{ZERO_RECIPIENT_MESSAGE}</p>}
+          <CommComposer
+            adapter={adapter}
+            blockSendOnUnresolvedTokens
+            blockSendWhenPoolEmpty
+            draft={draft}
+            onDraftChange={onDraftChange}
+            onCancel={onCancel}
+            onScheduleComplete={onScheduleComplete}
+            onSendComplete={onSendComplete}
+            onSendError={onSendError}
+            organisationId={organisationId}
+            rbac={rbac}
+            recipientPool={recipientPool}
+            sourceApp="team"
+          />
+        </>
+      )}
 
       <Card>
         <CardHeader>
@@ -347,31 +381,6 @@ function CommunicationsPageInner({ organisationId }: CommunicationsPageInnerProp
           </CardFooter>
         )}
       </Card>
-
-      {showComposerLoading ? (
-        <section className="grid place-items-center py-16">
-          <LoadingSpinner aria-label="Loading communications composer" />
-        </section>
-      ) : (
-        <>
-          {showZeroRecipientCopy && <p>{ZERO_RECIPIENT_MESSAGE}</p>}
-          <CommComposer
-            adapter={adapter}
-            blockSendOnUnresolvedTokens
-            blockSendWhenPoolEmpty
-            draft={draft}
-            onDraftChange={onDraftChange}
-            onCancel={onCancel}
-            onScheduleComplete={onScheduleComplete}
-            onSendComplete={onSendComplete}
-            onSendError={onSendError}
-            organisationId={organisationId}
-            rbac={rbac}
-            recipientPool={recipientPool}
-            sourceApp="team"
-          />
-        </>
-      )}
     </main>
   );
 }

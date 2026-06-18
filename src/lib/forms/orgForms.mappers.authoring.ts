@@ -1,4 +1,11 @@
-import type { WorkflowAccessMode, WorkflowAuthoringMetadata, WorkflowAuthoringState, WorkflowFieldDefinition, WorkflowFormStatus, WorkflowType } from '@solvera/pace-core/forms';
+import type {
+  WorkflowAccessMode,
+  WorkflowAuthoringMetadata,
+  WorkflowAuthoringState,
+  WorkflowFieldDefinition,
+  WorkflowFormStatus,
+  WorkflowType,
+} from '@solvera/pace-core/forms';
 
 import { statusBadgeLabel, workflowTypeTeamLabel } from '@/lib/forms/orgForms.display';
 import type {
@@ -11,44 +18,33 @@ import type {
   OrgWorkflowType,
 } from '@/lib/forms/orgForms.types';
 
-const TEAM_ALLOWED: ReadonlySet<WorkflowType> = new Set([
+const TEAM_AUTHORING_WORKFLOW_TYPES: ReadonlySet<WorkflowType> = new Set([
   'org_signup',
   'information_collection',
   'consent_capture',
-  'generic',
 ]);
 
-export function createEmptyAuthoringState(organisationId: string): WorkflowAuthoringState {
-  const metadata: WorkflowAuthoringMetadata = {
-    slug: '',
-    name: '',
-    description: '',
-    workflowType: 'org_signup',
-    accessMode: 'authenticated_member',
-    status: 'draft',
-    opensAt: null,
-    closesAt: null,
-    workflowConfig: {},
-    isPrimaryEntrypoint: false,
-    isActive: false,
-    organisationId,
-  };
-  return { metadata, fields: [] };
-}
-
-export function defaultScheduleLimits(): OrgFormScheduleLimitsInput {
-  return {
-    maxSubmissionsInput: '',
-    confirmationMessage: '',
-    isRequired: false,
-  };
-}
-
-function coerceWorkflowType(raw: string): WorkflowType {
-  if (TEAM_ALLOWED.has(raw as WorkflowType)) {
-    return raw as WorkflowType;
+function coerceOrgWorkflowType(raw: string): OrgWorkflowType {
+  if (
+    raw === 'org_signup' ||
+    raw === 'information_collection' ||
+    raw === 'consent_capture' ||
+    raw === 'generic'
+  ) {
+    return raw;
   }
   return 'generic';
+}
+
+/** Maps DB `workflow_type` to pace-core authoring metadata (legacy `generic` → information_collection). */
+function coerceAuthoringWorkflowType(raw: string): WorkflowType {
+  if (TEAM_AUTHORING_WORKFLOW_TYPES.has(raw as WorkflowType)) {
+    return raw as WorkflowType;
+  }
+  if (raw === 'generic') {
+    return 'information_collection';
+  }
+  return 'information_collection';
 }
 
 function coerceWorkflowAccessMode(raw: string): WorkflowAccessMode {
@@ -76,6 +72,32 @@ function mapFieldRow(row: CoreFormFieldRaw): WorkflowFieldDefinition {
   };
 }
 
+export function createEmptyAuthoringState(organisationId: string): WorkflowAuthoringState {
+  const metadata: WorkflowAuthoringMetadata = {
+    slug: '',
+    name: '',
+    description: '',
+    workflowType: 'org_signup',
+    accessMode: 'authenticated_member',
+    status: 'draft',
+    opensAt: null,
+    closesAt: null,
+    workflowConfig: {},
+    isActive: false,
+    organisationId,
+  };
+  return { metadata, fields: [] };
+}
+
+export function defaultScheduleLimits(): OrgFormScheduleLimitsInput {
+  return {
+    maxSubmissionsInput: '',
+    confirmationMessage: '',
+    isRequired: false,
+    isPrimaryEntrypoint: false,
+  };
+}
+
 export function mapDetailRowToAuthoring(row: CoreFormDetailRaw): MapDetailToAuthoringResult {
   const metadata: WorkflowAuthoringMetadata = {
     id: row.id,
@@ -83,7 +105,7 @@ export function mapDetailRowToAuthoring(row: CoreFormDetailRaw): MapDetailToAuth
     slug: row.slug,
     name: row.name,
     description: row.description ?? '',
-    workflowType: coerceWorkflowType(row.workflow_type),
+    workflowType: coerceAuthoringWorkflowType(row.workflow_type),
     accessMode: coerceWorkflowAccessMode(row.access_mode),
     status: coerceWorkflowStatus(row.status),
     opensAt: row.opens_at,
@@ -94,7 +116,6 @@ export function mapDetailRowToAuthoring(row: CoreFormDetailRaw): MapDetailToAuth
       !Array.isArray(row.workflow_config)
         ? (row.workflow_config as WorkflowAuthoringMetadata['workflowConfig'])
         : {},
-    isPrimaryEntrypoint: row.is_primary_entrypoint === true,
     isActive: row.is_active !== false,
   };
 
@@ -106,13 +127,14 @@ export function mapDetailRowToAuthoring(row: CoreFormDetailRaw): MapDetailToAuth
     maxSubmissionsInput: row.max_submissions == null ? '' : String(row.max_submissions),
     confirmationMessage: row.confirmation_message ?? '',
     isRequired: row.is_required === true,
+    isPrimaryEntrypoint: row.is_primary_entrypoint === true,
   };
 
   return { state: { metadata, fields }, scheduleLimits };
 }
 
 export function mapListRowToTableRow(row: CoreFormListRowRaw): OrgFormsTableRow {
-  const wfType = coerceWorkflowType(row.workflow_type) as OrgWorkflowType;
+  const wfType = coerceOrgWorkflowType(row.workflow_type);
   const st = coerceWorkflowStatus(row.status);
   return {
     id: row.id,

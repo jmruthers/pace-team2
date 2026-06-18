@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import {
   MockAlert,
   MockAlertDescription,
@@ -45,8 +46,15 @@ export function buildPaceCoreComponentsMock(toastFn: (...args: unknown[]) => unk
     CardFooter: MockCardFooter,
     CardHeader: MockCardHeader,
     CardTitle: MockCardTitle,
+    CardDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
     ConfirmationDialog: MockConfirmationDialog,
     DataTable: MockDataTable,
+    EmptyState: ({ title, description }: { title: string; description?: ReactNode }) => (
+      <section>
+        <h2>{title}</h2>
+        {description}
+      </section>
+    ),
     Dialog: MockDialog,
     DialogBody: MockDialogBody,
     DialogContent: MockDialogContent,
@@ -60,6 +68,21 @@ export function buildPaceCoreComponentsMock(toastFn: (...args: unknown[]) => unk
     Input: MockInput,
     Label: MockLabel,
     LoadingSpinner: MockLoadingSpinner,
+    PageHeader: ({
+      title,
+      subtitle,
+      actions,
+    }: {
+      title: string;
+      subtitle?: string;
+      actions?: ReactNode;
+    }) => (
+      <header>
+        <h1>{title}</h1>
+        {subtitle != null ? <p>{subtitle}</p> : null}
+        {actions}
+      </header>
+    ),
     SaveActions: MockSaveActions,
     Select: MockSelect,
     SelectContent: MockSelectContent,
@@ -68,6 +91,30 @@ export function buildPaceCoreComponentsMock(toastFn: (...args: unknown[]) => unk
     SelectValue: MockSelectValue,
     Switch: MockSwitch,
     Textarea: MockTextarea,
+    Tabs: ({
+      children,
+      value,
+      onValueChange,
+    }: {
+      children: ReactNode;
+      value?: string;
+      onValueChange?: (value: string) => void;
+    }) => (
+      <section data-testid="tabs" data-value={value} onClick={() => onValueChange?.(value ?? '')}>
+        {children}
+      </section>
+    ),
+    TabsList: ({ children }: { children: ReactNode }) => <nav>{children}</nav>,
+    TabsTrigger: ({
+      children,
+      value,
+    }: {
+      children: ReactNode;
+      value?: string;
+      count?: number;
+    }) => <MockButton data-value={value}>{children}</MockButton>,
+    TabsContent: ({ children }: { children: ReactNode }) => <section>{children}</section>,
+    Avatar: ({ name }: { name: string }) => <span data-testid="avatar">{name}</span>,
     toast: toastFn,
   };
 }

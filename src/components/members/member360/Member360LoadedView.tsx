@@ -1,4 +1,14 @@
-import { toast } from '@solvera/pace-core/components';
+import {
+  Avatar,
+  Badge,
+  PageHeader,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  toast,
+} from '@solvera/pace-core/components';
+import { useState } from 'react';
 import { launchMemberProfile } from '@solvera/pace-core/member-profile-launch';
 import { HandleSupabaseError } from '@solvera/pace-core/utils';
 import type { Member360MutationError } from '@/hooks/useMember360Data';
@@ -47,10 +57,31 @@ export function Member360LoadedView({
     onDiscardDialogOpen,
   } = identity;
 
+  const [activeTab, setActiveTab] = useState('details');
+
   return (
     <main className="grid gap-4 pb-8">
       <Member360BackNav onBack={onBack} />
 
+      <PageHeader title={memberName} subtitle="Member 360 profile and records." />
+
+      <section className="grid gap-4 rounded-2xl border border-sec-200 bg-main-50 p-4 md:grid-cols-[auto_1fr] md:items-center">
+        <Avatar name={memberName} />
+        <article className="grid gap-2">
+          <h2>{memberName}</h2>
+          <Badge variant={membershipStatusBadgeVariant(member.membershipStatus)}>
+            {member.membershipStatus}
+          </Badge>
+        </article>
+      </section>
+
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="details">Member details</TabsTrigger>
+          <TabsTrigger value="records">Records</TabsTrigger>
+          <TabsTrigger value="roles">Standing roles</TabsTrigger>
+        </TabsList>
+        <TabsContent value="details">
       <Member360IdentitySection
         display={{
           memberName,
@@ -116,10 +147,14 @@ export function Member360LoadedView({
           membershipTypeOptions: membershipTypes,
         }}
       />
-
+        </TabsContent>
+        <TabsContent value="records">
       <Member360RecordsSection {...records} />
-
+        </TabsContent>
+        <TabsContent value="roles">
       <Member360StandingRolesCard onViewRoles={onViewRoles} />
+        </TabsContent>
+      </Tabs>
 
       <Member360PageOverlays {...overlays} />
 

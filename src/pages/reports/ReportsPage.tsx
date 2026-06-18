@@ -5,6 +5,7 @@ import {
   Alert,
   AlertDescription,
   AlertTitle,
+  PageHeader,
 } from '@solvera/pace-core/components';
 import { usePaceMain, useUnifiedAuth } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
@@ -97,9 +98,10 @@ function ReportsPageContent() {
 
   return (
     <main className="grid gap-4">
-      <section className="grid gap-3">
-        <h1>Reports</h1>
-      </section>
+      <PageHeader
+        title="Reports"
+        subtitle="Explore participant data and save reusable report templates."
+      />
 
       {truncated ? (
         <Alert variant="default">

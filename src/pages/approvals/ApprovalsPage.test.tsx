@@ -2,7 +2,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { setupUser } from '@test-utils';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { ApprovalsPage } from '@/pages/approvals/ApprovalsPage';
 import type { ApprovalRequestRow } from '@/lib/approvals/approvals.types';
@@ -28,8 +28,36 @@ vi.mock('@solvera/pace-core/rbac', () => ({
 }));
 
 vi.mock('@/components/approvals/ApprovalReviewPanel', () => ({
-  ApprovalReviewPanel: ({ requestId }: { requestId?: string }) => <p>review-panel:{requestId ?? 'none'}</p>,
+  ApprovalReviewPanel: ({ requestId }: { requestId?: string }) => (
+    <p>review-panel:{requestId ?? 'none'}</p>
+  ),
 }));
+
+vi.mock('@/components/approvals/ApprovalQueueList', async () => {
+  const { MockButton } = await import('@/test-utils/paceCorePrimitives');
+  return {
+    ApprovalQueueList: ({
+      rows,
+      onSelect,
+    }: {
+      rows: ApprovalRequestRow[];
+      onSelect: (requestId: string) => void;
+    }) => (
+      <section>
+        {rows.map((row) => (
+          <MockButton
+            key={row.id}
+            type="button"
+            aria-label={`Select ${row.subjectFirstName}`}
+            onClick={() => onSelect(row.id)}
+          >
+            {row.subjectFirstName} {row.subjectLastName}
+          </MockButton>
+        ))}
+      </section>
+    ),
+  };
+});
 
 vi.mock('@solvera/pace-core/components', async () => {
   const { buildPaceCoreComponentsMock } = await import('@/test-utils/paceCoreMocks');
@@ -38,35 +66,13 @@ vi.mock('@solvera/pace-core/components', async () => {
   return {
     ...base,
     AlertTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
-    DataTable: ({
-      columns,
-      data,
-      onRowActivate,
-    }: {
-      columns: Array<{ cell?: (info: { row: ApprovalRequestRow; getValue: () => unknown; index: number }) => ReactNode }>;
-      data: ApprovalRequestRow[];
-      onRowActivate?: (row: ApprovalRequestRow) => void;
-    }) => {
-      if (data.length === 0) {
-        return <section />;
-      }
-      const primaryCell = columns[0]?.cell;
-      const renderedCell = primaryCell?.({
-        row: data[0]!,
-        getValue: () => data[0]?.subjectLastName,
-        index: 0,
-      });
-      return (
-        <section>
-          <MockButton aria-label="Activate queue row" onClick={() => onRowActivate?.(data[0]!)} />
-          {renderedCell ?? null}
-        </section>
-      );
-    },
-    Tabs: ({ children }: { children: ReactNode }) => <section>{children}</section>,
+    Tabs: ({ children }: { children: ReactNode }) => (
+      <section data-testid="tabs">{children}</section>
+    ),
     TabsList: ({ children }: { children: ReactNode }) => <section>{children}</section>,
     TabsTrigger: ({ children }: { children: ReactNode }) => <MockButton>{children}</MockButton>,
     TabsContent: ({ children }: { children: ReactNode }) => <section>{children}</section>,
+    PageHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
   };
 });
 
@@ -97,11 +103,6 @@ const row: ApprovalRequestRow = {
   resolverLastName: null,
   resolverPreferredName: null,
 };
-
-function LocationProbe() {
-  const location = useLocation();
-  return <p data-testid="location">{location.pathname}</p>;
-}
 
 function mockMatchMedia(matches: boolean) {
   Object.defineProperty(window, 'matchMedia', {
@@ -141,48 +142,48 @@ describe('ApprovalsPage route and layout behavior', () => {
     vi.clearAllMocks();
   });
 
-  it('navigates to /approvals/:requestId when a queue row is activated', async () => {
+  it('selects a queue row in page state without changing the URL', async () => {
     mockMatchMedia(true);
     const user = setupUser();
     render(
       <MemoryRouter initialEntries={['/approvals']}>
         <Routes>
-          <Route path="/approvals" element={<><ApprovalsPage /><LocationProbe /></>} />
-          <Route path="/approvals/:requestId" element={<><ApprovalsPage /><LocationProbe /></>} />
+          <Route path="/approvals" element={<ApprovalsPage />} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
-    await user.click(screen.getByRole('button', { name: 'Activate queue row' }));
-    expect(screen.getByTestId('location').textContent).toBe('/approvals/req-1');
+    expect(screen.getByText('review-panel:none')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Select Ava' }));
+    expect(screen.getByText('review-panel:req-1')).toBeTruthy();
   });
 
-  it('renders side-by-side at md+ and stacks detail-only at <md', () => {
+  it('renders side-by-side at md+ and stacks detail-only at <md', async () => {
     mockMatchMedia(true);
     const rendered = render(
       <MemoryRouter initialEntries={['/approvals']}>
         <Routes>
           <Route path="/approvals" element={<ApprovalsPage />} />
-          <Route path="/approvals/:requestId" element={<ApprovalsPage />} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
     expect(screen.getByText('review-panel:none')).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Ava Adams' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Select Ava' })).toBeTruthy();
 
     rendered.unmount();
     mockMatchMedia(false);
+    const user = setupUser();
     render(
-      <MemoryRouter initialEntries={['/approvals/req-1']}>
+      <MemoryRouter initialEntries={['/approvals']}>
         <Routes>
           <Route path="/approvals" element={<ApprovalsPage />} />
-          <Route path="/approvals/:requestId" element={<ApprovalsPage />} />
         </Routes>
-      </MemoryRouter>
+      </MemoryRouter>,
     );
 
+    await user.click(screen.getByRole('button', { name: 'Select Ava' }));
     expect(screen.getByText('review-panel:req-1')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Ava Adams' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Select Ava' })).toBeNull();
   });
 });

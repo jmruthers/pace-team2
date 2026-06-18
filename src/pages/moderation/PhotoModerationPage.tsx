@@ -14,6 +14,7 @@ import {
   CardTitle,
   ConfirmationDialog,
   DataTable,
+  PageHeader,
   toast,
 } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
@@ -212,9 +213,10 @@ function PhotoModerationPageContent() {
 
   return (
     <main className="grid gap-4">
-      <section className="grid gap-3">
-        <h1>Photo moderation</h1>
-      </section>
+      <PageHeader
+        title="Photo moderation"
+        subtitle="Review profile photos uploaded by members in your organisation."
+      />
 
       <Card>
         <CardHeader>

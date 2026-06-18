@@ -30,6 +30,11 @@ vi.mock('@solvera/pace-core/rbac', () => ({
     children: ReactNode;
     fallback?: ReactNode;
   }) => (allowPageRead ? <>{children}</> : <>{fallback ?? null}</>),
+  useResourcePermissions: () => ({
+    canUpdate: true,
+    canCreate: true,
+    isLoading: false,
+  }),
 }));
 
 vi.mock('@solvera/pace-core/components', () => ({
@@ -83,6 +88,12 @@ vi.mock('@solvera/pace-core/components', () => ({
   SelectValue: ({ placeholder }: { placeholder?: string }) => <span>{placeholder ?? ''}</span>,
   SelectContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   SelectItem: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  PageHeader: ({ title, actions }: { title: string; actions?: ReactNode }) => (
+    <header>
+      <h1>{title}</h1>
+      {actions}
+    </header>
+  ),
   DataTable: ({
     selection,
     onRowSelectionChange,
@@ -263,7 +274,7 @@ describe('MemberDirectoryPage picker mode', () => {
 
   it('does not enable picker mode for query string only entry', () => {
     renderRoute('/members?pick=comms');
-    expect(screen.getByRole('button', { name: 'Pending' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Pending join & transfer/i })).toBeTruthy();
     expect(screen.queryByText('Selecting members for a comms send')).toBeNull();
   });
 

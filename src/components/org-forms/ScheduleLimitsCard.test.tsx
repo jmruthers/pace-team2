@@ -37,6 +37,7 @@ describe('ScheduleLimitsCard', () => {
           maxSubmissionsInput: '',
           confirmationMessage: '',
           isRequired: false,
+          isPrimaryEntrypoint: false,
         }}
         onScheduleLimitsChange={onChange}
       />,

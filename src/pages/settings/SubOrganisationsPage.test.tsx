@@ -133,7 +133,7 @@ describe('SubOrganisationsPage', () => {
   it('hides create button when user lacks create permission', () => {
     canCreate = false;
     renderPage();
-    expect(screen.queryByRole('button', { name: '+ New sub-organisation' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'New sub-organisation' })).toBeNull();
   });
 
   it('hides row edit action when user lacks update permission', () => {
@@ -151,7 +151,7 @@ describe('SubOrganisationsPage', () => {
     });
 
     renderPage();
-    await user.click(screen.getByRole('button', { name: '+ New sub-organisation' }));
+    await user.click(screen.getByRole('button', { name: 'New sub-organisation' }));
     expect(screen.getByRole('heading', { name: 'Create sub-organisation' })).toBeTruthy();
 
     await user.click(screen.getByRole('button', { name: 'Create sub-organisation' }));
@@ -171,7 +171,7 @@ describe('SubOrganisationsPage', () => {
     const user = setupUser();
     renderPage();
 
-    await user.click(screen.getByRole('button', { name: '+ New sub-organisation' }));
+    await user.click(screen.getByRole('button', { name: 'New sub-organisation' }));
     await user.click(screen.getByRole('button', { name: 'Create sub-organisation' }));
 
     await waitFor(() => {
@@ -207,7 +207,7 @@ describe('SubOrganisationsPage', () => {
     mockErrors = { name: { message: 'Internal name is required.' } };
 
     renderPage();
-    await user.click(screen.getByRole('button', { name: '+ New sub-organisation' }));
+    await user.click(screen.getByRole('button', { name: 'New sub-organisation' }));
 
     expect(screen.getByText('Please fix the errors below.')).toBeTruthy();
     const submitButton = screen.getByRole('button', { name: 'Create sub-organisation' });
@@ -222,7 +222,7 @@ describe('SubOrganisationsPage', () => {
     createSubOrganisationMock.mockRejectedValue(new Error('network down'));
 
     renderPage();
-    await user.click(screen.getByRole('button', { name: '+ New sub-organisation' }));
+    await user.click(screen.getByRole('button', { name: 'New sub-organisation' }));
     await user.click(screen.getByRole('button', { name: 'Create sub-organisation' }));
 
     await waitFor(() => {
@@ -242,7 +242,7 @@ describe('SubOrganisationsPage', () => {
     });
 
     renderPage();
-    await user.click(screen.getByRole('button', { name: '+ New sub-organisation' }));
+    await user.click(screen.getByRole('button', { name: 'New sub-organisation' }));
 
     expect((screen.getByPlaceholderText('e.g. scouts-victoria-north') as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByRole('button', { name: /Create sub-organisation/ }) as HTMLButtonElement).disabled).toBe(true);
@@ -252,7 +252,7 @@ describe('SubOrganisationsPage', () => {
     const user = setupUser();
     const rendered = renderPage();
 
-    await user.click(screen.getByRole('button', { name: '+ New sub-organisation' }));
+    await user.click(screen.getByRole('button', { name: 'New sub-organisation' }));
     expect(screen.getByRole('heading', { name: 'Create sub-organisation' })).toBeTruthy();
 
     selectedOrganisation = { id: 'org-2', display_name: 'Parent Org 2' };

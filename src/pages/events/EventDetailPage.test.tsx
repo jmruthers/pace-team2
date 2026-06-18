@@ -58,9 +58,13 @@ vi.mock('@solvera/pace-core/rbac', () => ({
     pageGuardAllows ? <>{children}</> : <>{fallback}</>,
 }));
 
-vi.mock('@solvera/pace-core/icons', () => ({
-  ChevronLeft: () => <span aria-hidden>left</span>,
-}));
+vi.mock('@solvera/pace-core/icons', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@solvera/pace-core/icons')>();
+  return {
+    ...actual,
+    ChevronLeft: () => <span aria-hidden>left</span>,
+  };
+});
 
 vi.mock('@solvera/pace-core/components', async (importActual) => {
   const actual = await importActual<typeof import('@solvera/pace-core/components')>();

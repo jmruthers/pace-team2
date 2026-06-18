@@ -8,6 +8,7 @@ import {
   Button,
   DataTable,
   Label,
+  PageHeader,
   Select,
   SelectContent,
   SelectItem,
@@ -21,7 +22,7 @@ import {
 } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
-import { AccessDenied, PagePermissionGuard } from '@solvera/pace-core/rbac';
+import { AccessDenied, PagePermissionGuard, useResourcePermissions } from '@solvera/pace-core/rbac';
 import { buildMemberColumns, buildPendingColumns } from '@/lib/members/memberDirectory.columns';
 import {
   buildManualPickPayload,
@@ -45,7 +46,14 @@ function MemberDirectoryPageContent() {
   const [activeView, setActiveView] = useState<MembersView>('members');
   const [membershipTypeFilter, setMembershipTypeFilter] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkSelection, setBulkSelection] = useState<Record<string, boolean>>({});
   const previousOrgId = useRef<string | null>(null);
+
+  const permissions = useResourcePermissions(PAGE_NAMES.members) as {
+    canUpdate: boolean;
+    isLoading?: boolean;
+  };
+  const canBulkAct = permissions.canUpdate && permissions.isLoading !== true;
 
   const pickerMode = location.state != null && typeof location.state === 'object'
     && 'intent' in location.state && (location.state as { intent?: unknown }).intent === 'commsManualPick';
@@ -90,6 +98,9 @@ function MemberDirectoryPageContent() {
 
   const pickerBannerState = getPickerBannerState(selectedIds.length);
   const tabsValue: MembersView = pickerMode ? 'members' : activeView;
+  const bulkSelectedIds = selectionRecordToIds(bulkSelection);
+  const bulkSelectedCount = bulkSelectedIds.length;
+  const membersSelectionEnabled = true;
 
   const memberColumns = useMemo(
     () =>
@@ -132,9 +143,32 @@ function MemberDirectoryPageContent() {
     navigate('/communications');
   };
 
+  const onBulkMessage = () => {
+    if (organisationId == null || bulkSelectedCount === 0) {
+      return;
+    }
+    const payload = buildManualPickPayload(organisationId, bulkSelectedIds);
+    window.sessionStorage.setItem(storageKey, JSON.stringify(payload));
+    navigate('/communications');
+  };
+
+  const onClearBulkSelection = () => {
+    setBulkSelection({});
+  };
+
   return (
     <main className="grid gap-4 pb-28">
-      <h1>Members</h1>
+      {!pickerMode && (
+        <PageHeader
+          title="Member directory"
+          subtitle="Search, filter and review the people in your branch. Click a row to open Member 360."
+          actions={
+            <Button type="button" onClick={() => navigate('/members/invite')}>
+              Invite member
+            </Button>
+          }
+        />
+      )}
       {pickerMode && (
         <section className="sticky top-0 z-10">
           <Alert variant={pickerBannerState.variant}>
@@ -145,8 +179,14 @@ function MemberDirectoryPageContent() {
       )}
       <Tabs value={tabsValue} onValueChange={(nextValue) => setActiveView(nextValue as MembersView)}>
         <TabsList>
-          <TabsTrigger value="members">Members</TabsTrigger>
-          {!pickerMode && <TabsTrigger value="pending">Pending</TabsTrigger>}
+          <TabsTrigger value="members" count={members.length}>
+            Members
+          </TabsTrigger>
+          {!pickerMode && (
+            <TabsTrigger value="pending" count={pendingMembers.length}>
+              Pending join & transfer
+            </TabsTrigger>
+          )}
         </TabsList>
         <TabsContent value="members">
           <section className="mb-3">
@@ -213,7 +253,7 @@ function MemberDirectoryPageContent() {
                 editing: false,
                 deletion: false,
                 deleteSelected: false,
-                selection: pickerMode,
+                selection: membersSelectionEnabled,
                 filtering: true,
                 search: true,
                 sorting: true,
@@ -221,8 +261,14 @@ function MemberDirectoryPageContent() {
                 columnVisibility: true,
                 columnReordering: true,
               }}
-              selection={pickerMode ? toSelectionRecord(selectedIds) : undefined}
-              onRowSelectionChange={pickerMode ? (selection) => setSelectedIds(selectionRecordToIds(selection)) : undefined}
+              selection={
+                pickerMode ? toSelectionRecord(selectedIds) : bulkSelection
+              }
+              onRowSelectionChange={
+                pickerMode
+                  ? (selection) => setSelectedIds(selectionRecordToIds(selection))
+                  : setBulkSelection
+              }
             />
           )}
         </TabsContent>
@@ -284,6 +330,49 @@ function MemberDirectoryPageContent() {
           </TabsContent>
         )}
       </Tabs>
+      {!pickerMode && bulkSelectedCount > 0 && (
+        <footer className="sticky bottom-0 border bg-background">
+          <section className="grid grid-cols-[1fr_auto] items-center gap-3 p-3">
+            <p>{bulkSelectedCount} selected</p>
+            <nav aria-label="Bulk member actions" className="grid grid-flow-col auto-cols-max items-center gap-2 justify-end">
+              {canBulkAct && (
+                <>
+                  <Button type="button" variant="outline" onClick={onBulkMessage}>
+                    Message
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      toast({
+                        title: 'Add to event is coming soon.',
+                        variant: 'default',
+                      });
+                    }}
+                  >
+                    Add to event
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => {
+                      toast({
+                        title: 'Change status is coming soon.',
+                        variant: 'default',
+                      });
+                    }}
+                  >
+                    Change status
+                  </Button>
+                </>
+              )}
+              <Button type="button" variant="ghost" onClick={onClearBulkSelection} aria-label="Clear selection">
+                Clear
+              </Button>
+            </nav>
+          </section>
+        </footer>
+      )}
       {pickerMode && (
         <footer className="sticky bottom-0 border bg-background">
           <section className="grid grid-cols-[1fr_auto] items-center gap-3 p-3">

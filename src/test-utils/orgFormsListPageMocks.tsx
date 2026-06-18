@@ -1,8 +1,10 @@
 import { useEffect, type ReactNode } from 'react';
+import { buildPaceCoreComponentsMock } from '@/test-utils/paceCoreMocks';
 import { MockButton } from '@/test-utils/paceCorePrimitives';
 
 export function buildOrgFormsListPageComponentsMock(toastFn: (...args: unknown[]) => unknown) {
   return {
+    ...buildPaceCoreComponentsMock(toastFn),
     Alert: ({ children }: { children: ReactNode }) => <section>{children}</section>,
     AlertDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
     AlertTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
@@ -106,6 +108,5 @@ export function buildOrgFormsListPageComponentsMock(toastFn: (...args: unknown[]
         </tbody>
       </table>
     ),
-    toast: toastFn,
   };
 }

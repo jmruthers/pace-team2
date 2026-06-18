@@ -23,6 +23,7 @@ import {
   Input,
   Label,
   LoadingSpinner,
+  PageHeader,
   Switch,
   Textarea,
   toast,
@@ -192,9 +193,23 @@ function SubOrganisationsPageContent() {
 
   return (
     <main className="grid gap-4">
-      <section className="grid gap-3">
-        <h1>Sub-organisations</h1>
-      </section>
+      <PageHeader
+        title="Sub-organisations"
+        subtitle="Manage units and branches under your organisation."
+        actions={
+          canCreate ? (
+            <Button
+              type="button"
+              onClick={() => {
+                setDuplicateNameError(null);
+                setEditorState({ mode: 'create', row: null });
+              }}
+            >
+              New sub-organisation
+            </Button>
+          ) : undefined
+        }
+      />
 
       {loadErrorMessage != null ? (
         <section className="grid gap-3">
@@ -210,19 +225,8 @@ function SubOrganisationsPageContent() {
         </section>
       ) : (
         <Card>
-          <CardHeader className="grid gap-3 md:grid-cols-[1fr_auto] md:items-center">
+          <CardHeader>
             <CardTitle>Sub-organisations</CardTitle>
-            {canCreate ? (
-              <Button
-                type="button"
-                onClick={() => {
-                  setDuplicateNameError(null);
-                  setEditorState({ mode: 'create', row: null });
-                }}
-              >
-                + New sub-organisation
-              </Button>
-            ) : null}
           </CardHeader>
           <CardContent>
             <DataTable

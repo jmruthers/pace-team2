@@ -222,18 +222,18 @@ describe('FormsListPage', () => {
   it('shows Create form in header only when canCreate', () => {
     canCreate = false;
     renderFlat();
-    expect(screen.queryByRole('button', { name: /Create form/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /New form/i })).toBeNull();
     cleanup();
     canCreate = true;
     injectDataState(buildFixtureRow());
     renderFlat();
-    expect(screen.getByRole('button', { name: /Create form/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: /New form/i })).toBeTruthy();
   });
 
   it('routes Create form to /forms/new', async () => {
     const user = setupUser();
     renderFlat();
-    await user.click(screen.getByRole('button', { name: /Create form/i }));
+    await user.click(screen.getByRole('button', { name: /New form/i }));
     expect(navigateSpy).toHaveBeenCalledWith('/forms/new');
   });
 

@@ -1,13 +1,14 @@
 import { PAGE_NAMES } from '@/lib/rbac/pageNames';
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Alert,
   AlertDescription,
   AlertTitle,
   Button,
-  DataTable,
+  EmptyState,
   Label,
+  PageHeader,
   Select,
   SelectContent,
   SelectItem,
@@ -19,14 +20,13 @@ import {
   TabsTrigger,
   toast,
 } from '@solvera/pace-core/components';
-import type { DataTableColumn } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
 import { AccessDenied, PagePermissionGuard } from '@solvera/pace-core/rbac';
+import { ApprovalQueueList } from '@/components/approvals/ApprovalQueueList';
 import { ApprovalReviewPanel } from '@/components/approvals/ApprovalReviewPanel';
 import { useApprovalsData } from '@/hooks/useApprovalsData';
-import { getPersonDisplayName, requestTypeLabel, statusLabel } from '@/lib/approvals/approvals.mappers';
-import type { ApprovalRequestRow, ApprovalRequestTypeFilter } from '@/lib/approvals/approvals.types';
+import type { ApprovalRequestTypeFilter } from '@/lib/approvals/approvals.types';
 
 type ApprovalsView = 'open' | 'closed';
 
@@ -55,9 +55,13 @@ function useMdLayout(): boolean {
 function ApprovalsPageContent() {
   usePaceMain({ printTitle: 'Approvals', ariaLabel: 'Approvals queue' });
   const navigate = useNavigate();
-  const { requestId } = useParams();
+  const location = useLocation();
   const { selectedOrganisation } = useOrganisationsContext();
   const [activeView, setActiveView] = useState<ApprovalsView>('open');
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(() => {
+    const stateRequestId = (location.state as { requestId?: string } | null)?.requestId;
+    return stateRequestId != null && stateRequestId.length > 0 ? stateRequestId : null;
+  });
   const [requestTypeFilter, setRequestTypeFilter] = useState<ApprovalRequestTypeFilter>('all');
   const previousOrganisationId = useRef<string | null>(null);
   const isMdLayout = useMdLayout();
@@ -76,6 +80,13 @@ function ApprovalsPageContent() {
   } = useApprovalsData(organisationId, requestTypeFilter);
 
   useEffect(() => {
+    const stateRequestId = (location.state as { requestId?: string } | null)?.requestId;
+    if (stateRequestId != null && stateRequestId.length > 0) {
+      navigate('/approvals', { replace: true, state: null });
+    }
+  }, [location.state, navigate]);
+
+  useEffect(() => {
     if (previousOrganisationId.current == null) {
       previousOrganisationId.current = organisationId;
       return;
@@ -84,6 +95,7 @@ function ApprovalsPageContent() {
       return;
     }
     previousOrganisationId.current = organisationId;
+    setSelectedRequestId(null);
     if (organisationId == null) {
       return;
     }
@@ -94,226 +106,131 @@ function ApprovalsPageContent() {
     });
   }, [organisationId, organisationName]);
 
-  const openColumns = useMemo<DataTableColumn<ApprovalRequestRow>[]>(
-    () => [
-      {
-        id: 'applicant',
-        accessorKey: 'subjectLastName',
-        header: 'Applicant',
-        sortable: true,
-        searchable: true,
-        cell: ({ row }) => (
-          <Button type="button" variant="link" onClick={() => navigate(`/approvals/${row.id}`)}>
-            {getPersonDisplayName(row)}
-          </Button>
-        ),
-      },
-      {
-        id: 'type',
-        accessorKey: 'requestType',
-        header: 'Request type',
-        sortable: true,
-        cell: ({ row }) => requestTypeLabel(row.requestType),
-      },
-      {
-        id: 'submitted',
-        accessorKey: 'createdAt',
-        header: 'Submitted',
-        sortable: true,
-        cell: ({ row }) => row.createdAt ?? '—',
-      },
-      {
-        id: 'sourceOrg',
-        accessorKey: 'sourceOrganisationName',
-        header: 'Source org',
-        sortable: true,
-        cell: ({ row }) => row.requestType === 'transfer' ? row.sourceOrganisationName ?? '—' : '—',
-      },
-      {
-        id: 'membershipType',
-        accessorKey: 'membershipTypeName',
-        header: 'Membership type',
-        sortable: true,
-        cell: ({ row }) => row.membershipTypeName ?? '—',
-      },
-      {
-        id: 'status',
-        accessorKey: 'status',
-        header: 'Status',
-        sortable: true,
-        cell: ({ row }) => statusLabel(row.status),
-      },
-    ],
-    [navigate]
-  );
+  const clearSelection = () => setSelectedRequestId(null);
 
-  const closedColumns = useMemo<DataTableColumn<ApprovalRequestRow>[]>(
-    () => [
-      {
-        id: 'applicant',
-        accessorKey: 'subjectLastName',
-        header: 'Applicant',
-        sortable: true,
-        searchable: true,
-        cell: ({ row }) => (
-          <Button type="button" variant="link" onClick={() => navigate(`/approvals/${row.id}`)}>
-            {getPersonDisplayName(row)}
-          </Button>
-        ),
-      },
-      {
-        id: 'type',
-        accessorKey: 'requestType',
-        header: 'Request type',
-        sortable: true,
-        cell: ({ row }) => requestTypeLabel(row.requestType),
-      },
-      {
-        id: 'submitted',
-        accessorKey: 'createdAt',
-        header: 'Submitted',
-        sortable: true,
-        cell: ({ row }) => row.createdAt ?? '—',
-      },
-      {
-        id: 'resolved',
-        accessorKey: 'resolvedAt',
-        header: 'Resolved',
-        sortable: true,
-        cell: ({ row }) => row.resolvedAt ?? '—',
-      },
-      {
-        id: 'outcome',
-        accessorKey: 'status',
-        header: 'Outcome',
-        sortable: true,
-        cell: ({ row }) => statusLabel(row.status),
-      },
-      {
-        id: 'resolvedBy',
-        accessorKey: 'resolverLastName',
-        header: 'Resolved by',
-        sortable: true,
-        cell: ({ row }) => `${row.resolverPreferredName ?? row.resolverFirstName ?? ''} ${row.resolverLastName ?? ''}`.trim() || '—',
-      },
-    ],
-    [navigate]
-  );
+  const advanceSelectionAfterResolve = () => {
+    const nextOpen = openRequests.filter((row) => row.id !== selectedRequestId);
+    setSelectedRequestId(nextOpen[0]?.id ?? null);
+  };
 
-  const renderQueue = (view: ApprovalsView) => {
+  const handleSelectRequest = (requestId: string) => {
+    setSelectedRequestId(requestId);
+  };
+
+  const handleTabChange = (value: string) => {
+    setActiveView(value as ApprovalsView);
+    setSelectedRequestId(null);
+  };
+
+  const renderQueueError = (view: ApprovalsView, errorMessage: string, retry: () => void) => {
+    const errorTitle = view === 'open' ? 'Could not load requests' : 'Could not load closed requests';
+    return (
+      <section className="grid gap-3">
+        <Alert variant="destructive">
+          <AlertTitle>{errorTitle}</AlertTitle>
+          <AlertDescription>{errorMessage}</AlertDescription>
+        </Alert>
+        <nav aria-label={`${view} requests retry`}>
+          <Button type="button" onClick={() => void retry()}>
+            Retry
+          </Button>
+        </nav>
+      </section>
+    );
+  };
+
+  const openEmptyDescription =
+    'New join and transfer requests appear here once submitted via your org signup form.';
+
+  const renderQueueList = (view: ApprovalsView) => {
     const rows = view === 'open' ? openRequests : closedRequests;
     const loading = view === 'open' ? openLoading : closedLoading;
     const errorMessage = view === 'open' ? openErrorMessage : closedErrorMessage;
     const retry = view === 'open' ? refetchOpen : refetchClosed;
 
     if (errorMessage != null) {
-      const errorTitle = view === 'open' ? 'Could not load requests' : 'Could not load closed requests';
-      return (
-        <section className="grid gap-3">
-          <Alert variant="destructive">
-            <AlertTitle>{errorTitle}</AlertTitle>
-            <AlertDescription>{errorMessage}</AlertDescription>
-          </Alert>
-          <nav aria-label={`${view} requests retry`}>
-            <Button type="button" onClick={() => void retry()}>
-              Retry
-            </Button>
-          </nav>
-        </section>
-      );
+      return renderQueueError(view, errorMessage, retry);
     }
 
-    const openEmptyDescription: ReactNode = (
-      <section className="grid gap-2">
-        <p>New join and transfer requests appear here once submitted via your org signup form.</p>
-        <p>
-          <Button type="button" variant="link" onClick={() => navigate('/forms')}>
-            Configure org signup form
-          </Button>
-        </p>
-      </section>
-    );
-
     return (
-      <DataTable<ApprovalRequestRow>
-        data={rows}
-        columns={view === 'open' ? openColumns : closedColumns}
-        rbac={{ pageName: PAGE_NAMES.approvals }}
-        description={`${rows.length} ${view}`}
-        isLoading={loading}
-        getRowId={(row) => row.id}
-        initialPageSize={25}
-        initialSorting={[{ id: view === 'open' ? 'createdAt' : 'resolvedAt', desc: view === 'closed' }]}
-        emptyState={view === 'open'
-          ? {
-              title: 'No requests waiting for review.',
-              description: openEmptyDescription,
-            }
-          : {
-              title: 'No closed requests yet.',
-              description: 'Resolved requests appear here for audit.',
-            }}
-        onRowActivate={(row) => navigate(`/approvals/${row.id}`)}
-        features={{
-          import: false,
-          export: false,
-          hierarchical: false,
-          grouping: false,
-          creation: false,
-          editing: false,
-          deletion: false,
-          deleteSelected: false,
-          selection: false,
-          filtering: true,
-          search: true,
-          sorting: true,
-          pagination: true,
-          columnVisibility: true,
-          columnReordering: true,
-        }}
+      <ApprovalQueueList
+        view={view}
+        rows={rows}
+        loading={loading}
+        selectedRequestId={selectedRequestId}
+        onSelect={handleSelectRequest}
+        emptyState={
+          view === 'open' ? (
+            <EmptyState title="All caught up" description={openEmptyDescription} />
+          ) : (
+            <EmptyState
+              title="No closed requests yet."
+              description="Resolved requests appear here for audit."
+            />
+          )
+        }
       />
     );
   };
 
-  const showQueueOnly = !isMdLayout && requestId == null;
-  const showDetailOnly = !isMdLayout && requestId != null;
+  const showQueueOnly = !isMdLayout && selectedRequestId == null;
+  const showDetailOnly = !isMdLayout && selectedRequestId != null;
 
   return (
     <main className="grid gap-4">
-      <section className="grid gap-3">
-        <h1>Approvals</h1>
-        <Label htmlFor="request-type-filter" className="grid gap-1">
-          Request type
-          <Select
-            value={requestTypeFilter}
-            onValueChange={(value) => setRequestTypeFilter((value as ApprovalRequestTypeFilter) ?? 'all')}
+      <PageHeader
+        title="Approvals"
+        subtitle="Review join and transfer requests submitted to your branch."
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              toast({ title: 'Approval rules are not configured yet.', variant: 'default' });
+            }}
           >
-            <SelectTrigger className="w-56">
-              <SelectValue placeholder="All types" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="join">Join</SelectItem>
-              <SelectItem value="transfer">Transfer</SelectItem>
-            </SelectContent>
-          </Select>
-        </Label>
-      </section>
+            Approval rules
+          </Button>
+        }
+      />
+
+      <Label htmlFor="request-type-filter" className="grid gap-1 w-fit">
+        Request type
+        <Select
+          value={requestTypeFilter}
+          onValueChange={(value) => setRequestTypeFilter((value as ApprovalRequestTypeFilter) ?? 'all')}
+        >
+          <SelectTrigger className="w-56">
+            <SelectValue placeholder="All types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="join">Join</SelectItem>
+            <SelectItem value="transfer">Transfer</SelectItem>
+          </SelectContent>
+        </Select>
+      </Label>
 
       {(isMdLayout || showQueueOnly) && (
         <section className={isMdLayout ? 'grid gap-4 md:grid-cols-[420px_1fr]' : 'grid gap-4'}>
-          <Tabs value={activeView} onValueChange={(value) => setActiveView(value as ApprovalsView)}>
+          <Tabs value={activeView} onValueChange={handleTabChange}>
             <TabsList>
-              <TabsTrigger value="open">Open</TabsTrigger>
-              <TabsTrigger value="closed">Closed</TabsTrigger>
+              <TabsTrigger value="open" count={openRequests.length}>
+                Open queue
+              </TabsTrigger>
+              <TabsTrigger value="closed" count={closedRequests.length}>
+                Resolved
+              </TabsTrigger>
             </TabsList>
-            <TabsContent value="open">{renderQueue('open')}</TabsContent>
-            <TabsContent value="closed">{renderQueue('closed')}</TabsContent>
+            <TabsContent value="open">{renderQueueList('open')}</TabsContent>
+            <TabsContent value="closed">{renderQueueList('closed')}</TabsContent>
           </Tabs>
           {isMdLayout && (
             <ApprovalReviewPanel
-              requestId={requestId}
+              requestId={selectedRequestId ?? undefined}
               organisationId={organisationId}
+              onAfterResolve={advanceSelectionAfterResolve}
+              onLeaveQueue={clearSelection}
             />
           )}
         </section>
@@ -321,8 +238,10 @@ function ApprovalsPageContent() {
 
       {showDetailOnly && (
         <ApprovalReviewPanel
-          requestId={requestId}
+          requestId={selectedRequestId ?? undefined}
           organisationId={organisationId}
+          onAfterResolve={advanceSelectionAfterResolve}
+          onLeaveQueue={clearSelection}
         />
       )}
     </main>

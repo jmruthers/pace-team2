@@ -1,0 +1,63 @@
+---
+description: Pass 2 — uplift TEAM implementation against updated requirements; validate gate
+globs: src/**/*, docs/delivery/requirements-build-queue.md
+alwaysApply: false
+---
+
+# TEAM requirements build — pass 2 (implementation uplift)
+
+When the user asks to continue pass 2, build a requirement slice, or references `requirements-build-queue.md`, follow this protocol.
+
+**Mode:** Agent only — must run `npm run validate` and fix until exit 0.
+
+## Prototype root
+
+`pace-prototype/apps/pace-team/`
+
+## Scope
+
+- **In scope:** Minimal uplift under `src/` and tests; status rows in `docs/delivery/requirements-build-queue.md`; optional Evidence in [team-build-queue.md](../docs/delivery/team-build-queue.md).
+- **Out of scope:** Requirement doc rewrites (pass 1), `.css` edits, silencing lint/audit.
+
+## Authority
+
+| Source | Role |
+|--------|------|
+| Updated requirement slice (`docs/requirements/TM*.md`) | **Functional + visual contract** |
+| `pace-prototype/apps/pace-team/` | **Layout authority** where prototype exists |
+| `pace-core2/packages/core/docs/standards/` | **Component and markup rules** |
+| `pace-team2/src/` | **Implementation to uplift** |
+
+Respect **Implementation delta (pass 2)** notes (e.g. TM12 no prototype screen).
+
+## Pass 1 gate
+
+Before starting a slice, confirm its row in [requirements-audit-queue.md](../docs/delivery/requirements-audit-queue.md) has `audit_status` = `Done` or `N/A`.
+
+## Procedure (each slice)
+
+1. Read [requirements-build-queue.md](../docs/delivery/requirements-build-queue.md) — lowest `audit_order` with `build_status = Pending`.
+2. Confirm pass 1 gate on matching audit queue row.
+3. Set `build_status = In progress`.
+4. Read **requirement doc**, **prototype_refs**, skim **impl_hints** in `src/`.
+5. **Gap audit:** AC / Visual spec, pace-core patterns, prototype layout (or requirement prose for TM12).
+6. **Plan briefly in chat** — then **minimal uplift**.
+7. **Validate gate:** `npm run validate` until exit 0.
+8. On pass: `Built`, `validate_status = Pass`, `uplift_summary`; optional legacy Evidence line.
+9. On fail after reasonable fixes: `Blocked`, `validate_status = Fail`, stop chain.
+10. **Chain** unless `— one slice only` or `— plan only`.
+
+## N/A slice TM12
+
+No prototype screen — uplift from requirement prose and Implementation delta; run validate before advancing.
+
+## Hard constraints
+
+- No `.css` edits
+- No silencing lint/audit
+- Minimal diff
+- pace-core + semantic HTML per Standard 07
+
+## Chaining
+
+After Built or Skipped (N/A contract-only), proceed to next Pending slice without repeating the build prompt.

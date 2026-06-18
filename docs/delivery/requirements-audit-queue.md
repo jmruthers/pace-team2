@@ -55,4 +55,12 @@ Shared shell: `pace-prototype/apps/_pace-core/` (team kit loads `_shared` per RE
 
 ## Pass 2
 
-Implementation is tracked in [team-build-queue.md](./team-build-queue.md). Do not flip build queue rows during pass 1.
+Implementation uplift against updated requirements: [requirements-build-queue.md](./requirements-build-queue.md). Orchestration rule: `.cursor/rules/team-requirements-build-pass2.mdc`.
+
+Kickoff (Agent mode):
+
+```text
+Continue TEAM requirements pass 2 from docs/delivery/requirements-build-queue.md
+```
+
+Historical Evidence remains in [team-build-queue.md](./team-build-queue.md). Do not flip pass 2 rows during pass 1.

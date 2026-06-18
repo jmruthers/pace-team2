@@ -116,7 +116,6 @@ function buildValid(orgId: string): WorkflowAuthoringState {
       opensAt: null,
       closesAt: null,
       workflowConfig: {},
-      isPrimaryEntrypoint: false,
       isActive: false,
       organisationId: orgId,
     },
@@ -152,7 +151,7 @@ function wireDefaultFetchByOrgState() {
     return {
       authoring: {
         state: buildValid(selectedOrganisation.id),
-        scheduleLimits: { maxSubmissionsInput: '', confirmationMessage: '', isRequired: false },
+        scheduleLimits: { maxSubmissionsInput: '', confirmationMessage: '', isRequired: false, isPrimaryEntrypoint: false },
       },
       row: minimalDetailRow,
       priorFieldIds: ['aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee'],
@@ -297,7 +296,7 @@ describe('FormAuthoringPage', () => {
       return {
         authoring: {
           state: buildValid(oid),
-          scheduleLimits: { maxSubmissionsInput: '', confirmationMessage: '', isRequired: false },
+          scheduleLimits: { maxSubmissionsInput: '', confirmationMessage: '', isRequired: false, isPrimaryEntrypoint: false },
         },
         row: { ...minimalDetailRow, organisation_id: oid },
         priorFieldIds: ['aaaaaaaa-bbbb-4ccc-dddd-eeeeeeeeeeee'],

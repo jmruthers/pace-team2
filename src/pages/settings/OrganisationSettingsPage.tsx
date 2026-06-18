@@ -15,6 +15,7 @@ import {
   FormField,
   Input,
   LoadingSpinner,
+  PageHeader,
   SaveActions,
   Select,
   SelectContent,
@@ -39,9 +40,34 @@ import {
   toFormValues,
   toMutationInput,
 } from '@/lib/settings/organisationSettings.validation';
+import { OrganisationSettingsOverviewCard } from '@/components/settings/OrganisationSettingsOverviewCard';
 
 const FINANCIAL_DESCRIPTION = 'Joining and recurring fees, tax rate, base currency, and bank-account details.';
 const CURRENCY_23514_MESSAGE = 'Currency must be a 3-letter ISO code, e.g. AUD.';
+
+function useOrganisationChangeToast(hasLocalEdits: boolean, organisationId: string | null | undefined) {
+  const previousOrganisationIdRef = useRef<string | null | undefined>(undefined);
+
+  useEffect(() => {
+    const nextOrganisationId = organisationId ?? null;
+    if (previousOrganisationIdRef.current === undefined) {
+      previousOrganisationIdRef.current = nextOrganisationId;
+      return;
+    }
+    if (previousOrganisationIdRef.current === nextOrganisationId) {
+      return;
+    }
+
+    previousOrganisationIdRef.current = nextOrganisationId;
+
+    if (hasLocalEdits) {
+      toast({
+        title: 'Editing cancelled — organisation changed.',
+        variant: 'default',
+      });
+    }
+  }, [hasLocalEdits, organisationId]);
+}
 
 function OrganisationSettingsPageContent() {
   usePaceMain({ printTitle: 'Organisation settings', ariaLabel: 'Organisation settings' });
@@ -69,7 +95,8 @@ function OrganisationSettingsPageContent() {
   const [formResetNonce, setFormResetNonce] = useState(0);
   const [formDefaults, setFormDefaults] = useState<OrganisationSettingsFormValues>(() => toFormValues(null));
   const [formDefaultsSourceKey, setFormDefaultsSourceKey] = useState<string>('loaded');
-  const previousOrganisationIdRef = useRef<string | null | undefined>(undefined);
+
+  useOrganisationChangeToast(hasLocalEdits, selectedOrganisation?.id);
 
   const loadedValues = useMemo(() => toFormValues(organisationSettings), [organisationSettings]);
   const loadedValuesSignature = useMemo(() => JSON.stringify(loadedValues), [loadedValues]);
@@ -80,31 +107,16 @@ function OrganisationSettingsPageContent() {
   );
   const canShowSave = permissions.isLoading !== true && (hasExistingRow ? permissions.canUpdate : permissions.canCreate);
 
-  useEffect(() => {
-    const nextOrganisationId = selectedOrganisation?.id ?? null;
-    if (previousOrganisationIdRef.current === undefined) {
-      previousOrganisationIdRef.current = nextOrganisationId;
-      return;
-    }
-    if (previousOrganisationIdRef.current === nextOrganisationId) {
-      return;
-    }
-
-    previousOrganisationIdRef.current = nextOrganisationId;
-
-    if (hasLocalEdits) {
-      toast({
-        title: 'Editing cancelled — organisation changed.',
-        variant: 'default',
-      });
-    }
-  }, [hasLocalEdits, selectedOrganisation?.id]);
-
   return (
-    <main className="grid gap-4">
-      <section className="grid gap-3">
-        <h1>Organisation settings</h1>
-      </section>
+    <main className="grid gap-4 pb-24">
+      <PageHeader
+        title="Organisation settings"
+        subtitle="Update profile and financial settings for your organisation."
+      />
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <OrganisationSettingsOverviewCard organisation={selectedOrganisation} />
+
       <Card>
         <CardHeader>
           <CardTitle>Financial</CardTitle>
@@ -436,6 +448,7 @@ function OrganisationSettingsPageContent() {
           </Form>
         ) : null}
       </Card>
+      </section>
     </main>
   );
 }

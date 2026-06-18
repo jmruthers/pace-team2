@@ -172,6 +172,21 @@ export function buildSubOrganisationsPageComponentsMock(
     LoadingSpinner: MockLoadingSpinner,
     Switch: MockSwitch,
     Textarea: MockTextarea,
+    PageHeader: ({
+      title,
+      subtitle,
+      actions,
+    }: {
+      title: string;
+      subtitle?: string;
+      actions?: ReactNode;
+    }) => (
+      <header>
+        <h1>{title}</h1>
+        {subtitle != null ? <p>{subtitle}</p> : null}
+        {actions}
+      </header>
+    ),
     toast: toastFn,
   };
 }

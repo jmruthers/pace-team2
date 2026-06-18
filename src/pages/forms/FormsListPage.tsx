@@ -10,7 +10,6 @@ import {
   Button,
   Card,
   CardContent,
-  CardHeader,
   ConfirmationDialog,
   DataTable,
   Dialog,
@@ -20,6 +19,7 @@ import {
   DialogHeader,
   DialogPortal,
   DialogTitle,
+  PageHeader,
   toast,
 } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
@@ -276,9 +276,19 @@ function FormsListPageContent() {
 
   return (
     <main className="grid gap-4">
-      <section className="grid gap-3">
-        <h1>Forms</h1>
-      </section>
+      <PageHeader
+        title="Forms"
+        subtitle={`Manage org-scoped forms for ${organisationName}.`}
+        actions={
+          canCreate ? (
+            <Button type="button" onClick={() => navigate('/forms/new')}>
+              <Plus size={18} aria-hidden />
+              {' '}
+              New form
+            </Button>
+          ) : undefined
+        }
+      />
 
       {loadErrorMessage != null ? (
         <section className="grid gap-3">
@@ -294,15 +304,6 @@ function FormsListPageContent() {
         </section>
       ) : (
         <Card key={organisationId ?? 'none'}>
-          {canCreate ? (
-            <CardHeader className="grid justify-items-end">
-              <Button type="button" onClick={() => navigate('/forms/new')}>
-                <Plus size={18} aria-hidden />
-                {' '}
-                Create form
-              </Button>
-            </CardHeader>
-          ) : null}
           <CardContent>
             <DataTable<OrgFormsTableRow>
               data={tableRows}

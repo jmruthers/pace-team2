@@ -9,7 +9,7 @@ import {
   MockCardHeader,
   MockCardTitle,
 } from '@/test-utils/paceCoreCardMocks';
-import { MockButton, MockInput, MockLoadingSpinner } from '@/test-utils/paceCorePrimitives';
+import { MockButton, MockInput, MockLabel, MockLoadingSpinner } from '@/test-utils/paceCorePrimitives';
 
 export function buildOrganisationSettingsPageComponentsMock(
   toastFn: (...args: unknown[]) => unknown
@@ -145,7 +145,23 @@ export function buildOrganisationSettingsPageComponentsMock(
     Form,
     FormField,
     Input: MockInput,
+    Label: MockLabel,
     LoadingSpinner: MockLoadingSpinner,
+    PageHeader: ({
+      title,
+      subtitle,
+      actions,
+    }: {
+      title: string;
+      subtitle?: string;
+      actions?: ReactNode;
+    }) => (
+      <header>
+        <h1>{title}</h1>
+        {subtitle != null ? <p>{subtitle}</p> : null}
+        {actions}
+      </header>
+    ),
     SaveActions: ({
       onCancel,
       saveDisabled,

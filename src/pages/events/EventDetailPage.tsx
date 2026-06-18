@@ -1,5 +1,5 @@
 import { PAGE_NAMES } from '@/lib/rbac/pageNames';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import type { DataTableColumn } from '@solvera/pace-core/components';
 import {
@@ -13,7 +13,13 @@ import {
   CardHeader,
   CardTitle,
   DataTable,
+  EmptyState,
   LoadingSpinner,
+  PageHeader,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
 } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { ChevronLeft } from '@solvera/pace-core/icons';
@@ -88,6 +94,7 @@ function EventDetailPageContent() {
   const { eventId } = useParams();
   const { selectedOrganisation } = useOrganisationsContext();
   const organisationId = selectedOrganisation?.id ?? null;
+  const [activeTab, setActiveTab] = useState('attendees');
 
   const {
     attendees,
@@ -177,23 +184,53 @@ function EventDetailPageContent() {
 
   return (
     <main className="grid gap-4">
-      <nav aria-label="Event navigation">
-        <Button type="button" variant="outline" onClick={onBackToEvents}>
-          <ChevronLeft size={16} aria-hidden />
-          Back to events
-        </Button>
-      </nav>
+      <PageHeader
+        title={header.event_name}
+        subtitle={formatEventDateSpan(header.event_date, header.event_days)}
+        actions={
+          <Button type="button" variant="outline" onClick={onBackToEvents}>
+            <ChevronLeft size={16} aria-hidden />
+            Back to events
+          </Button>
+        }
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{header.event_name}</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-2">
-          <p>{formatEventDateSpan(header.event_date, header.event_days)}</p>
-          <p>{formatNullableVenue(header.event_venue)}</p>
-        </CardContent>
-      </Card>
+      <section className="grid gap-4 sm:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Registered</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>{rawCount}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Venue</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>{formatNullableVenue(header.event_venue)}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Duration</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>{header.event_days == null ? '—' : `${header.event_days} days`}</p>
+          </CardContent>
+        </Card>
+      </section>
 
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="attendees">Attendees</TabsTrigger>
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="forms">Forms</TabsTrigger>
+          <TabsTrigger value="activities">Activities</TabsTrigger>
+          <TabsTrigger value="comms">Comms log</TabsTrigger>
+        </TabsList>
+        <TabsContent value="attendees">
       <DataTable<OrgEventAttendeeRow>
         data={attendees}
         columns={columns}
@@ -215,6 +252,20 @@ function EventDetailPageContent() {
         onRowActivate={(row) => navigate(`/members/${row.member_id}`)}
         features={EVENTS_DATA_TABLE_FEATURES}
       />
+        </TabsContent>
+        <TabsContent value="details">
+          <EmptyState title="Event details" description="Detailed event configuration will appear in a later slice." />
+        </TabsContent>
+        <TabsContent value="forms">
+          <EmptyState title="Event forms" description="Form assignments for this event will appear in a later slice." />
+        </TabsContent>
+        <TabsContent value="activities">
+          <EmptyState title="Activities" description="Activity bookings for this event will appear in a later slice." />
+        </TabsContent>
+        <TabsContent value="comms">
+          <EmptyState title="Comms log" description="Communications sent for this event will appear in a later slice." />
+        </TabsContent>
+      </Tabs>
     </main>
   );
 }

@@ -18,11 +18,11 @@ let pageGuardAllows = true;
 const sampleEvent: OrgEventSummaryRow = {
   event_id: 'event-1',
   event_name: 'Summer camp',
-  event_date: '2026-05-05',
+  event_date: '2026-09-05',
   event_days: 3,
   event_venue: 'Town Hall',
   members_registered_count: 4,
-  event_date_sort_key: new Date(2026, 4, 5).getTime(),
+  event_date_sort_key: new Date(2026, 8, 5).getTime(),
 };
 
 vi.mock('@/hooks/useOrgEventsData', () => ({
@@ -91,10 +91,10 @@ describe('EventsListPage', () => {
   it('renders events heading and four columns in order with default sort', () => {
     renderPage();
     expect(screen.getByRole('heading', { name: 'Events' })).toBeTruthy();
-    expect(screen.getByTestId('column-headers').textContent).toBe(
-      'Event name|Event date|Event venue|Members registered',
+    expect(screen.getAllByTestId('column-headers')[0]?.textContent).toBe(
+      'Event|Days|Dates|Registered',
     );
-    expect(screen.getByTestId('initial-sort').textContent).toBe(
+    expect(screen.getAllByTestId('initial-sort')[0]?.textContent).toBe(
       JSON.stringify([{ id: 'event_date_sort_key', desc: true }]),
     );
   });
@@ -146,7 +146,7 @@ describe('EventsListPage', () => {
       refetchEvents: vi.fn(),
     });
     renderPage();
-    expect(screen.getByText('No registered-member events')).toBeTruthy();
+    expect(screen.getByText('No upcoming events')).toBeTruthy();
   });
 
   it('navigates to event detail on row activate', async () => {

@@ -1,6 +1,7 @@
 import { validateWorkflowAuthoringState } from '@solvera/pace-core/forms';
 
-import { createEmptyAuthoringState } from '@/lib/forms/orgForms.mappers.authoring';
+import { createEmptyAuthoringState, defaultScheduleLimits } from '@/lib/forms/orgForms.mappers.authoring';
+import { validateOrgFormAuthoringExtras } from '@/lib/forms/orgForms.validation';
 import { composePortalFormsUrl } from '@/lib/forms/orgForms.portalUrl';
 
 import { describe, expect, it } from 'vitest';
@@ -54,11 +55,10 @@ describe('validateWorkflowAuthoringState — TM09 BR-F parity', () => {
     expect(r.errors.some((e) => e.code === 'missing_scope')).toBe(true);
   });
 
-  it('invalid_entrypoint — generic + primary', () => {
+  it('invalid_entrypoint — information_collection + primary (TEAM extras)', () => {
     const s = createEmptyAuthoringState(orgId);
     s.metadata.slug = 'ok-slug';
-    s.metadata.workflowType = 'generic';
-    s.metadata.isPrimaryEntrypoint = true;
+    s.metadata.workflowType = 'information_collection';
     s.fields.push({
       id: 'f1',
       fieldKey: 'a.a',
@@ -67,10 +67,14 @@ describe('validateWorkflowAuthoringState — TM09 BR-F parity', () => {
       isActive: true,
       isRequired: false,
     });
-    const r = validateWorkflowAuthoringState(s);
-    expect(r.errors.some((e) => e.code === 'invalid_entrypoint')).toBe(true);
-    expect(r.errors.find((e) => e.code === 'invalid_entrypoint')?.message).toBe(
+    const scheduleLimits = { ...defaultScheduleLimits(), isPrimaryEntrypoint: true };
+    const extra = validateOrgFormAuthoringExtras(s.metadata.workflowType, scheduleLimits);
+    expect(extra.some((e) => e.code === 'invalid_entrypoint')).toBe(true);
+    expect(extra.find((e) => e.code === 'invalid_entrypoint')?.message).toBe(
       'Primary entrypoint is only valid for base_registration and org_signup forms.',
+    );
+    expect(validateWorkflowAuthoringState(s).errors.some((e) => e.code === 'invalid_entrypoint')).toBe(
+      false,
     );
   });
 

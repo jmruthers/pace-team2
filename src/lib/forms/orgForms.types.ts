@@ -11,6 +11,7 @@ export interface OrgFormScheduleLimitsInput {
   maxSubmissionsInput: string;
   confirmationMessage: string;
   isRequired: boolean;
+  isPrimaryEntrypoint: boolean;
 }
 
 export interface CoreFormListRowRaw {

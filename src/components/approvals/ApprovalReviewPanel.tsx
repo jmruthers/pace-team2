@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Alert,
@@ -37,6 +37,8 @@ import { ApproveResolveDialog, HoldResolveDialog, RejectResolveDialog } from '@/
 interface ApprovalReviewPanelProps {
   requestId: string | undefined;
   organisationId: string | null;
+  onAfterResolve?: () => void;
+  onLeaveQueue?: () => void;
 }
 
 function buildClosedReadOnlyTitle(request: ApprovalRequestRow): string {
@@ -51,8 +53,21 @@ function buildClosedReadOnlyDescription(request: ApprovalRequestRow): string {
   return note;
 }
 
-function ApprovalReviewPanelContent({ requestId, organisationId }: ApprovalReviewPanelProps) {
+function ApprovalReviewPanelContent({
+  requestId,
+  organisationId,
+  onAfterResolve,
+  onLeaveQueue,
+}: ApprovalReviewPanelProps) {
   const navigate = useNavigate();
+  const leaveQueue = useCallback(
+    () => (onLeaveQueue != null ? onLeaveQueue() : navigate('/approvals')),
+    [navigate, onLeaveQueue],
+  );
+  const afterResolve = useCallback(
+    () => (onAfterResolve != null ? onAfterResolve() : leaveQueue()),
+    [leaveQueue, onAfterResolve],
+  );
   const hasHandledMissingRequestRef = useRef(false);
   const [approveOpen, setApproveOpen] = useState(false);
   const [rejectOpen, setRejectOpen] = useState(false);
@@ -71,7 +86,7 @@ function ApprovalReviewPanelContent({ requestId, organisationId }: ApprovalRevie
   const { resolveRequest, resolvePending } = useResolveMemberRequest(
     organisationId,
     requestId,
-    () => navigate('/approvals')
+    afterResolve
   );
 
   const resolveFromOrganisationId =
@@ -100,8 +115,8 @@ function ApprovalReviewPanelContent({ requestId, organisationId }: ApprovalRevie
       title: 'Request not found in this organisation.',
       variant: 'default',
     });
-    navigate('/approvals');
-  }, [navigate, request, requestErrorMessage, requestId, requestLoading]);
+    leaveQueue();
+  }, [leaveQueue, request, requestErrorMessage, requestId, requestLoading]);
 
   if (requestId == null) {
     return (

@@ -5,16 +5,13 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { AuthenticatedShell } from './AuthenticatedShell';
 
-const navItemsFixture = [{ id: 'home', label: 'Home', href: '/', icon: 'Home' }] as Parameters<
-  typeof AuthenticatedShell
->[0]['navItems'];
-
 type OrgSelection = { id: string; display_name: string; name: string };
 
 type AuthFixture = {
   isLoading: boolean;
   user: { email: string; user_metadata: Record<string, unknown> };
   selectedOrganisation: OrgSelection | null;
+  selectedOrganisationId: string | null;
   signOut: ReturnType<typeof vi.fn>;
   updatePassword: ReturnType<typeof vi.fn>;
 };
@@ -23,6 +20,7 @@ let authFixture: AuthFixture = {
   isLoading: false,
   user: { email: 'staff@example.com', user_metadata: {} },
   selectedOrganisation: { id: 'org-1', display_name: 'Demo Org', name: 'Demo Org' },
+  selectedOrganisationId: 'org-1',
   signOut: vi.fn(async () => undefined),
   updatePassword: vi.fn(async () => undefined),
 };
@@ -31,25 +29,32 @@ vi.mock('@solvera/pace-core/hooks', () => ({
   useUnifiedAuth: () => authFixture,
 }));
 
-vi.mock('@/hooks/useApprovalsData', () => ({
-  useApprovalsOpenCount: () => 0,
-}));
-
 vi.mock('@solvera/pace-core/components', () => ({
   ToastProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
   LoadingSpinner: ({ label }: { label: string }) => <p>{label}</p>,
+  Breadcrumb: ({ items }: { items: Array<{ label: string }> }) => (
+    <nav aria-label="Breadcrumb">{items.map((item) => item.label).join(' / ')}</nav>
+  ),
   PaceAppLayout: ({
     children,
     appName,
     userEmail,
     userFullName,
+    navItems,
   }: {
     children?: ReactNode;
     appName: string;
     userEmail: string;
     userFullName: string;
+    navItems?: Array<{ label: string }>;
   }) => (
-    <div data-testid="pace-app-shell" data-app={appName} data-email={userEmail} data-fullname={userFullName}>
+    <div
+      data-testid="pace-app-shell"
+      data-app={appName}
+      data-email={userEmail}
+      data-fullname={userFullName}
+      data-nav-count={navItems?.length ?? 0}
+    >
       <header>Mini shell</header>
       {children}
     </div>
@@ -66,12 +71,13 @@ function OutletChild() {
   return <article>Outlet child fixture</article>;
 }
 
-function renderShell() {
+function renderShell(initialPath = '/') {
   return render(
-    <MemoryRouter initialEntries={['/']}>
+    <MemoryRouter initialEntries={[initialPath]}>
       <Routes>
-        <Route element={<AuthenticatedShell appName="TEAM" navItems={navItemsFixture} />}>
+        <Route element={<AuthenticatedShell appName="TEAM" />}>
           <Route index element={<OutletChild />} />
+          <Route path="members" element={<OutletChild />} />
         </Route>
       </Routes>
     </MemoryRouter>
@@ -85,6 +91,7 @@ describe('AuthenticatedShell', () => {
       isLoading: false,
       user: { email: 'staff@example.com', user_metadata: {} },
       selectedOrganisation: { id: 'org-1', display_name: 'Demo Org', name: 'Demo Org' },
+      selectedOrganisationId: 'org-1',
       signOut: vi.fn(async () => undefined),
       updatePassword: vi.fn(async () => undefined),
     };
@@ -103,7 +110,7 @@ describe('AuthenticatedShell', () => {
   });
 
   it('shows no-organisation messaging when organisation is unavailable', () => {
-    authFixture = { ...authFixture, selectedOrganisation: null };
+    authFixture = { ...authFixture, selectedOrganisation: null, selectedOrganisationId: null };
 
     renderShell();
 
@@ -117,5 +124,18 @@ describe('AuthenticatedShell', () => {
     const shellNode = screen.getByTestId('pace-app-shell');
     expect(shellNode.getAttribute('data-app')).toBe('TEAM');
     expect(screen.getByText('Outlet child fixture')).toBeTruthy();
+  });
+
+  it('uses empty primary nav on organisation landing', () => {
+    renderShell('/');
+
+    expect(screen.getByTestId('pace-app-shell').getAttribute('data-nav-count')).toBe('0');
+  });
+
+  it('renders slim in-org nav and context bar on feature routes', () => {
+    renderShell('/members');
+
+    expect(screen.getByTestId('pace-app-shell').getAttribute('data-nav-count')).toBe('4');
+    expect(screen.getByLabelText('Breadcrumb')).toBeTruthy();
   });
 });

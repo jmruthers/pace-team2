@@ -7,6 +7,7 @@ import {
   AlertTitle,
   Button,
   LoadingSpinner,
+  PageHeader,
   toast,
 } from '@solvera/pace-core/components';
 import type { WorkflowAuthoringState } from '@solvera/pace-core/forms';
@@ -26,9 +27,10 @@ import type { ApiResult } from '@/lib/apiResult';
 import { fetchScopedAuthoringDetailSnapshot } from '@/lib/forms/formAuthoringScopedDetail';
 import type { OrgFormScheduleLimitsInput } from '@/lib/forms/orgForms.types';
 import { createEmptyAuthoringState, defaultScheduleLimits } from '@/lib/forms/orgForms.mappers.authoring';
+import { validateOrgFormAuthoringExtras } from '@/lib/forms/orgForms.validation';
 import { useOrgFormsData } from '@/hooks/useOrgFormsData';
 
-const TEAM_WORKFLOW_TYPES = ['org_signup', 'information_collection', 'consent_capture', 'generic'] as const;
+const TEAM_WORKFLOW_TYPES = ['org_signup', 'information_collection', 'consent_capture'] as const;
 
 /** Keep org-scoped authoring metadata aligned with the selected workspace (TM09 BR-L). */
 function mergeOrganisationContext(
@@ -95,7 +97,16 @@ function FormAuthoringPageContent() {
   const [detailRetryNonce, setDetailRetryNonce] = useState(0);
   const [detailFetchError, setDetailFetchError] = useState<unknown | null>(null);
 
-  const validation = useMemo(() => validateWorkflowAuthoringState(state), [state]);
+  const validation = useMemo(() => {
+    const base = validateWorkflowAuthoringState(state);
+    const extra = validateOrgFormAuthoringExtras(state.metadata.workflowType, scheduleLimits);
+    const errors = [...base.errors, ...extra];
+    return {
+      ...base,
+      errors,
+      isValid: errors.length === 0,
+    };
+  }, [state, scheduleLimits]);
   const savePending = createPending || updatePending;
 
   const shellDisabled = savePending || (isCreate && !canCreate) || (!isCreate && !canUpdate);
@@ -218,11 +229,7 @@ function FormAuthoringPageContent() {
         case 'ready': {
           const { authoring, priorFieldIds: ids } = snapshot;
           setState(mergeOrganisationContext(organisationId, authoring.state));
-          setScheduleLimits({
-            maxSubmissionsInput: authoring.scheduleLimits.maxSubmissionsInput,
-            confirmationMessage: authoring.scheduleLimits.confirmationMessage,
-            isRequired: authoring.scheduleLimits.isRequired,
-          });
+          setScheduleLimits(authoring.scheduleLimits);
           setPriorFieldIds(ids);
           setDetailLoading(false);
           return { ok: true, data: undefined };
@@ -278,11 +285,7 @@ function FormAuthoringPageContent() {
       const { authoring, priorFieldIds: nextIds } = await fetchFormDetail(effectiveFormId);
       if (authoring != null) {
         setState(mergeOrganisationContext(organisationId, authoring.state));
-        setScheduleLimits({
-          maxSubmissionsInput: authoring.scheduleLimits.maxSubmissionsInput,
-          confirmationMessage: authoring.scheduleLimits.confirmationMessage,
-          isRequired: authoring.scheduleLimits.isRequired,
-        });
+        setScheduleLimits(authoring.scheduleLimits);
         setPriorFieldIds(nextIds);
       }
     } catch (error: unknown) {
@@ -363,6 +366,22 @@ function FormAuthoringPageContent() {
 
   return (
     <main className="grid gap-6">
+      <PageHeader
+        title={heading}
+        subtitle={subHeading}
+        actions={
+          !isCreate ? (
+            <>
+              <Button type="button" variant="outline" onClick={() => toast({ title: 'Preview is not available yet.', variant: 'default' })}>
+                Preview
+              </Button>
+              <Button type="button" variant="outline" onClick={() => toast({ title: 'Duplicate is not available yet.', variant: 'default' })}>
+                Duplicate
+              </Button>
+            </>
+          ) : undefined
+        }
+      />
       <WorkflowFormAuthoringShell
         heading={heading}
         subheading={subHeading}

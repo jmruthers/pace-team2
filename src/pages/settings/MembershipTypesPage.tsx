@@ -19,6 +19,7 @@ import {
   FormField,
   Input,
   Label,
+  PageHeader,
   SaveActions,
   Switch,
   toast,
@@ -241,9 +242,17 @@ function MembershipTypesPageContent() {
 
   return (
     <main className="grid gap-4">
-      <section className="grid gap-3">
-        <h1>Membership types</h1>
-      </section>
+      <PageHeader
+        title="Membership types"
+        subtitle="Define the membership categories available in your organisation."
+        actions={
+          permissions.canUpdate ? (
+            <Button type="button" onClick={() => openEditor('create', null)}>
+              New membership type
+            </Button>
+          ) : undefined
+        }
+      />
 
       {loadErrorMessage != null ? (
         <section className="grid gap-3">

@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Dialog,
   DialogBody,
@@ -11,32 +11,71 @@ import {
   PasswordChangeForm,
   ToastProvider,
 } from '@solvera/pace-core/components';
-import type { NavigationItem } from '@solvera/pace-core/components';
+import type { NavigationItem, UserMenuExtraAction } from '@solvera/pace-core/components';
 import { useUnifiedAuth } from '@solvera/pace-core/hooks';
-import { useApprovalsOpenCount } from '@/hooks/useApprovalsData';
+import { OrgContextBar } from '@/components/layout/OrgContextBar';
+import {
+  buildInOrgNavItems,
+  isOrganisationLandingPath,
+  resolveInOrgPageLabel,
+  shouldShowOrgContextBar,
+} from '@/lib/shell/inOrgNav';
 
 interface AuthenticatedShellProps {
   appName: string;
-  navItems: NavigationItem[];
 }
 
-export function AuthenticatedShell({ appName, navItems }: AuthenticatedShellProps) {
+export function AuthenticatedShell({ appName }: AuthenticatedShellProps) {
   const navigate = useNavigate();
-  const { isLoading, user, selectedOrganisation, signOut, updatePassword } = useUnifiedAuth();
+  const location = useLocation();
+  const {
+    isLoading,
+    user,
+    selectedOrganisation,
+    selectedOrganisationId,
+    signOut,
+    updatePassword,
+  } = useUnifiedAuth();
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
-  const pendingApprovalsCount = useApprovalsOpenCount(selectedOrganisation?.id ?? null);
 
-  const navItemsWithApprovalsBadge = useMemo((): NavigationItem[] => {
-    return navItems.map((item) => {
-      if (item.id !== 'approvals') {
-        return item;
-      }
-      if (pendingApprovalsCount <= 0) {
-        return { ...item, label: 'Approvals' };
-      }
-      return { ...item, label: `Approvals (${pendingApprovalsCount})` };
-    });
-  }, [navItems, pendingApprovalsCount]);
+  const navItems = useMemo((): NavigationItem[] => {
+    if (isOrganisationLandingPath(location.pathname)) {
+      return [];
+    }
+    if (selectedOrganisationId == null) {
+      return [];
+    }
+    return buildInOrgNavItems(selectedOrganisationId);
+  }, [location.pathname, selectedOrganisationId]);
+
+  const orgContextLabel = useMemo(() => resolveInOrgPageLabel(location.pathname), [location.pathname]);
+  const showOrgContextBar = shouldShowOrgContextBar(location.pathname) && selectedOrganisation != null && orgContextLabel != null;
+
+  const extraMenuActions = useMemo((): UserMenuExtraAction[] => {
+    return [
+      {
+        id: 'all-organisations',
+        label: 'All organisations',
+        onSelect: () => navigate('/'),
+      },
+      {
+        id: 'branch-settings',
+        label: 'Branch settings',
+        onSelect: () => navigate('/settings/organisation'),
+      },
+    ];
+  }, [navigate]);
+
+  useEffect(() => {
+    const overviewMatch = /^\/orgs\/([^/]+)\/?$/u.exec(location.pathname);
+    if (
+      overviewMatch != null
+      && selectedOrganisationId != null
+      && overviewMatch[1] !== selectedOrganisationId
+    ) {
+      navigate(`/orgs/${selectedOrganisationId}`, { replace: true });
+    }
+  }, [location.pathname, navigate, selectedOrganisationId]);
 
   const userFullName = useMemo(() => {
     const metadataName = user?.user_metadata?.full_name;
@@ -56,6 +95,23 @@ export function AuthenticatedShell({ appName, navItems }: AuthenticatedShellProp
     navigate('/login', { replace: true });
   };
 
+  const passwordDialog = (
+    <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Change password</DialogTitle>
+        </DialogHeader>
+        <DialogBody>
+          <PasswordChangeForm
+            onSubmit={async ({ newPassword }) => updatePassword(newPassword)}
+            onSuccess={() => setPasswordDialogOpen(false)}
+            onCancel={() => setPasswordDialogOpen(false)}
+          />
+        </DialogBody>
+      </DialogContent>
+    </Dialog>
+  );
+
   if (isLoading) {
     return (
       <ToastProvider>
@@ -71,11 +127,13 @@ export function AuthenticatedShell({ appName, navItems }: AuthenticatedShellProp
       <ToastProvider>
         <PaceAppLayout
           appName={appName}
-          navItems={navItemsWithApprovalsBadge}
+          navItems={navItems}
           userFullName={userFullName}
           userEmail={userEmail}
           onUserMenuSignOut={handleSignOut}
           onUserMenuChangePassword={() => setPasswordDialogOpen(true)}
+          extraMenuActions={extraMenuActions}
+          showContextSelector
           showOrganisations
           showEvents={false}
         >
@@ -84,20 +142,7 @@ export function AuthenticatedShell({ appName, navItems }: AuthenticatedShellProp
               <p>No organisation assigned. Please contact your administrator.</p>
             </section>
           </main>
-          <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Change password</DialogTitle>
-              </DialogHeader>
-              <DialogBody>
-                <PasswordChangeForm
-                  onSubmit={async ({ newPassword }) => updatePassword(newPassword)}
-                  onSuccess={() => setPasswordDialogOpen(false)}
-                  onCancel={() => setPasswordDialogOpen(false)}
-                />
-              </DialogBody>
-            </DialogContent>
-          </Dialog>
+          {passwordDialog}
         </PaceAppLayout>
       </ToastProvider>
     );
@@ -107,29 +152,21 @@ export function AuthenticatedShell({ appName, navItems }: AuthenticatedShellProp
     <ToastProvider>
       <PaceAppLayout
         appName={appName}
-        navItems={navItemsWithApprovalsBadge}
+        navItems={navItems}
         userFullName={userFullName}
         userEmail={userEmail}
         onUserMenuSignOut={handleSignOut}
         onUserMenuChangePassword={() => setPasswordDialogOpen(true)}
+        extraMenuActions={extraMenuActions}
+        showContextSelector
         showOrganisations
         showEvents={false}
       >
+        {showOrgContextBar ? (
+          <OrgContextBar org={selectedOrganisation} pageLabel={orgContextLabel} />
+        ) : null}
         <Outlet />
-        <Dialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Change password</DialogTitle>
-            </DialogHeader>
-            <DialogBody>
-              <PasswordChangeForm
-                onSubmit={async ({ newPassword }) => updatePassword(newPassword)}
-                onSuccess={() => setPasswordDialogOpen(false)}
-                onCancel={() => setPasswordDialogOpen(false)}
-              />
-            </DialogBody>
-          </DialogContent>
-        </Dialog>
+        {passwordDialog}
       </PaceAppLayout>
     </ToastProvider>
   );
