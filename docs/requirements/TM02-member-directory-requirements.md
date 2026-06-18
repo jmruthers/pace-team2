@@ -17,7 +17,9 @@ QA pack:         docs/test-packs/TM02-qa-pack.md
 
 ## §2 Overview
 
-TEAM-02 delivers the member directory for org-admin staff at `/members`. The page renders two tabs — Members (active and suspended members of the currently selected organisation) and Pending (provisional members whose join or transfer request is awaiting resolution) — with text search, membership-type filtering on the Members tab, sortable columns, pagination, and row navigation to Member 360 at `/members/:memberId`. The same route doubles as a multi-select picker for the communications composer: when entered with `location.state.intent === 'commsManualPick'`, the page swaps to picker mode, surfaces a selection checkbox column on the Members tab, and on Done writes the chosen member ids to `sessionStorage` for TEAM-13 to read on `/communications`. The slice is read-only — no creates, updates, or deletes happen on this surface — and the page is wrapped by `<PagePermissionGuard pageName="members" operation="read">`.
+TEAM-02 delivers the member directory for org-admin staff at `/members`. The page renders two tabs — Members (active and suspended members of the currently selected organisation) and Pending join & transfer (provisional members whose join or transfer request is awaiting resolution) — with text search, membership-type filtering on the Members tab, sortable columns, pagination, and row navigation to Member 360 at `/members/:memberId`. The same route doubles as a multi-select picker for the communications composer: when entered with `location.state.intent === 'commsManualPick'`, the page swaps to picker mode, surfaces a selection checkbox column on the Members tab, and on Done writes the chosen member ids to `sessionStorage` for TEAM-13 to read on `/communications`. The slice is read-only — no creates, updates, or deletes happen on this surface — and the page is wrapped by `<PagePermissionGuard pageName="members" operation="read">`.
+
+**Prototype reference:** `pace-prototype/apps/pace-team/pages/MemberPages.jsx` — `MembersPage` (directory at `/members`), `MemberInvitePage` (invite flow at `/members/invite`).
 
 ---
 
@@ -166,15 +168,44 @@ If `selectedOrganisation` somehow resolves to `null` after step 3 (for example a
 
 ### Layout
 
-The page renders inside the TEAM-01 `AuthenticatedShell` (`PaceAppLayout` chrome — header, `PaceMain`, footer). Within `PaceMain`:
+The page renders inside the TEAM-01 `AuthenticatedShell` (`PaceAppLayout` chrome — header, `OrgContextBar`, `PaceMain`, footer). `OrgContextBar` (TEAM-01) sits between the shell header and page content on `/members` and `/members/invite`.
 
-- **Page title row** — A heading "Members" (sentence case) at the top of `PaceMain`. No breadcrumb. No description sub-text.
-- **Tabs row** — Below the title, a `Tabs` root with `TabsList` containing two `TabsTrigger` controls in this order: **Members** (default) and **Pending**. In picker mode only the Members trigger renders. The selected tab's `TabsContent` panel hosts the `DataTable` for that view. The `Tabs` value is held in slice-controlled state (`activeView`).
+Within `PaceMain`:
+
+- **Page header** — `PageHeader` from `@solvera/pace-core/components` (or team-local wrapper matching prototype):
+  - `title`: "Member directory" (sentence case).
+  - `sub`: "Search, filter and review the people in your branch. Click a row to open Member 360."
+  - `right`: primary `Button` "Invite member" navigating to `/members/invite` (hidden in comms picker mode).
+- **Tabs row** — Below the page header, a `Tabs` root with `TabsList` containing two `TabsTrigger` controls in this order: **Members** (default, with optional count badge) and **Pending join & transfer** (with optional count badge). In picker mode only the Members trigger renders. The selected tab's `TabsContent` panel hosts the `DataTable` for that view. The `Tabs` value is held in slice-controlled state (`activeView`).
 - **Tab panel content** — A single `DataTable` per tab, occupying the panel area. The `DataTable` provides its own internal toolbar, header row, body, and pagination controls inside its built-in `Card` wrapper.
 - **Picker mode banner** — When picker mode is active, a banner renders **above** the Tabs row. The banner uses `<Alert variant="default">` with title "Selecting members for a comms send" and description `"{count} selected"`. When the soft cap (`> 500 && <= 2000`) is breached, the banner switches to title "Large audience" and description `"Confirm you intend to message {count} members."` — still `variant="default"`. When the hard cap (`> 2000`) is breached, the banner switches to `variant="destructive"` with title "Selection too large" and description "Reduce selection to at most 2000 members."
+- **Members tab row selection (normal mode)** — When rows are selected on the Members tab outside picker mode, a bottom **bulk action bar** renders (prototype `tk-bulkbar` pattern): left shows `"{count} selected"`; right clusters secondary actions (e.g. Message, Add to event, Change status) gated by permissions. This bar is distinct from comms picker mode.
 - **Picker mode action bar** — When picker mode is active, a sticky action bar renders at the bottom of the viewport, anchored beneath `PaceMain`'s normal scroll. The bar contains, left-aligned: a counter reading `"{count} selected"`. Right-aligned: two buttons — `Cancel` (secondary variant) and `Done` (primary variant). The `Done` button is disabled when `selectedIds.length === 0` or `selectedIds.length > 2000`. When `selectedIds.length === 0` the bar also shows the helper text "Select at least one member." next to the disabled Done button.
 
 The picker banner is sticky to the top of the `PaceMain` content area (it scrolls with content above it but pins to the top once it would scroll out of view). The picker action bar is sticky to the bottom of the viewport.
+
+**Invite member page (`/members/invite`)** — Standalone route (prototype promoted invite from modal to full page). Layout:
+- `PageHeader` with `title` "Invite a new member", `sub` "We'll email them a self-service join link prefilled with this branch.", `right` ghost `Button` "Back to members" → `/members`.
+- Single `Card` (or `section` grid) with invite form fields (first name, last name, email, unit/sub-org, membership type). Primary submit in `CardFooter` or `PageSaveBar` labelled per intent (e.g. "Send invitation"). No `Dialog` for create on the directory page itself.
+
+### Layout acceptance criteria (prototype alignment)
+
+- [ ] `/members` renders `PageHeader` with title "Member directory", descriptive subtitle, and header CTA "Invite member" → `/members/invite` (when not in comms picker mode).
+- [ ] `OrgContextBar` breadcrumb renders above page content per TEAM-01.
+- [ ] Tab labels are **Members** and **Pending join & transfer** (with optional count badges).
+- [ ] Members tab uses `DataTable` with search; row activate navigates to `/members/:memberId`.
+- [ ] Multi-select on Members tab shows prototype-style bottom bulk bar (not comms-picker banner/footer) when not in `commsManualPick` mode.
+- [ ] `/members/invite` is a standalone page with `PageHeader` and back navigation — not an in-page modal on `/members`.
+
+### Implementation delta (pass 2)
+
+Current `pace-team2/src/` diverges from prototype layout (informational — pass 2 realigns implementation):
+
+- `MemberDirectoryPage.tsx` uses plain `<h1>Members</h1>` instead of `PageHeader` ("Member directory" + subtitle + Invite CTA).
+- Tab trigger copy is "Pending" not "Pending join & transfer".
+- No `/members/invite` route or `MemberInvitePage` equivalent.
+- Comms picker mode uses sticky `Alert` + sticky footer (Done/Cancel); prototype normal mode uses row-selection bulk bar — production conflates selection UX with picker-only flow.
+- No header "Invite member" action; no `OrgContextBar` integration called out in slice implementation (shell may still render it once TEAM-01 pass 2 lands).
 
 Breakpoints: standard pace-core2 responsive behaviour applies. The `DataTable` shows a horizontal scroll on narrow viewports rather than collapsing to a card list. `PaceMain`'s `max-w-(--app-width)` and `p-4` apply per TEAM-01.
 

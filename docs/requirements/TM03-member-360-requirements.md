@@ -17,7 +17,9 @@ QA pack:         docs/test-packs/TM03-qa-pack.md
 
 ## §2 Overview
 
-TEAM-03 delivers the Member 360 detail surface for org-admin staff at `/members/:memberId`, where `:memberId` is `core_member.id` (uuid). The page renders a single scrollable layout with five sections — Member details (Identity), Additional contacts, Member cards, Applications, and a Standing roles cross-slice link — sourced from `core_person`, `core_member`, `core_contact`, `core_member_card`, `base_application` joined to `core_events`, `core_phone`, and `core_address`. Identity supports a strict scalar editing allowlist via an Unlock/Edit pattern with `Save` and `Cancel` controls; Member cards expose Deactivate / Reactivate row actions; Additional contacts and Applications are read-only. A Portal handoff CTA renders inline on the Identity card header — "Edit in Portal" or "View in Portal" — gated by `useResourcePermissions('member-profile')` and hidden when the acting user is the target member. The page is wrapped by `<PagePermissionGuard pageName="members" operation="read">`.
+TEAM-03 delivers the Member 360 detail surface for org-admin staff at `/members/:memberId`, where `:memberId` is `core_member.id` (uuid). Layout authority: **`PageHeader`** (member display name; **Message** and **Edit profile** actions in header-right) → **avatar hero** (initials, membership number, status, type, unit meta row) → **tabbed content** with five tabs — **Personal**, **Medical**, **Contacts**, **Membership**, **Events** — not five stacked section cards on one scroll. Tab bodies use section stacks (`M360Section` pattern in prototype); **roles & appointments** render as an **inline table inside the Membership tab**, not a separate Standing roles card linking to TEAM-04. Identity scalar editing and Portal handoff follow existing mutation/read contracts. The page is wrapped by `<PagePermissionGuard pageName="members" operation="read">`.
+
+- **Prototype reference:** `pace-prototype/apps/pace-team/pages/MemberPages.jsx` — `Member360Page` ( **`PageHeader`**, avatar hero, **`Tabs`** with Personal / Medical / Contacts / Membership / Events ).
 
 ---
 
@@ -31,7 +33,7 @@ Org-admin staff need a single surface where they can see every fact recorded for
 
 | Surface | Route | Notes |
 |---------|-------|-------|
-| Member 360 — single scrollable page | `/members/:memberId` | Sections in order: Member details (Identity, Portal CTA inline header-right), Additional contacts, Member cards, Applications, Standing roles cross-slice link |
+| Member 360 — tabbed detail page | `/members/:memberId` | **`PageHeader`** + avatar hero + **`Tabs`**: Personal (profile, contact, cards, sign-in sections), Medical, Contacts, Membership (current membership + **roles inline table** + history), Events (applications table) |
 | Identity edit mode | (in-page state on `/members/:memberId`) | Allowlisted scalars only; Save / Cancel controls render in edit mode; `ConfirmationDialog` "Discard unsaved changes?" on Cancel when dirty |
 | Card deactivate confirmation | (overlay on `/members/:memberId`) | `ConfirmationDialog` with destructive variant |
 | Contact details modal | (overlay on `/members/:memberId`) | Read-only `Dialog` with the contact's name, type, tier, phones, email, address |
@@ -42,7 +44,7 @@ Org-admin staff need a single surface where they can see every fact recorded for
 
 TEAM-03 does **not** own:
 - The member directory list at `/members` — that is TEAM-02.
-- Standing roles add / end / history at `/members/:memberId/roles` — that is TEAM-04. TEAM-03 renders only a section heading "Standing roles" with a "View roles ›" link.
+- Standing roles add / end / history at **`/member-roles`** — that is TEAM-04 (org-wide appointments surface). TEAM-03 renders roles **read-only inline** in the Membership tab; **Assign role** may stub or deep-link to TEAM-04 in v1.
 - Member-request review, join, transfer, or status transitions — that is TEAM-05.
 - Photo upload, medical info, billing info, event-registration detail editing — all routed through the Portal handoff CTA.
 - Card issuance, reissue, credential generation, new-card creation — the cards section exposes Deactivate / Reactivate only; no insert / delete / identifier mutation.
@@ -59,7 +61,7 @@ TEAM-03 does **not** own:
 
 **Action gating.** Visibility of the Identity Unlock button and the card row actions (Deactivate / Reactivate) is gated by `useResourcePermissions('members')`: hidden when `canUpdate === false`. Visibility of the Portal CTAs is gated by `useResourcePermissions('member-profile')` (singular resource key matching the dev `rbac_app_pages` row under PACE app): "Edit in Portal" when `canUpdate === true`; "View in Portal" when `canRead === true` AND `canUpdate === false`; neither when neither.
 
-**Single scrollable layout.** No tabs. Sections render top-to-bottom in this order: Member details, Additional contacts, Member cards, Applications, Standing roles cross-slice link.
+**Tabbed layout.** Five tabs (**Personal**, **Medical**, **Contacts**, **Membership**, **Events**) — not a single vertical stack of five top-level cards. Each tab renders one or more section blocks inside the active tab panel only.
 
 **Loading split.** Initial member fetch blocks the page with a full-page `<LoadingSpinner />`. Once the member resolves, secondary section queries (contacts / cards / applications) render their own section-level `<LoadingSpinner />` while the surrounding page remains interactive (Portal CTA, Back button, Standing roles link).
 
@@ -229,10 +231,18 @@ If `selectedOrganisation` resolves to `null` mid-render (for example a race duri
 
 The page renders inside the TEAM-01 `AuthenticatedShell` (`PaceAppLayout` chrome — header, `PaceMain`, footer). Within `PaceMain`:
 
-- **Back row** — At top-left of the `PaceMain` content area, a `<Button variant="outline">← Back to members</Button>` renders with a `ChevronLeft` icon glyph preceding the label.
-- **Content stack** — Below the Back row, a single vertical stack of section cards in this order: Member details, Additional contacts, Member cards, Applications, Standing roles. Each section is a `Card` container with its own `CardHeader` (heading + optional inline header-right slot for actions) and `CardContent`. There is no top-level page heading; the member's name is rendered as the heading inside the Member details `CardHeader`.
+- **`PageHeader`** — **Title:** member display name (BR-AA). **Subtitle:** omitted in prototype. **Header-right:** **Message** (secondary; navigates to comms compose for member) and **Edit profile** (primary; opens Portal edit in new tab). Portal **View in Portal** may appear as icon affordance on the hero row per prototype. Permission gating unchanged (F-57 / BR-R).
+- **Avatar hero** — Below **`PageHeader`**, a horizontal hero region: **`Avatar`** (initials), member **`h1`** display name, meta row (membership number as `code`, status badge, membership type, unit/sub-org name), and optional copy-id / view-portal icon actions.
+- **`Tabs`** — Below the hero: **`TabsList`** with triggers **Personal**, **Medical** (optional count badge), **Contacts** (count), **Membership** (roles count), **Events** (applications count). Only the active tab panel renders its content.
+- **Tab panels** (prototype section stacks — not five simultaneous full-page cards):
+  - **Personal** — stacked sections: Personal details (`dl`), Contact details, Membership cards list, Sign-in (`dl`).
+  - **Medical** — Medical conditions mini-table + Privacy note section.
+  - **Contacts** — Authorised contacts list with add stub.
+  - **Membership** — Current membership `dl`; **Roles & appointments** inline **`table`** (Role, Unit, Start, End) with **Assign role** action; History activity list.
+  - **Events** — Event applications mini-table with link to event hub.
+- **Back navigation** — Prototype omits a top back row (directory entry via shell nav / breadcrumb). Production may retain **Back to members** if IA requires; not part of prototype hero layout.
 
-Breakpoints: standard pace-core2 responsive behaviour applies. Each `DataTable` shows horizontal scroll on narrow viewports rather than collapsing to a card list. `PaceMain`'s `max-w-(--app-width)` and `p-4` apply per TEAM-01.
+Breakpoints: standard pace-core2 responsive behaviour applies. Tab panel tables use horizontal scroll on narrow viewports. `PaceMain`'s `max-w-(--app-width)` and `p-4` apply per TEAM-01.
 
 ### Components
 
@@ -420,6 +430,22 @@ Toolbar: Search input — placeholder "Search applications"; filters by `core_ev
 - Replaces the failing section's `DataTable` with an `<Alert variant="destructive">` containing `<AlertTitle>Could not load {section name}</AlertTitle>` (e.g. "Could not load contacts") and `<AlertDescription>` populated from the normalised error. Below the alert, a `<Button>Retry</Button>` that re-runs the section's query. Other sections continue to render.
 
 **Toasts** — surfaced via the module-level `toast({ title, description?, variant })` from `@solvera/pace-core/components`. Variant vocabulary used by this slice: `'success'` (Save success, card mutation success), `'destructive'` (Save failure, card mutation failure). Notifications appear in an `aside[role="region"]` overlay anchored bottom-right of the viewport, auto-dismissing after the default duration (5000 ms). The slice does not mount `<Toaster />` itself — TEAM-01 mounts `<ToastProvider>` (which renders `<Toaster />` internally) inside `AuthenticatedShell`.
+
+### Layout acceptance criteria (prototype alignment)
+
+- [ ] **`PageHeader`** shows member name with **Message** and **Edit profile** in header-right (when permitted).
+- [ ] **Avatar hero** renders below the header (initials, name, membership meta row).
+- [ ] Content uses **`Tabs`** with **Personal**, **Medical**, **Contacts**, **Membership**, **Events** — not five stacked top-level cards on one scroll.
+- [ ] **Roles & appointments** appear as an **inline table in the Membership tab**, not a separate Standing roles card with link-only handoff to TEAM-04.
+
+### Implementation delta (pass 2)
+
+Current `pace-team2/src/` diverges from prototype layout (informational — pass 2 realigns implementation):
+
+- Production uses a **single-scroll card stack** (`Member360IdentitySection`, records **`DataTable`** cards, **`Member360StandingRolesCard`** with "View roles ›" link) instead of **tabbed** panels.
+- No **avatar hero** band between header and content.
+- **Back to members** row present in production; prototype relies on shell navigation.
+- Data queries and mutation contracts are largely implemented; pass 2 is **layout/IA** realignment to tabs + hero + inline roles table.
 
 ### States
 

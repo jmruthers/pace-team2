@@ -17,7 +17,9 @@ QA pack:         docs/test-packs/TM09-qa-pack.md
 
 ## §2 Overview
 
-TEAM-09 delivers the org-admin authoring surface for `core_forms` rows owned by the currently selected organisation, covering the four org-scoped workflow types `org_signup`, `information_collection`, `consent_capture`, and `generic`. The list page at `/forms` shows a single `DataTable` with sort, search, and pagination. The create page at `/forms/new` and edit page at `/forms/:formId` render `WorkflowFormAuthoringShell` (one scrollable page — no tabs) with metadata, a "Schedule & limits" Card via the shell's `middleContent` slot, fields, validation summary, preview-target Card, and a Save action. Mutations are direct DML via `useSecureSupabase` against the live `check_user_is_org_admin(organisation_id)` RLS gate. Participant rendering of submitted forms lives on Portal at `/forms/:formSlug` and is out of scope.
+TEAM-09 delivers the org-admin authoring surface for `core_forms` rows owned by the currently selected organisation, covering the four org-scoped workflow types `org_signup`, `information_collection`, `consent_capture`, and `generic`. The list page at `/forms` uses **`PageHeader`** (title, subtitle, **New form** primary action in the header) above a searchable `DataTable`. The create page at `/forms/new` and edit page at `/forms/:formId` use **`PageHeader`** (dynamic title, workflow · slug · field-count subtitle; **Preview** and **Duplicate** ghost/secondary actions on the author route) above the shared **`FormsWorkstation`** layout — field list, metadata panels, validation, and save bar in one workstation surface (no tabs). Mutations are direct DML via `useSecureSupabase` against the live `check_user_is_org_admin(organisation_id)` RLS gate. Participant rendering of submitted forms lives on Portal at `/forms/:formSlug` and is out of scope.
+
+- **Prototype reference:** `pace-prototype/apps/pace-team/pages/FormsReportsSettingsPages.jsx` — `FormsPage` (list) and `FormAuthoringPage` (author). Shared workstation: prototype `_pace-core` **`FormsWorkstation`** (maps to pace-core form authoring shell in production).
 
 ---
 
@@ -194,11 +196,17 @@ If `selectedOrganisation` resolves to `null` after step 3 (for example a race du
 
 The pages render inside the TEAM-01 `AuthenticatedShell` (`PaceAppLayout` chrome — header, `PaceMain`, footer). Within `PaceMain`:
 
-**`/forms`** — A heading "Forms" (sentence case, h1) at the top of `PaceMain`. No breadcrumb. Below the title, a single `Card` wrapper hosts the `DataTable`. The `DataTable` provides its own toolbar, header row, body, footer (aggregates), and pagination controls inside the card. Modal overlays (`ConfirmationDialog` for delete confirm; `Dialog` for delete blocked) are siblings of the content card and mount as full-viewport overlays via `DialogPortal`.
+**`/forms`** — **`PageHeader`** at the top of `PaceMain`:
+- **Title:** "Forms".
+- **Subtitle:** one sentence describing application, consent, and information-collection forms and the primary org-signup entry-point role (prototype copy: "Application, consent, and information-collection forms. The first published org-signup form becomes your join entry-point.").
+- **Header-right:** primary **`New form`** button (`Plus` icon) navigates to `/forms/new` when `canCreate === true`. This is the sole create entry — not a DataTable toolbar create button.
+- Below the header, a **`DataTable`** (no outer `Card` wrapper in prototype; pace-core `Card` wrapper acceptable in production if audit requires it) with search, sort, pagination, and row activate → `/forms/:formId`. Modal overlays (`ConfirmationDialog` for delete confirm; `Dialog` for delete blocked) mount as full-viewport overlays via `DialogPortal`.
 
-**`/forms/new`** — `WorkflowFormAuthoringShell` renders directly inside `PaceMain`. The shell composes a vertical stack: header (h1 heading "Create form" + paragraph subheading "Define an org-scoped form for {orgName}.") → ValidationSummary → Preview target Card → Form metadata Card → Schedule & limits Card (slice-owned, via `middleContent`) → Fields Card → right-aligned Save `Button` inside a `<fieldset className="grid justify-items-end">`.
-
-**`/forms/:formId`** — Same layout as `/forms/new`. The header heading is the form's name; the subheading is "Edit form for {orgName}.". The slug `Input` inside Form metadata is disabled (`slugReadOnly={true}`).
+**`/forms/new` and `/forms/:formId`** — **`PageHeader`** then **`FormsWorkstation`** (shared workstation layout):
+- **PageHeader title:** "Create form" on `/forms/new`; the loaded form's `name` (or "Untitled form") on `/forms/:formId`.
+- **PageHeader subtitle:** `{workflowShort} · /{slug} · {fieldCount} field(s)` — workflow short label from `PACE_RESOLVE_WORKFLOW`, slug from form metadata, field count excluding section markers.
+- **PageHeader header-right (author routes):** **Preview** (ghost, external icon) and **Duplicate** (secondary) — non-persistence actions; visible on edit route; Preview may stub on create until first save.
+- **`FormsWorkstation`** body (below header): composed field editor, form metadata, schedule/limits, validation summary, preview target, and save/publish actions in the workstation's canonical vertical layout (prototype `_pace-core/forms/FormsWorkstation`; production equivalent: pace-core **`WorkflowFormAuthoringShell`** or successor shell wired to the same slots). Slug input is editable on create, read-only on edit (`slugReadOnly={true}` on `/forms/:formId`).
 
 Breakpoints: standard pace-core2 responsive behaviour applies — the `DataTable` shows horizontal scroll on narrow viewports rather than collapsing to a card list. The shell's vertical stack flows naturally on narrow viewports (each Card is full-width). `PaceMain`'s `max-w-(--app-width)` and `p-4` apply per TEAM-01.
 
@@ -338,6 +346,23 @@ Row-action triggers (per row, in the Actions column):
 - Focus management: focus moves to OK on open; returns to the row's Delete trigger on close.
 
 **Toasts** — surfaced via the module-level `toast({ title, variant })` from `@solvera/pace-core/components`. Variant vocabulary used by this slice: `'success'` (Save success, Delete success, Copy URL success), `'destructive'` (Save failure, Delete failure, response-count failure, copy-URL failure, list-load failure escalation), `'default'` (org-switch redirect, form-not-found redirect). Notifications appear in an `aside[role="region"]` overlay anchored bottom-right of the viewport, auto-dismissing after the default duration (5000 ms). The slice does not mount `<Toaster />` itself — TEAM-01 mounts `<ToastProvider>` (which renders `<Toaster />` internally) inside `AuthenticatedShell`.
+
+### Layout acceptance criteria (prototype alignment)
+
+- [ ] **`/forms`** renders **`PageHeader`** with title "Forms", descriptive subtitle, and **New form** primary action in the header-right slot (not DataTable toolbar create).
+- [ ] **`/forms`** list is a searchable **`DataTable`** below the header; row activate opens the author route.
+- [ ] **`/forms/new`** and **`/forms/:formId`** render **`PageHeader`** above the workstation (dynamic title + workflow · slug · field-count subtitle).
+- [ ] Author routes expose **Preview** and **Duplicate** in **`PageHeader`** header-right (ghost/secondary; non-persistence labels).
+- [ ] Author body uses shared **`FormsWorkstation`** layout (field list + metadata + save bar); no tabbed authoring shell.
+
+### Implementation delta (pass 2)
+
+Current `pace-team2/src/` diverges from prototype layout (informational — pass 2 realigns implementation):
+
+- List page uses plain **`<h1>Forms</h1>`** instead of **`PageHeader`** with subtitle.
+- **Create form** lives in the **`DataTable`** toolbar, not a header **New form** button.
+- Author routes mount **`WorkflowFormAuthoringShell`** with shell-owned **`<h1>`** heading row instead of **`PageHeader`** + **Preview** / **Duplicate** header actions.
+- Workstation internals may differ from prototype **`FormsWorkstation`** slot order until shell/workstation naming converges in pace-core.
 
 ### States
 

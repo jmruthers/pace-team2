@@ -17,7 +17,9 @@ QA pack:         docs/test-packs/TM11-qa-pack.md
 
 ## §2 Overview
 
-TEAM-11 owns the `/reports` route inside the TEAM-01 authenticated shell. It delivers an organisation-scoped, self-service reporting surface for org-admin staff: a single explore (`team.participant`), a field picker drawn from `core_field_list`, filters, sorts, a Run action that previews up to 10,000 rows in a results table with built-in CSV export, and a templates panel for saving, loading, and deleting named report configurations. The slice mounts the shared `ReportBuilder` and `ReportResultsTable` from `@solvera/pace-core/reporting` and supplies three small adapters — metadata, execution, and template store — wired against `core_field_list` and `core_report_template` via `useSecureSupabase()`. The page is wrapped by `<PagePermissionGuard pageName="reports" operation="read">`.
+TEAM-11 owns the `/reports` route inside the TEAM-01 authenticated shell. It delivers an organisation-scoped, self-service reporting surface for org-admin staff: a single explore (`team.participant`), a field picker drawn from `core_field_list`, filters, sorts, a Run action that previews up to 10,000 rows in a results table with built-in CSV export, and a templates panel for saving, loading, and deleting named report configurations. Layout authority: **`PageHeader`** (title + subtitle) above the shared **`ReportsWorkstation`** wrapper, which composes builder, results, and template lifecycle from pace-core reporting (prototype passes one config object; production may wire adapters around the same workstation contract). The page is wrapped by `<PagePermissionGuard pageName="reports" operation="read">`.
+
+- **Prototype reference:** `pace-prototype/apps/pace-team/pages/FormsReportsSettingsPages.jsx` — `ReportsPage` with **`PageHeader`** + **`ReportsWorkstation`** (`pace-prototype/apps/_pace-core/reports.jsx` shared layer).
 
 ---
 
@@ -213,11 +215,10 @@ If `selectedOrganisation` resolves to `null` mid-render (for example a race duri
 
 The page renders inside the TEAM-01 `AuthenticatedShell` (`PaceAppLayout` chrome — header, `PaceMain`, footer). Within `PaceMain`:
 
-- **Page title row** — A heading "Reports" (sentence case) at the top of `PaceMain`. No breadcrumb. No description sub-text.
-- **Two-column grid (`lg+`)** — Below the title, a CSS grid with two columns: left column `minmax(20rem, 24rem)` (the **Report builder** card), right column `1fr` (the **Report results** panel). The `<ReportBuilder>` shared component renders this grid internally; the slice is responsible only for placing `<ReportBuilder>` inside the page's content area.
-- **Templates panel placement** — The Templates panel renders **below** the two-column grid on `lg+`, full-width within `PaceMain`. At narrower breakpoints, the layout collapses to a single column: builder card, then results panel, then Templates panel, top-to-bottom. The Templates panel uses its own `<Card>` wrapper.
-- **Truncation banner** — When applicable (F-34), an `<Alert variant="default">` with title "Result truncated" renders at the top of `PaceMain`, immediately below the page title row and above the two-column grid, full-width within `PaceMain`. The banner is owned by the slice (rendered outside `<ReportBuilder>`) so the slice controls its placement and lifecycle.
-- **Validation / execution-error alerts** — Rendered by `<ReportBuilder>` internally above the results table area. When both validation and execution errors are present, the validation alert renders first (top), the execution-error alert second.
+- **`PageHeader`** — Title **"Reports"** with a one-line subtitle describing building from member fields, filtering, running/exporting, and saving reusable definitions with org scope applied fresh each run (prototype copy: "Build a report from member fields, filter and sort, then run or export. Save reusable definitions - scope is applied fresh each run."). No breadcrumb. No separate plain `<h1>` page title row.
+- **`ReportsWorkstation`** — Immediately below the header, the shared reporting workstation composes the explore selector, field picker, filters, sorts, run/save/delete template controls, results table, and saved-templates surface in the workstation's canonical layout (prototype: single `ReportsWorkstation` `config={{ … }}` object with `explores`, `reporting`, `templates`, `scope`, `currentUserId`, `visibilityLabels`). Production may implement this via pace-core **`ReportBuilder`** + adapters + templates table **inside** a workstation-equivalent wrapper, but the **visual contract** is one workstation block under the header — not a slice-authored page title plus manually placed sibling panels.
+- **Truncation banner** — When applicable (F-34), an `<Alert variant="default">` with title "Result truncated" renders below **`PageHeader`** and above **`ReportsWorkstation`**, full-width within `PaceMain`.
+- **Validation / execution-error alerts** — Rendered inside the workstation above the results table area. When both validation and execution errors are present, the validation alert renders first (top), the execution-error alert second.
 
 Breakpoints: standard pace-core2 responsive behaviour applies. `PaceMain`'s `max-w-(--app-width)` and `p-4` apply per TEAM-01. The `<DataTable>` shows a horizontal scroll on narrow viewports rather than collapsing to a card list. No sticky elements in this slice. No drawers.
 
@@ -303,6 +304,20 @@ Breakpoints: standard pace-core2 responsive behaviour applies. `PaceMain`'s `max
 Notifications appear in an `aside[role="region"][aria-label="Notifications"]` overlay portalled to `document.body`, anchored bottom-right of the viewport. Each toast auto-dismisses after the default duration (5000 ms) and is also dismissible via its close button. The slice does not mount `<Toaster />` itself — TEAM-01 mounts `<ToastProvider>` (which renders `<Toaster />` internally) inside `AuthenticatedShell`.
 
 **Loading spinners** — `<LoadingSpinner />` from `@solvera/pace-core/components` is used inline in the Templates panel body during the templates list query, and inside `<DataTable>`'s built-in loading row when a list query is in flight. Visual: a centred small spinner with the default DataTable label "Loading table" inside DataTable contexts; centred bare spinner in the Templates panel body.
+
+### Layout acceptance criteria (prototype alignment)
+
+- [ ] **`/reports`** renders **`PageHeader`** with title "Reports" and the descriptive subtitle (scope applied fresh each run).
+- [ ] Builder, results, and templates surfaces compose inside **`ReportsWorkstation`** (or production workstation equivalent) directly below the header — not a slice-owned two-column grid with a separate full-width templates card authored only at the page level.
+- [ ] Truncation **`Alert`** (when shown) sits between **`PageHeader`** and the workstation, not inside the shell page title row.
+
+### Implementation delta (pass 2)
+
+Current `pace-team2/src/` diverges from prototype layout (informational — pass 2 realigns implementation):
+
+- Page uses plain **`<h1>Reports</h1>`** instead of **`PageHeader`** with subtitle.
+- Slice mounts **`ReportBuilder`** (internal two-column builder + results grid) and a separate **`TeamReportTemplatesTable`** below — not the prototype **`ReportsWorkstation`** single-config wrapper.
+- Functional reporting behaviour (explore, adapters, templates) is largely correct; pass 2 is primarily **layout/composition** realignment to the workstation pattern.
 
 ### States
 

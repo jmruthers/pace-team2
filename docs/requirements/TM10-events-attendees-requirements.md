@@ -19,6 +19,10 @@ QA pack:         docs/test-packs/TM10-qa-pack.md
 
 TEAM-10 delivers the events surface for org-admin staff at `/events` (a list of every event for which the current organisation has at least one non-draft member application) and `/events/:eventId` (an event header plus a member-centric attendee list of those applicants). Both surfaces are member-centric: each row at `/events` represents an event the organisation has presence in; each row at `/events/:eventId` represents a member of the current organisation whose application is recorded for that event. The data is sourced through two SECURITY DEFINER RPCs that join `core_events`, `base_application`, `core_member`, and `core_person` server-side, scope reads to the current organisation's presence, exclude drafts, and authorise on org-admin caller identity. Both routes are read-only and wrapped by `<PagePermissionGuard pageName="events" operation="read">`.
 
+- **Prototype reference:** `EventsPage`, `NewEventPage` in `pace-prototype/apps/pace-team/pages/ApprovalsEventsPages.jsx`; `EventDetailPage` in `pace-prototype/apps/pace-team/pages/EventDetailCommsPages.jsx`.
+
+**Layout authority** is the pace-team prototype kit. Pass 1 aligns §5 and layout acceptance criteria to that kit; RPC contracts and read-only boundaries below are unchanged.
+
 ---
 
 ## §3 What this slice delivers
@@ -59,7 +63,7 @@ TEAM-10 does **not** own:
 
 **Identifier in path.** `:eventId` is `core_events.event_id` (uuid). NEVER text. NEVER a `base_application.id`. Verified against dev — both `core_events.event_id` and `base_application.event_id` are `uuid`.
 
-**Single combined list.** No tabs. No upcoming / past split. The events list is a single `DataTable` sorted by `event_date DESC NULLS LAST`.
+**Upcoming / past tabs.** The events list is split by `Tabs` (**Upcoming** | **Past**) with per-tab counts. Each tab renders its own filtered `DataTable`. Default tab is **Upcoming**. Within a tab, default sort is `event_date` ascending for Upcoming and descending for Past (matching prototype `initialSorting` behaviour).
 
 **Loading split.** The `/events` page renders a full-page `<LoadingSpinner />` inside the `PaceMain` content area while the events RPC is in flight. The `/events/:eventId` page renders a full-page `<LoadingSpinner />` while the attendees RPC (`app_org_event_attendees`) is in flight; neither the header card nor the attendee table renders until that RPC resolves (F-13). Background refetches after initial load use the attendee `DataTable`'s built-in loading row (F-12 / §5 States).
 
@@ -192,8 +196,17 @@ If `selectedOrganisation` resolves to `null` mid-render (for example a race duri
 
 The page renders inside the TEAM-01 `AuthenticatedShell` (`PaceAppLayout` chrome — header, `PaceMain`, footer). Within `PaceMain`:
 
-- **Page title row** — A heading "Events" (sentence case) at the top of `PaceMain`. No breadcrumb. No description sub-text.
-- **List panel** — Below the title, a single `DataTable` occupying the content area. The `DataTable` provides its own internal toolbar (search), header row, body, and pagination controls inside its built-in `Card` wrapper.
+- **Page header row** — `PageHeader` (or equivalent pace-core page header) with title **Events**, subtitle describing branch-run camps/weekends/one-off events, and a primary header action **Create event** on the right (navigates to `/events/new` — route ownership deferred; prototype shows a standalone create page; TEAM-10 v1 does not implement creation but preserves the header CTA placement for layout parity).
+- **Tab row** — `Tabs` / `TabsList` with two triggers:
+  - **Upcoming** — events with `event_date >= today` (local org timezone); badge/count shows row count.
+  - **Past** — events with `event_date < today`; badge/count shows row count.
+  Default selected tab: **Upcoming**.
+- **List panel** — Below the tabs, a single `DataTable` for the active tab's filtered rows. Columns per prototype kit (mapped to RPC fields):
+  - **Event** — primary line `event_name`; secondary muted line `event_venue` (em-dash when null).
+  - **Date** — formatted span per BR-L.
+  - **Days** — `event_days` as plain integer (right-aligned).
+  - **Registered** — `members_registered_count` (right-aligned).
+  Row activate navigates to `/events/:eventId`. Toolbar search filters in-memory within the active tab.
 
 Breakpoints: standard pace-core2 responsive behaviour applies. The `DataTable` shows horizontal scroll on narrow viewports rather than collapsing to a card list. `PaceMain`'s `max-w-(--app-width)` and `p-4` apply per TEAM-01.
 
@@ -201,12 +214,25 @@ Breakpoints: standard pace-core2 responsive behaviour applies. The `DataTable` s
 
 Within `PaceMain`:
 
-- **Back row** — At top-left of the `PaceMain` content area, a `<Button variant="outline">← Back to events</Button>` with the `ChevronLeft` icon glyph preceding the label.
-- **Header card** — Below the Back row, an event identity `Card` containing:
-  - A heading line with `event_name` rendered inside `CardTitle`.
-  - A sub-line below the title containing the formatted event-date span per BR-L. When `event_days > 1`: `"{event_date_short} – {end_date_short}"`. When `event_days IS NULL` or `event_days <= 1`: `event_date_short` alone. Em-dash "—" when `event_date` is null.
-  - A subtitle below the date-line showing `event_venue` as plain text. Em-dash "—" when null.
-- **Attendee panel** — Below the header card, a single `DataTable` occupying the content area. The `DataTable` provides its own internal toolbar (search), header row, body, and pagination controls inside its built-in `Card` wrapper.
+- **Page header row** — `PageHeader` with title `event_name`, subtitle `{formatted event-date span} · {event_venue}`, and optional header actions per prototype (**Message attendees** → `/communications/new?event=:eventId`, **Invite** — both deferred out of TEAM-10 read scope; preserve action region for pass 2 layout parity).
+- **KPI stat grid** — A four-column `<section className="grid …">` of stat cards (prototype `tk-stat-card` pattern → pace-core KPI / stat tile equivalents):
+  1. **Registered** — `members_registered_count`; footnote "members on the list".
+  2. **Approved** — count of attendee rows with `application_status = 'approved'`.
+  3. **Pending review** — sum of `submitted` + `under_review` counts.
+  4. **Withdrawn / rejected** — sum of `withdrawn` + `rejected` counts.
+  KPI values derive from the attendees RPC payload (client-side aggregation in v1).
+- **Tab row** — `Tabs` / `TabsList` with five triggers: **Attendees** (default, with count), **Details**, **Forms**, **Activities**, **Comms log**. TEAM-10 v1 implements **Attendees** tab content only (read-only attendee `DataTable` per below). Other tabs render placeholder / empty states in pass 2 until owning slices land; tab shell and labels match prototype for IA parity.
+- **Attendees tab panel** — When **Attendees** is active:
+  - **Back affordance** — Optional outline **Back to events** in header or above tabs (prototype uses header-only navigation; either placement acceptable if breadcrumb/`OrgContextBar` covers wayfinding).
+  - **Attendee `DataTable`** — columns **Member** (display name per BR-F; prototype uses `MemberCell`), **Application status** (`Badge` per BR-E). Row activate → `/members/:memberId`.
+  - Empty state when zero attendees: title/description per BR-S with optional **Invite members** CTA (deferred — stub acceptable in pass 2).
+
+Other tab panels (prototype reference — pass 2 / downstream slices):
+
+- **Details** — definition list of event metadata (name, date span, venue, days, capacity, cost, visibility).
+- **Forms** — linked forms list with link-form action.
+- **Activities** — empty state with add-activity CTA.
+- **Comms log** — mini table of sent messages for the event.
 
 Breakpoints: same as `/events`.
 
@@ -319,6 +345,26 @@ Toolbar: Search input — placeholder "Search attendees"; filters by case-insens
 - **Pagination controls (any DataTable)** — Page size dropdown changes rows per page; prev / next change page index; current page indicator updates immediately.
 - **Toast** — On unexpected fetch failure, a toast renders bottom-right and auto-dismisses after 5000 ms.
 
+### Layout acceptance criteria (prototype alignment)
+
+- [ ] `/events` renders `PageHeader` with title **Events**, descriptive subtitle, and **Create event** primary action in the header right.
+- [ ] `/events` renders **Upcoming** / **Past** tabs with counts; default tab is **Upcoming**; each tab shows a filtered `DataTable`.
+- [ ] Events list columns match prototype order: Event (name + venue sub-line), Date, Days, Registered.
+- [ ] `/events/:eventId` renders `PageHeader` with event name and `{date span} · {venue}` subtitle.
+- [ ] `/events/:eventId` renders a four-tile KPI stat grid (Registered, Approved, Pending review, Withdrawn / rejected) above tabs.
+- [ ] `/events/:eventId` renders five tabs: Attendees (default), Details, Forms, Activities, Comms log; **Attendees** tab shows the read-only attendee `DataTable`.
+- [ ] Attendee row activate navigates to `/members/:memberId`.
+
+### Implementation delta (pass 2)
+
+Current `pace-team2/src/` diverges from prototype layout (informational — pass 2 realigns implementation):
+
+- `EventsListPage` uses a plain `<h1>Events</h1>` and a **single combined** `DataTable` with no **Upcoming / Past** tabs and no **Create event** header action.
+- List columns use separate Event name / Event date / Event venue / Members registered headers instead of prototype's stacked Event column + Days column.
+- `EventDetailPage` uses a back button + `Card` header + attendee table only — no KPI stat grid, no five-tab shell, no `PageHeader` with subtitle actions.
+- No route or page for `/events/new` (prototype `NewEventPage` exists as layout reference only).
+- Non-**Attendees** tabs (Details, Forms, Activities, Comms log) are not implemented; pass 2 adds tab shell placeholders before downstream slices own content.
+
 ### Permission-conditional rendering
 
 | Condition | `/events` entry | `/events/:eventId` entry | Row click |
@@ -388,9 +434,9 @@ Toolbar: Search input — placeholder "Search attendees"; filters by case-insens
   - When `event_date` is non-null and (`event_days IS NULL` OR `event_days <= 1`): render `event_date` formatted as a localised short date alone (e.g. "5 May 2026").
   - When `event_date` is non-null AND `event_days > 1`: render `"{event_date_short} – {end_date_short}"` where `end_date_short` is `event_date + (event_days - 1) days` formatted as a localised short date (e.g. "5 May 2026 – 7 May 2026").
 
-**BR-M — Single combined list.**
+**BR-M — Upcoming / past tabs.**
 - Input: a render of `/events`.
-- Output: the events list renders as a single `DataTable`. There is no upcoming / past split, no segmented control, no tab. Default sort is `event_date DESC NULLS LAST` (rows with `event_date IS NULL` render after dated rows when sorting descending).
+- Output: the events list renders inside `Tabs` with **Upcoming** and **Past** triggers, each showing a filtered `DataTable`. **Upcoming** includes rows where `event_date >= today` (or `event_date IS NULL` treated as upcoming per product decision — default: null dates appear in Upcoming). **Past** includes rows where `event_date < today`. Default selected tab is **Upcoming**. Sort within Upcoming: `event_date ASC NULLS LAST`; within Past: `event_date DESC NULLS LAST`.
 
 **BR-N — Default sort, search, and pagination.**
 - Input: a render of either list.

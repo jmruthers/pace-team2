@@ -9,7 +9,7 @@ Status:          Draft
 Depends on:      None
 Backend impact:  None
 Frontend impact: UI
-Routes owned:    /login; /; *
+Routes owned:    /login; /; /orgs/:orgId; *
 QA pack:         docs/test-packs/TM01-qa-pack.md
 ```
 
@@ -17,9 +17,13 @@ QA pack:         docs/test-packs/TM01-qa-pack.md
 
 ## §2 Overview
 
-TEAM-01 establishes the complete application shell for the TEAM app. It wires the full provider stack (Supabase auth, org context, RBAC), renders the login page, the authenticated app chrome (header, navigation, footer), the thin home page at `/`, and the catch-all NotFound page. All subsequent slices (TEAM-02 through TEAM-13) render their routes inside the shell this slice produces. No feature-domain data is fetched in this slice.
+TEAM-01 establishes the complete application shell for the TEAM app. It wires the full provider stack (Supabase auth, org context, RBAC), renders the login page, the authenticated app chrome (header, navigation, footer), the organisation landing page at `/`, the organisation overview at `/orgs/:orgId`, and the catch-all NotFound page. All subsequent slices (TEAM-02 through TEAM-13) render their routes inside the shell this slice produces. Org overview may surface rolled-up KPIs and attention items; feature-domain queries for members, events, forms, and so on remain in downstream slices.
 
-The shell is greenfield — the legacy repo contained no `App.tsx`, no router, no layout component, and no home page. The implementation is guided entirely by pace-core2 patterns and the architecture document.
+The shell follows the **two-level org model** from the functional prototype (mirrors pace-base): pick an organisation, then work inside that org via a slim top nav plus an Organisation setup launcher on the overview.
+
+- **Prototype reference:** routing, `NAV_ITEMS`, org landing/overview, and shell chrome in `pace-prototype/apps/pace-team/app.jsx` and `pace-prototype/apps/pace-team/pages/OrganisationPages.jsx` (`OrgLandingPage`, `OrgOverviewPage`, `OrgContextBar`).
+
+The shell is greenfield — the legacy repo contained no `App.tsx`, no router, no layout component, and no home page. Provider wiring is guided by pace-core2 patterns; **layout authority** is the pace-team prototype kit.
 
 ---
 
@@ -34,8 +38,9 @@ TEAM-01 gives authenticated staff a stable, org-aware application shell to navig
 | Surface | Route | Notes |
 |---------|-------|-------|
 | Login page | `/login` | Unauthenticated; always accessible |
-| Authenticated shell (chrome) | All authenticated routes | Header + PaceMain + footer wrapper |
-| Home page | `/` | Thin authenticated home inside the shell |
+| Authenticated shell (chrome) | All authenticated routes | Header + optional OrgContextBar + PaceMain + footer |
+| Organisation landing | `/` | Pick an organisation; empty primary nav |
+| Organisation overview | `/orgs/:orgId` | Hero, KPIs, member-request attention, Organisation setup launcher, upcoming events |
 | NotFound page | `*` | Catch-all within the authenticated shell |
 | Inactivity warning modal | *(overlay)* | Rendered by `UnifiedAuthProvider` idle timer |
 | Toast notifications | *(overlay)* | Rendered by `Toaster` inside `ToastProvider`; mounted by `AuthenticatedShell` so any authenticated route may call `toast(...)` |
@@ -79,9 +84,10 @@ QueryClientProvider
 **`AuthenticatedShell` component.** All authenticated routes mount inside a layout route component at `src/components/layout/AuthenticatedShell.tsx`. This component is the single place responsible for:
 1. Checking auth loading state — renders `<LoadingSpinner />` while `isLoading === true` (from `useUnifiedAuth()`)
 2. Checking org context — renders the "no organisation assigned" empty state if `selectedOrganisation === null` after loading resolves
-3. Rendering `<PaceAppLayout>` with `<Outlet />` for all normal authenticated routes
-4. Hosting the change-password dialog (see below)
-5. Wrapping its rendered children in `<ToastProvider>` so that any descendant route or component can call the module-level `toast(...)` function from `@solvera/pace-core/components` to show success or error notifications. `ToastProvider` renders `<Toaster />` internally — `AuthenticatedShell` does not mount `<Toaster />` directly. `ToastProvider` is the outermost element returned by `AuthenticatedShell`, wrapping the `LoadingSpinner` branch, the no-org branch, and the `PaceAppLayout` + `<Outlet />` branch alike, so `toast(...)` is callable from every state the shell can render.
+3. Rendering `<PaceAppLayout>` with `<Outlet />` for all normal authenticated routes, passing **route-aware `navItems`** (empty on landing; slim in-org nav on overview and feature routes — see §5)
+4. Rendering **`OrgContextBar`** (breadcrumb region) on in-org feature routes only — not on landing or overview
+5. Hosting the change-password dialog (see below)
+6. Wrapping its rendered children in `<ToastProvider>` so that any descendant route or component can call the module-level `toast(...)` function from `@solvera/pace-core/components` to show success or error notifications. `ToastProvider` renders `<Toaster />` internally — `AuthenticatedShell` does not mount `<Toaster />` directly. `ToastProvider` is the outermost element returned by `AuthenticatedShell`, wrapping the `LoadingSpinner` branch, the no-org branch, and the `PaceAppLayout` + `<Outlet />` branch alike, so `toast(...)` is callable from every state the shell can render.
 
 `AuthenticatedShell` uses `useUnifiedAuth()` to access `isLoading`, `user`, `selectedOrganisation`, `signOut`, and `updatePassword`. It derives display values as follows:
 - `userFullName`: `user?.user_metadata?.full_name` if present and non-empty string; otherwise `user?.email`; otherwise `'Authenticated user'`
@@ -91,7 +97,7 @@ QueryClientProvider
 
 ### Page-level guards and evaluation ordering
 
-The home route `/` sits behind both `ProtectedRoute` and `PagePermissionGuard pageName="home" operation="read"`. The evaluation order when context is absent is:
+The landing route `/` and overview route `/orgs/:orgId` sit behind `ProtectedRoute` and `PagePermissionGuard` with `pageName="home"` and `operation="read"`. The evaluation order when context is absent is:
 
 1. **Session restoration** — `SessionRestorationLoader` holds all content until `isRestoring === false` or restoration times out (10,000 ms default). Nothing renders before this resolves.
 2. **Authentication check** — `ProtectedRoute` fires before org context or any guard. Unauthenticated users are redirected to `/login` immediately; they never reach the org check or the guard.
@@ -120,16 +126,24 @@ If `selectedOrganisation` is null when the guard would otherwise evaluate (e.g. 
 - If `selectedOrganisation === null` after org loading, the shell shows the "no organisation assigned" empty state inside the app chrome. No feature content renders.
 - All authenticated routes are wrapped in `PaceAppLayout`, which renders the header, `PaceMain` content area, and footer.
 
-**Home page `/`**
+**Organisation landing `/`**
 - Requires authentication (ProtectedRoute).
 - Requires org context (no-org check fires before guard).
 - Requires `read` permission on the `home` page (PagePermissionGuard).
-- No feature-domain queries fire on this page.
-- Renders org name and a grid of navigation shortcut tiles.
+- Primary nav in header is **empty** (no Overview / Members / Communications / Reports items).
+- Renders organisation picker: breadcrumb, heading ("Choose an organisation" when multiple memberships; "Your organisation" when one), subtitle, grid of org cards (initials badge, kind, name, region, role, summary stats), and rolled-up `AttentionQueue` for orgs with pending approvals.
+- Selecting an org card navigates to `/orgs/:orgId` and sets org context to that organisation.
+
+**Organisation overview `/orgs/:orgId`**
+- Requires authentication, org context, and `read:page.home`.
+- Uses slim in-org primary nav (Overview, Members, Communications, Reports).
+- Does **not** render `OrgContextBar` (overview breadcrumb is in page content via `EntityOverview` / `PageHeader`).
+- Renders `EntityOverview` pattern: hero (`HeroBadge` + org meta), KPI row, member-request `AttentionQueue`, Organisation setup launcher grid (3×2 `CardGrid` / `Card fill` navigational cards), and Events section with `EventTile` grid (see prototype; event data owned by TEAM-10).
+- Header actions: Edit organisation → `/settings/organisation`; Switch organisation → `/`.
 
 **NotFound page `*`**
 - Renders within the authenticated shell for unmatched routes.
-- Shows a 404 message and a link back to home.
+- Shows a 404 message and a primary action back to the organisation picker (`/`).
 - No feature queries. No external error logging required; `console.error` with the unmatched path is acceptable.
 
 ### Loading states
@@ -141,57 +155,62 @@ If `selectedOrganisation` is null when the guard would otherwise evaluate (e.g. 
 ### Empty states
 
 - **No organisation assigned** — user is authenticated but `selectedOrganisation === null` after org loading. The authenticated shell renders a message: **"No organisation assigned. Please contact your administrator."** Full-page within PaceMain. No CTA. No redirect. No feature content.
-- **NotFound page** — user navigates to an unmatched route. Renders 404 heading, short message, and a "Go to home" link.
+- **NotFound page** — user navigates to an unmatched route. Renders 404 heading, short message, and a "Back to organisations" link to `/`.
 
 ### Error states
 
 - **Login — bad credentials** — `PaceLoginPage` renders an inline error message below the form. The form remains interactive.
 - **Login — network / server error** — `PaceLoginPage` renders an inline error message. No redirect.
-- **Permission denied on home** — `PagePermissionGuard` renders `<AccessDenied />`: "You do not have permission to view this page." Authenticated shell chrome (header, footer) remains visible.
+- **Permission denied on landing or overview** — `PagePermissionGuard` renders `<AccessDenied />`: "You do not have permission to view this page." Authenticated shell chrome (header, footer) remains visible.
 - **Inactivity warning** — `InactivityWarningModal` appears as an overlay after 28 minutes of inactivity. Displays a countdown in seconds. Two actions: "Stay signed in" (primary) and "Sign out" (secondary). If no action is taken within 2 minutes, idle logout fires.
 
-### Primary content — home page
+### Primary content — organisation landing (`/`)
 
-- **Organisation name** — displayed from `selectedOrganisation.display_name` (falling back to `selectedOrganisation.name` if `display_name` is null).
-- **Welcome heading** — static copy: "Welcome to TEAM".
-- **Navigation shortcut tiles** — one tile per top-level TEAM area. Tiles are clickable and navigate to the area's root route. All tiles render regardless of whether the destination slice is built. Tile content: label and icon.
+- **Breadcrumb** — `pace-team` → Organisations (via `Breadcrumb`).
+- **Heading** — "Choose an organisation" when the user has multiple memberships; "Your organisation" when only one.
+- **Subtitle** — explains that the user administers N organisations (multi) or can open their organisation (single).
+- **Org card grid** — one card per membership (`section` grid). Each card shows initials badge, org kind, display name, region, role, and summary stats (active members, units, upcoming events). Full-card click navigates to `/orgs/:orgId`.
+- **Attention queue** — rolled-up items for orgs with pending join/transfer requests; click opens that org (same as picking the card).
 
-Canonical tiles and destinations:
+### Primary content — organisation overview (`/orgs/:orgId`)
 
-| Tile label | Destination | Icon |
-|-----------|-------------|------|
-| Home | `/` | `Home` |
-| Members | `/members` | `Users` |
-| Approvals | `/approvals` | `ClipboardCheck` |
-| Events | `/events` | `Calendar` |
-| Communications | `/communications` | `MessageSquare` |
-| Forms | `/forms` | `FileText` |
-| Reports | `/reports` | `BarChart2` |
-| Moderation | `/moderation/photos` | `Shield` |
-| Settings | `/settings/membership-types` | `Settings` |
+- **EntityOverview regions** (top to bottom): breadcrumb trail; page title + subtitle; header action row; hero band; KPI row; member-request attention queue; Organisation setup launcher grid; Events section.
+- **Organisation setup launcher** — six navigational cards (prototype destinations):
 
-### Primary actions — home page
+| Label | Destination |
+|-------|-------------|
+| Organisation details | `/settings/organisation` |
+| People & access | `/settings/people` |
+| Member roles | `/member-roles` |
+| Membership types | `/settings/membership-types` |
+| Sub-organisations | `/settings/sub-orgs` |
+| Forms | `/forms` |
 
-- **Shortcut tile click** — navigates to the destination route. If the destination slice is not yet built, the `*` catch-all renders NotFound; no error.
+- **Hero primary actions** — View members → `/members`; Review approvals → `/approvals`.
+- **Events section** — up to six upcoming `EventTile` cards + "Browse all" → `/events` (content owned by TEAM-10; layout owned here).
 
 ### Primary actions — shell
 
-- **Navigation menu trigger** — opens the navigation dropdown (NavigationMenu via PaceAppLayout). Shows all TEAM nav items.
-- **Nav item click** — navigates to the item's `href`. Unbuilt routes render NotFound.
-- **Org context selector** — allows users with multiple org memberships to switch org context. Provided by PaceAppLayout (`showOrganisations={true}`).
+- **Primary nav (in-org only)** — Overview, Members, Communications, Reports. Hidden on organisation landing (`/`).
+- **Nav item click** — navigates to href. Overview href is `/orgs/:selectedOrganisationId`.
+- **Org context selector** — allows users with multiple org memberships to switch org context. On overview, switching updates URL to `/orgs/:newId`. Provided by `PaceAppLayout` (`showOrganisations={true}`).
 - **User menu — sign out** — signs out via Supabase auth, clears session, and the user is redirected to `/login`.
-- **User menu — change password** — opens the change-password dialog in `AuthenticatedShell`. Dialog contains `PasswordChangeForm`. On submit: calls `updatePassword(newPassword)`; on error: form displays error inline; on success: dialog closes. No redirect.
+- **User menu — change password** — opens the change-password dialog in `AuthenticatedShell`.
+- **User menu — All organisations** — navigates to `/` (organisation landing).
+- **User menu — Branch settings** — navigates to `/settings/organisation`.
 
 ### Permission-conditional rendering
 
-- **Home content** — only shown if `PagePermissionGuard pageName="home" operation="read"` passes. If denied, `AccessDenied` is shown instead.
-- **`NavigationGuard` on nav items** — not implemented in TEAM-01. All nav items are unconditionally shown in the dropdown.
+- **Landing and overview content** — only shown if `PagePermissionGuard pageName="home" operation="read"` passes. If denied, `AccessDenied` is shown instead.
+- **`NavigationGuard` on nav items** — not implemented in TEAM-01. Slim nav items are unconditionally shown when the shell is in in-org mode.
 
 ### Navigation
 
 - Unauthenticated user on any protected route → `/login` (ProtectedRoute).
 - Successful sign-in → `/` (PaceLoginPage default redirect).
-- Home tile or nav item click → respective route.
+- Org card pick or attention item → `/orgs/:orgId`.
+- Slim nav item click → respective route.
+- User with single org may land on `/` then immediately open their only card (optional pass-2 shortcut; prototype always shows landing).
 - Unmatched route → `*` NotFound page.
 - Sign out → `/login`.
 - Idle logout → `/login`.
@@ -207,149 +226,132 @@ Canonical tiles and destinations:
 
 ## §5 Visual specification
 
-### Layout
+### Shell variants
 
 **Login page**
-Full-page centred card layout (PaceLoginPage default). TEAM logo above the form. App name "TEAM" displayed as a heading. Email field, password field, sign-in button stacked vertically. Error message area below the button. No header, no footer, no navigation.
+Full-page centred card layout (`PaceLoginPage` default). TEAM logo above the form. App name "TEAM" as heading. Email, password, sign-in button stacked vertically. Error message below the button. No header, footer, or navigation.
 
-**Authenticated pages**
-Three-layer vertical layout:
-1. **Header** (top, full width) — TEAM logo left; navigation menu trigger; org context selector; user menu right.
-2. **PaceMain content area** — `max-w-(--app-width)`, `p-4` padding; contains page-specific content.
-3. **PaceFooter** — bottom of page.
+**Organisation landing (`/`)**
+Vertical stack inside `PaceMain`:
+1. **Header** — logo, org context selector (when memberships exist), user menu. **No primary nav items.**
+2. **PaceMain** — `PageHeader` + org card grid + optional `AttentionQueue`.
+3. **PaceFooter**
 
-**Home page (within PaceMain)**
-- Welcome row: `Welcome to TEAM` heading (h1 equivalent) with the org display name below as a subtitle.
-- Tile grid: 3 columns desktop, 2 columns tablet, 1 column mobile. Tiles auto-wrap.
+**Organisation overview (`/orgs/:orgId`)**
+Same header/footer as landing, but header includes **slim primary nav** (Overview, Members, Communications, Reports). No `OrgContextBar`. Main content uses `EntityOverview` composition (see Primary content §4).
 
-**NotFound page (within PaceMain)**
-- Centred content: 404 heading, one-line message ("The page you're looking for doesn't exist."), "Go to home" link.
+**In-org feature routes** (all routes except `/`, `/orgs/:orgId`, `/login`, `*`)
+1. **Header** — slim primary nav + org selector + user menu.
+2. **`OrgContextBar`** — `Breadcrumb` trail: Organisations → {org display name} → {current page label}. Rendered between header and `PaceMain`.
+3. **PaceMain** — slice page content.
+4. **PaceFooter**
+
+**NotFound (`*`)**
+Centred content in `PaceMain`: 404 heading, one-line message, `Button` or link "Back to organisations" → `/`.
 
 **Inactivity warning modal**
-- Full-viewport overlay (modal). Centred dialog.
-- Title: default from `InactivityWarningModal` ("Your session is about to expire" or equivalent).
-- Body: countdown in seconds.
-- Two buttons: "Stay signed in" (primary), "Sign out" (secondary / destructive).
+Full-viewport overlay. Centred dialog. Countdown in seconds. "Stay signed in" (primary), "Sign out" (secondary).
 
 ### Components
 
 **`PaceLoginPage`**
-- `appName="TEAM"` — logo rendered from `/logos/team-logo-square.svg` (login) and shell favicon/wide logos from `/logos/team-favicon.svg` / `/logos/team-logo-wide.svg`; "TEAM" shown as display name.
-- `onSuccessRedirectPath="/"` (default; may be omitted).
+- `appName="TEAM"` — logos from `/logos/team-logo-square.svg`, `/logos/team-favicon.svg`, `/logos/team-logo-wide.svg`.
+- `onSuccessRedirectPath="/"` (default).
 
 **`PaceAppLayout`**
 - `appName={APP_NAME}` — `"TEAM"`.
-- `navItems` — 12-item array (9 top-level items, Settings with 3 children):
+- `navItems` — **route-aware**. Pass `[]` on `/`. Pass slim in-org array on overview and feature routes:
 
 ```ts
-const navItems: NavigationItem[] = [
-  { id: 'home',            label: 'Home',           href: '/',                           icon: 'Home' },
-  { id: 'members',         label: 'Members',        href: '/members',                    icon: 'Users' },
-  { id: 'approvals',       label: 'Approvals',      href: '/approvals',                  icon: 'ClipboardCheck' },
-  { id: 'events',          label: 'Events',         href: '/events',                     icon: 'Calendar' },
-  { id: 'communications',  label: 'Communications', href: '/communications',             icon: 'MessageSquare' },
-  { id: 'forms',           label: 'Forms',          href: '/forms',                      icon: 'FileText' },
-  { id: 'reports',         label: 'Reports',        href: '/reports',                    icon: 'BarChart2' },
-  { id: 'moderation',      label: 'Moderation',     href: '/moderation/photos',          icon: 'Shield' },
-  {
-    id: 'settings', label: 'Settings', icon: 'Settings',
-    children: [
-      { id: 'settings-membership-types', label: 'Membership Types', href: '/settings/membership-types' },
-      { id: 'settings-organisations',    label: 'Organisations',    href: '/settings/organisations' },
-      { id: 'settings-org',              label: 'Org Settings',     href: '/settings/org' },
-    ],
-  },
+const inOrgNavItems: NavigationItem[] = [
+  { id: 'nav-overview',      label: 'Overview',       href: `/orgs/${selectedOrganisationId}`, icon: 'LayoutDashboard' },
+  { id: 'nav-members',       label: 'Members',        href: '/members',                        icon: 'Users' },
+  { id: 'nav-communications', label: 'Communications', href: '/communications',               icon: 'MessageSquare' },
+  { id: 'nav-reports',       label: 'Reports',        href: '/reports',                        icon: 'BarChart2' },
 ];
 ```
 
-- `showOrganisations={true}` (default) — renders org context selector in header.
-- `showEvents={false}` (default) — TEAM is not event-scoped.
-- `userFullName` — derived from `user?.user_metadata?.full_name` (if non-empty string), else `user?.email`, else `'Authenticated user'`.
-- `userEmail` — `user?.email ?? 'No email available'`.
-- `onUserMenuSignOut` — calls `signOut()` from `useUnifiedAuth()`, then navigates to `/login`.
-- `onUserMenuChangePassword` — sets local `passwordDialogOpen` state to `true`, opening the change-password dialog.
+Approvals, Events, Forms, Moderation, and Settings are **not** in primary nav — reached from overview launcher, hero actions, user menu, or deep links (prototype IA).
 
-**Navigation** — NavigationMenu renders all `navItems` as a single dropdown trigger per CR05c. The header does not display nav links inline.
+- `showOrganisations={true}` — org context selector in header.
+- `showEvents={false}` — TEAM is not event-scoped at shell level.
+- `userFullName` / `userEmail` — derived per §3.
+- `onUserMenuSignOut` — `signOut()` then navigate `/login`.
+- `onUserMenuChangePassword` — opens change-password dialog.
+- Optional user-menu entries (pass 2): "All organisations" → `/`; "Branch settings" → `/settings/organisation`.
 
-**`SessionRestorationLoader`**
-- Renders a centred spinner.
-- Sr-only copy: "Restoring session…".
-- Visible while `isRestoring && !hasTimedOut`.
+**`OrgContextBar`**
+- Team-local wrapper in `src/components/layout/OrgContextBar.tsx` (or equivalent).
+- Uses pace-core `Breadcrumb` with trail built from org context + current page label supplied by route/slice.
+- Omit on `/`, `/orgs/:orgId`, and `/login`.
 
-**`InactivityWarningModal`**
-- Props: `isOpen` (always `true` when rendered), `timeRemaining` (seconds, from `renderInactivityWarning` callback), `onStaySignedIn`, `onSignOutNow`.
+**Organisation landing page**
+- `PageHeader` with `Breadcrumb`.
+- Org cards: `section` grid (`Card fill` or semantic button cards); multi-column when many orgs, single-column when one.
+- `AttentionQueue` below grid when any org has pending approvals.
 
-**`LoadingSpinner`**
-- Full-viewport centred spinner.
-- Rendered by `AuthenticatedShell` while `isLoading === true`.
+**Organisation overview page**
+- `EntityOverview` from `@solvera/pace-core/components` (or composed equivalent): `HeroBadge`, KPI tiles, `AttentionQueue`, `CardGrid`/`CardGridItem` launcher section, Events `section` with `EventTile` grid.
+- Launcher label: "Organisation setup".
 
-**`ToastProvider` (with `Toaster`)**
-- Rendered by `AuthenticatedShell` as the outermost wrapper around all authenticated content.
-- Props: `children: ReactNode`. No further configuration is passed.
-- `ToastProvider` renders `<Toaster />` internally — `AuthenticatedShell` does not mount `<Toaster />` directly.
-- Establishes the toast context so any descendant component can call the module-level `toast({ title?, description?, variant?, action?, duration? })` function from `@solvera/pace-core/components` to surface success or error feedback.
-- Notifications appear as an `aside[role="region"][aria-label="Notifications"]` overlay portalled to `document.body`, anchored bottom-right of the viewport. Each toast auto-dismisses after `duration` ms (default 5000) and is also dismissible via its close button.
+**Navigation** — Primary nav renders inline in header per prototype (pace-core `PaceAppLayout` / CR05c); not a 12-item dropdown of all TEAM areas.
 
-**Change-password dialog**
-- Trigger: `onUserMenuChangePassword` from user menu in `PaceAppLayout`.
-- Container: `Dialog` with `DialogContent` > `DialogHeader` + `DialogTitle` ("Change password") + `DialogBody`.
-- Form: `PasswordChangeForm` with `onSubmit`, `onCancel`, `onSuccess` callbacks.
-- `onSubmit`: calls `updatePassword(newPassword)` from `useUnifiedAuth()`; returns `result` to form (form displays error if `result.error != null`).
-- `onCancel` and `onSuccess`: both set `passwordDialogOpen` to `false`, closing the dialog.
+**`SessionRestorationLoader`**, **`InactivityWarningModal`**, **`LoadingSpinner`**, **`ToastProvider`**, **Change-password dialog** — unchanged from prior spec (see §5 components in build notes).
 
-**Home shortcut tiles**
-Each tile is a clickable card:
-- Icon: Lucide icon from the `icon` field of the corresponding `NavigationItem`.
-- Label: `label` field of the `NavigationItem`.
-- Full-card click navigates to `href`.
-- Visual states: default (card border, neutral background), hover (background tint, cursor pointer), active (slight press scale or equivalent).
+### Layout acceptance criteria (prototype alignment)
+
+- [ ] Organisation landing renders with **empty** primary nav and org card grid.
+- [ ] Organisation overview renders slim nav (Overview, Members, Communications, Reports) and Organisation setup launcher grid.
+- [ ] In-org feature routes render `OrgContextBar` breadcrumb between header and main content.
+- [ ] NotFound primary action returns to organisation picker (`/`), not a shortcut-tile home.
+- [ ] User menu includes path back to all organisations and branch settings (prototype parity).
+
+### Implementation delta (pass 2)
+
+Current `pace-team2/src/` diverges from prototype layout (informational — pass 2 realigns implementation):
+
+- `HomePage` at `/` with welcome heading and nine shortcut tiles instead of org landing + overview at `/orgs/:orgId`.
+- `NAV_ITEMS` lists nine top-level areas plus Settings children in a dropdown; prototype uses slim four-item in-org nav only.
+- No `OrgContextBar` component or breadcrumb region on feature routes.
+- Settings routes use `/settings/org` and `/settings/organisations` instead of prototype `/settings/organisation` and `/settings/sub-orgs`.
+- No user-menu shortcuts for "All organisations" or branch settings.
+- [`team-architecture-requirements.md`](./team-architecture-requirements.md) route table still reflects production paths — schedule architecture doc pass after pass 2 shell work.
+- QA pack (`docs/test-packs/TM01-qa-pack.md`) may still reference shortcut-tile home — update during pass 2 verification.
 
 ### States
 
-**Login**
-- Loading: sign-in button disabled with spinner while auth request is in flight.
-- Error: inline error message below the form. Copy from PaceLoginPage defaults.
-- Success: redirect to `/`.
+**Login** — loading, error, success redirect to `/` (unchanged).
 
-**Session restoring**
-- Full-viewport `SessionRestorationLoader` spinner.
+**Session restoring** — full-viewport `SessionRestorationLoader`.
 
-**Org loading**
-- `AuthenticatedShell` renders `<LoadingSpinner />` — full-viewport centred spinner, identical to session restoration visual.
+**Org loading** — `AuthenticatedShell` renders `<LoadingSpinner />`.
 
-**No org**
-- Full PaceMain message: "No organisation assigned. Please contact your administrator." No illustration required. No CTA.
+**No org** — "No organisation assigned. Please contact your administrator." in PaceMain.
 
-**Permission denied on home**
-- `AccessDenied` in PaceMain: "You do not have permission to view this page."
+**Permission denied** — `AccessDenied` on landing or overview when `read:page.home` fails.
 
-**Inactivity warning**
-- `InactivityWarningModal` overlay. Countdown visible. Primary action: "Stay signed in". Secondary: "Sign out".
+**Inactivity warning** — modal overlay with countdown (unchanged).
 
 ### Interactions
 
-**Sign-in form** — on submit: button enters loading state (disabled, spinner); on success: redirect to `/`; on failure: button returns to default, inline error shown.
+**Org card** — click navigates to `/orgs/:orgId` and selects org context.
 
-**Shortcut tiles** — on hover: background tint; on click: navigate to href (React Router `<Link>` or equivalent).
+**Launcher card** — navigates to destination route.
 
-**Navigation dropdown** — trigger click opens dropdown panel listing all nav items. Item click navigates and closes dropdown. Settings parent item expands to show children.
+**Slim nav** — item click navigates; Overview returns to current org overview URL.
 
-**Org context selector** — provided by PaceAppLayout; behaviour per CR05c.
+**Org context selector** — switches membership; on overview, updates `/orgs/:id` URL.
 
-**User menu — sign out** — provided by PaceAppLayout; triggers `onUserMenuSignOut`.
-
-**User menu — change password** — triggers `onUserMenuChangePassword`; change-password dialog opens. Dialog is a modal overlay; background content is inert. "Change password" heading in dialog header. `PasswordChangeForm` body: new password field, confirm password field, submit button ("Change password"), cancel button. Submit: blocking call to `updatePassword`; button shows loading state during call. Error: inline below form. Success: dialog closes, no toast or redirect. Cancel: dialog closes, no state change.
-
-**Inactivity modal** — "Stay signed in": calls `onStaySignedIn`, modal unmounts, idle timer resets. "Sign out": calls `onSignOutNow`, signs out immediately, redirect to `/login`. If modal shown with no user action for `warnBeforeMs` (2 min), `onIdleLogout` fires automatically.
+**User menu / change password / inactivity** — unchanged from prior spec.
 
 ### Permission-conditional rendering
 
-| Condition | Home content | Shell chrome |
-|-----------|-------------|-------------|
-| Not authenticated | Not shown — redirect to `/login` | Not shown |
-| Authenticated, no org | Not shown — empty state message | Shown |
-| Authenticated, has org, lacks `read:page.home` | `AccessDenied` | Shown |
-| Authenticated, has org, has `read:page.home` | Shown | Shown |
+| Condition | Landing / overview | Shell chrome |
+|-----------|-------------------|-------------|
+| Not authenticated | Redirect `/login` | Not shown |
+| Authenticated, no org | Empty state message | Shown |
+| Authenticated, lacks `read:page.home` | `AccessDenied` | Shown |
+| Authenticated, has permission | Shown | Shown |
 
 ---
 
@@ -376,9 +378,9 @@ Each tile is a clickable card:
 - Input: `main.tsx` module loads.
 - Output: `resolveTeamAppId` is assigned from `createGetAppIdResolver(supabaseClient)`, then `setupRBAC(supabaseClient, { appName: 'TEAM', getAppId: resolveTeamAppId })` executes before any React component mounts. The RBAC engine is initialised before any `PagePermissionGuard` evaluates.
 
-**BR-06 — Home page permission check**
-- Input: authenticated user with org context navigates to `/`.
-- Output: `PagePermissionGuard pageName="home" operation="read"` evaluates. If permitted: home content renders. If denied: `AccessDenied` renders. Scope resolved internally by the guard.
+**BR-06 — Landing and overview permission check**
+- Input: authenticated user with org context navigates to `/` or `/orgs/:orgId`.
+- Output: `PagePermissionGuard pageName="home" operation="read"` evaluates. If permitted: page content renders. If denied: `AccessDenied` renders.
 
 **BR-07 — Inactivity warning**
 - Input: `elapsed ≥ idleTimeoutMs − warnBeforeMs` (i.e. user has been idle for ≥ 28 minutes).
@@ -542,6 +544,7 @@ function AppProviders() {
 | Route | `pageName` | `operation` | Fallback |
 |-------|-----------|------------|---------|
 | `/` | `home` | `read` | `<AccessDenied />` |
+| `/orgs/:orgId` | `home` | `read` | `<AccessDenied />` |
 
 All other TEAM routes define their own `PagePermissionGuard` configurations in TEAM-02 through TEAM-13.
 
@@ -551,7 +554,7 @@ All other TEAM routes define their own `PagePermissionGuard` configurations in T
 - A user must be authenticated before any guard fires (`ProtectedRoute` fires first).
 - A user must have org context before any guard fires (no-org check fires before the guard; see §3 evaluation ordering).
 - Users denied `read:page.home` see `AccessDenied` within the authenticated shell; the header and footer remain visible.
-- `NavigationGuard` is not used in TEAM-01 — all nav items are unconditionally rendered.
+- `NavigationGuard` is not used in TEAM-01 — slim nav items are unconditionally rendered when in in-org shell mode.
 
 ---
 
@@ -569,17 +572,25 @@ Given a user on `/login` enters valid credentials, when they submit the sign-in 
 
 Given a user on `/login` enters invalid credentials, when they submit the sign-in form, then an inline error message is displayed and no redirect occurs.
 
-- [x] **AC-04 — Home page — authenticated with org**
+- [ ] **AC-04 — Organisation landing — authenticated with org**
 
-Given a user is authenticated and has an org membership, when they navigate to `/`, then the home page renders showing the org name and navigation shortcut tiles within the app chrome.
+Given a user is authenticated and has at least one org membership, when they navigate to `/`, then the organisation landing renders org cards and empty primary nav within the app chrome.
+
+- [ ] **AC-04b — Organisation overview**
+
+Given a user picks an organisation or navigates to `/orgs/:orgId`, when the overview loads, then slim primary nav, KPI row, Organisation setup launcher, and Events section regions render per prototype layout.
+
+- [ ] **AC-04c — OrgContextBar on feature routes**
+
+Given a user navigates to an in-org feature route (e.g. `/members`), when the page renders, then `OrgContextBar` shows breadcrumb Organisations → org name → page label between header and main content.
 
 - [x] **AC-05 — No organisation assigned**
 
 Given a user is authenticated but has no org membership, when they navigate to any authenticated route, then the shell renders "No organisation assigned. Please contact your administrator." and no feature content is visible.
 
-- [x] **AC-06 — Permission denied on home**
+- [ ] **AC-06 — Permission denied on landing or overview**
 
-Given a user is authenticated with an org but lacks `read:page.home` permission, when they navigate to `/`, then `AccessDenied` is displayed within PaceMain and the header and footer remain visible.
+Given a user is authenticated with an org but lacks `read:page.home` permission, when they navigate to `/` or `/orgs/:orgId`, then `AccessDenied` is displayed within PaceMain and the header and footer remain visible.
 
 - [x] **AC-07 — Session restoration**
 
@@ -605,9 +616,9 @@ Given a user navigates to a route not yet implemented (e.g. `/events` before the
 
 Given a user is authenticated with org context, when they view any authenticated route, then the TEAM logo, navigation menu trigger, org context selector, and user menu are visible in the header.
 
-- [x] **AC-13 — All nav items in dropdown**
+- [ ] **AC-13 — Slim in-org nav**
 
-Given a user opens the navigation menu, when the dropdown is shown, then all 9 top-level nav items (Home, Members, Approvals, Events, Communications, Forms, Reports, Moderation, Settings) are visible, and Settings reveals its 3 sub-items.
+Given a user is on an in-org route (overview or feature page), when they view the header, then primary nav shows Overview, Members, Communications, and Reports only — not Approvals, Events, Forms, Moderation, or Settings.
 
 - [x] **AC-14 — Sign out**
 
@@ -640,7 +651,9 @@ Given a user is authenticated and inside the `AuthenticatedShell`, when any desc
 - Confirm `AuthenticatedShell` checks `isLoading` first (renders `<LoadingSpinner />`), then checks `selectedOrganisation === null` (renders no-org message), before rendering `<PaceAppLayout>`.
 - Confirm change-password dialog is defined in `AuthenticatedShell` and wired to `onUserMenuChangePassword`.
 - Confirm `EventServiceProvider` is absent from the provider stack.
-- Confirm all 9 top-level nav items (and Settings children) are present in the `navItems` array.
+- Confirm slim in-org `navItems` (Overview, Members, Communications, Reports) and empty nav on `/`.
+- Confirm `OrgContextBar` renders on in-org feature routes and is omitted on `/` and `/orgs/:orgId`.
+- Confirm organisation landing and overview routes exist (`/`, `/orgs/:orgId`).
 - Confirm `/logos/team-logo-square.svg`, `/logos/team-favicon.svg`, and `/logos/team-logo-wide.svg` exist in the public directory. If absent, note as a known asset gap and raise with the product team — do not block build on this.
 - Against MCP verification project (`yihzsfcceciimdoiibif`; [`npm run mcp:verification`](../../package.json); [`docs/delivery/mcp-verification-preflight-queries.md`](../delivery/mcp-verification-preflight-queries.md)): confirm `rbac_apps` row `name = 'TEAM'` is active.
 
@@ -675,7 +688,9 @@ n/a — standard PDLC quality gates apply.
 
 ## §16 Do not
 
-- Do not fetch or display feature-domain data on the home page — no member counts, event summaries, or metrics. Home is org name, welcome heading, and navigation tiles only.
+- Do not use a single flat home page with nine shortcut tiles as the TEAM landing IA — use organisation landing + overview (prototype model).
+- Do not put Approvals, Events, Forms, Moderation, or Settings in primary header nav — use overview launcher and deep links.
+- Do not fetch feature-domain detail on landing beyond org-card summary stats and rolled-up attention counts; overview KPIs/attention/events are shell-level summaries only (detail queries stay in owning slices).
 - Do not add `EventServiceProvider` to the provider stack.
 - Do not implement `NavigationGuard` permission gating on nav items in this slice.
 - Do not add `team_unit` usage.
@@ -688,8 +703,10 @@ n/a — standard PDLC quality gates apply.
 
 ## §17 References
 
-- `/rebuild/project-brief.md` — scope boundaries, admin-only mandate, exclusions
-- `/rebuild/architecture.md` — provider stack, canonical route → `pageName` mapping, RBAC conventions, slice dependency table, navItems icon references
+- [`team-project-brief-requirements.md`](./team-project-brief-requirements.md) — scope boundaries, admin-only mandate
+- [`team-architecture-requirements.md`](./team-architecture-requirements.md) — provider stack, route map (pass-2 realignment pending)
+- `pace-prototype/apps/pace-team/app.jsx` — routing, `NAV_ITEMS`, shell chrome
+- `pace-prototype/apps/pace-team/pages/OrganisationPages.jsx` — `OrgLandingPage`, `OrgOverviewPage`, `OrgContextBar`
 - `pace-core2/packages/core/docs/requirements/CR03-auth-and-context.md` — `UnifiedAuthProvider` wiring; inactivity MUST; `OrganisationServiceProvider` explicit props
 - `pace-core2/packages/core/docs/requirements/CR04-rbac.md` — `PagePermissionGuard` API; no `scope` prop; no `useCan` at page level
 - `pace-core2/packages/core/docs/requirements/CR05c-layout-and-shell.md` — `PaceAppLayout`; `NavigationMenu` dropdown contract; `navItems` shape

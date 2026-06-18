@@ -19,6 +19,8 @@ QA pack:         docs/test-packs/TM06-qa-pack.md
 
 TEAM-06 delivers the admin surface for managing membership types within the currently selected organisation. Org-admin staff land at `/settings/membership-types`, see a sortable, filterable table of every membership type defined for their organisation, and can create new types, edit fields on a saved type, or deactivate a type (with reactivate available for previously-deactivated rows). Mutations flow through the secure Supabase client and are authorised at the database layer by RBAC-checked RLS policies. The slice does not own member assignment, fee or billing semantics, or org hierarchy — those are TEAM-02/03, TEAM-08, and TEAM-07 respectively.
 
+**Prototype reference:** `pace-prototype/apps/pace-team/pages/FormsReportsSettingsPages.jsx` — `SettingsMembershipTypes` (route `/settings/membership-types` via `SettingsPage` dispatcher).
+
 ---
 
 ## §3 What this slice delivers
@@ -32,7 +34,7 @@ Org-admin staff need to define the catalogue of membership types (e.g. "Junior",
 | Surface | Route | Notes |
 |---------|-------|-------|
 | List page | `/settings/membership-types` | Table of membership types for the currently selected organisation |
-| Create / edit modal | (overlay on list page) | `Dialog` modal with form fields for name, min age, max age, active flag |
+| Create / edit inline form | (replaces list on same route) | `Card` inline editor swaps table — Compliance Register pattern; not `Dialog` |
 | Deactivate confirmation | (overlay on list page) | `ConfirmationDialog` with destructive variant |
 | Reactivate row action | (inline on list page) | Direct action — no confirmation |
 
@@ -146,13 +148,32 @@ If `selectedOrganisation` somehow resolves to `null` after step 3 (e.g. a race d
 
 ### Layout
 
-The page renders inside the TEAM-01 `AuthenticatedShell` (`PaceAppLayout` chrome — header, `PaceMain`, footer). Within `PaceMain`:
+The page renders inside the TEAM-01 `AuthenticatedShell` (`PaceAppLayout` chrome — header, `OrgContextBar`, `PaceMain`, footer). Within `PaceMain`:
 
-- **Page title row** — A heading "Membership types" (sentence case) at the top of `PaceMain`. No breadcrumb. No description sub-text.
-- **Content card** — Below the title, a single `Card` wrapper hosts the `DataTable`. The `DataTable` provides its own toolbar, header row, body, footer (aggregates), and pagination controls inside the card.
-- **Modal overlays** — The editor `Dialog` and the deactivate `ConfirmationDialog` are siblings of the content card and mount as full-viewport overlays via `DialogPortal`.
+- **Page header** — `PageHeader`:
+  - `title`: "Membership types".
+  - `sub`: "Membership types determine fees, age eligibility, and which members appear on event and comms picker lists."
+  - `right`: primary `Button` "New type" when list view is active and `canCreate === true`; hidden while inline editor is open.
+- **Content region — list OR inline editor (mutually exclusive)** — Prototype **Compliance Register** pattern: inline form **replaces** the table in place; no modal `Dialog` for create/edit.
+  - **List view** — `DataTable` inside a `Card` (or table-only layout) listing types with row icon actions (edit, deactivate/delete per permissions).
+  - **Editor view** — When `editing` is `"new"` or a row id, render `MembershipTypeForm` as a `Card` with `CardHeader`/`CardTitle` ("New membership type" / "Edit membership type"), `CardContent` form fields, `CardFooter` with `SaveActions` (Save + Cancel). Cancel returns to list view without route change. Use `key={editing}` so switching rows remounts defaults.
 
-Breakpoints: standard pace-core2 responsive behaviour applies — the `DataTable` collapses non-essential controls on narrow viewports per pace-core2 defaults. `PaceMain`'s `max-w-(--app-width)` and `p-4` apply per TEAM-01.
+Breakpoints: standard pace-core2 responsive behaviour. `PaceMain`'s `max-w-(--app-width)` and `p-4` apply per TEAM-01.
+
+### Layout acceptance criteria (prototype alignment)
+
+- [ ] `PageHeader` with title, subtitle, and "New type" CTA in header (list mode only).
+- [ ] `OrgContextBar` breadcrumb above content.
+- [ ] Create/edit uses **inline `Card` form that swaps the table** — not `Dialog` overlays.
+- [ ] Route is `/settings/membership-types` (standalone settings page, no settings hub).
+
+### Implementation delta (pass 2)
+
+Current `pace-team2/src/` diverges from prototype layout:
+
+- `MembershipTypesPage.tsx` uses plain `<h1>` and `Dialog`/`DialogPortal` editors for create/edit.
+- DataTable toolbar Create handoff opens dialog instead of inline swap pattern.
+- Deactivate still uses `ConfirmationDialog` (acceptable for destructive confirm; prototype uses inline icon delete stub).
 
 ### Components
 

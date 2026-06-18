@@ -1,0 +1,46 @@
+---
+description: Pass 1 — audit TEAM requirement slices against pace-prototype layout; update docs only
+globs: docs/requirements/TM*.md, docs/delivery/requirements-audit-queue.md
+alwaysApply: false
+---
+
+# TEAM requirements audit — pass 1 (docs only)
+
+When the user asks to continue TEAM pass 1, audit a TM slice, or references `requirements-audit-queue.md` in pace-team2, follow this protocol.
+
+## Scope
+
+- **In scope:** Update requirement slices under `docs/requirements/TM*.md` and status rows in `docs/delivery/requirements-audit-queue.md`.
+- **Out of scope:** Any edit under `src/`, tests, migrations, CSS, or pass-2 implementation. Do not update [team-build-queue.md](../docs/delivery/team-build-queue.md) build status.
+
+## Authority
+
+| Source | Role |
+|--------|------|
+| `pace-prototype/apps/pace-team/` | **Layout authority** — org landing, overview, members, approvals, events, comms, forms, reports, settings |
+| `pace-team2/src/` | **Read-only** — note drift; requirements target prototype layout |
+| `pace-core2/packages/core/docs/standards/` | **Component and markup rules** |
+
+Prototype is **layout only**. Do not copy hash router, mock data, Tweaks panel, or `team-styles.css` one-offs as production mandates.
+
+## Procedure (each slice)
+
+1. Read [requirements-audit-queue.md](../docs/delivery/requirements-audit-queue.md); select the lowest `audit_order` with `audit_status = Pending` (or resume `In progress`).
+2. Set row to `In progress`.
+3. Read the requirement doc, `prototype_refs`, and skim implementation hints (read-only).
+4. Audit layout gaps: two-pane queues, DataTable toolbars, settings standalone pages, form authoring drawer, comms compose flow, org overview launcher grid.
+5. Update **only** the requirement slice:
+   - **Visual specification** (or equivalent)
+   - Layout-driven acceptance criteria
+   - **Prototype reference:** line with correct paths (`pages.jsx`, `pages-2.jsx`, etc.)
+   - **Implementation delta (pass 2)** when prod differs or prototype missing (e.g. TM12 photo moderation)
+6. Set `Done`, or `N/A` when no prototype exists (document gap explicitly for TM12).
+7. Continue to next Pending slice unless the user capped the run.
+
+## Dry run
+
+Report gaps in chat only; do not modify files.
+
+## Chaining
+
+After marking Done, proceed to the next Pending slice without asking the user to repeat the audit prompt.

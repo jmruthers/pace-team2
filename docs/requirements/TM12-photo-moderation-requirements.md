@@ -19,6 +19,8 @@ QA pack:         docs/test-packs/TM12-qa-pack.md
 
 TEAM-12 delivers the profile-photo moderation surface at `/moderation/photos` for the TEAM app. Authenticated moderators see a paginated DataTable of profile photos already attached to `core_person` rows of members in the currently selected organisation, can preview a larger version of a photo in a dialog, and can permanently remove a photo (file plus metadata) via a destructive row action with confirmation. Moderation is **reactive** — photos are reviewed after they are live in the platform; this slice does not own profile-photo upload, member display surfaces, or any approval queue. Removal goes through the canonical pace-core2 helper `deleteAttachment`, which atomically deletes the storage object and the metadata row. The slice depends on TEAM-01 for the app shell and the toast context, and on upstream platform work for RBAC-checked SELECT and DELETE policies on `core_file_references` plus a recommended read-side RPC (see §15).
 
+- **Prototype reference:** **None** — the pace-team prototype kit has no photo-moderation screen. Layout for pass 2 is derived from this requirement prose and the existing DataTable spec in §5 only.
+
 ---
 
 ## §3 What this slice delivers
@@ -298,6 +300,12 @@ Sticky elements: the shell header and footer are sticky per TEAM-01's `PaceAppLa
 | Authenticated, has org, lacks `read:page.moderation-photos` | `<AccessDenied />` | n/a | n/a |
 | Authenticated, has org, has `read` only | DataTable | hidden | hidden |
 | Authenticated, has org, has `read` + `delete` | DataTable | shown | shown |
+
+### Implementation delta (pass 2)
+
+**No prototype screen.** The pace-team prototype kit does not include photo moderation. Pass 2 implementation must follow this requirement prose and the existing DataTable spec in §5 only — there is no layout reference in `pace-prototype/apps/pace-team/`.
+
+Current `pace-team2/src/` may have no `/moderation/photos` route yet; when built, align to §5 Layout and Components (single Card-wrapped DataTable, Preview dialog, Confirm Remove dialog) without inventing prototype-only patterns.
 
 ---
 

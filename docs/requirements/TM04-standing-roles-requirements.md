@@ -9,7 +9,7 @@ Status:          Draft
 Depends on:      TEAM-01 (app shell, ToastProvider, AuthenticatedShell, navItems), TEAM-03 (Member 360 entry — supplies stable core_member.id navigation and "View roles ›" link)
 Backend impact:  Read contract only at v1 (mutations on core_member_role use the live check_user_is_org_admin(organisation_id) RLS gate already in place on dev — no migration required for slice mutations). Implementation gate on a planned per-org UNIQUE migration on core_role_type — see §15 / §17.
 Frontend impact: UI
-Routes owned:    /members/:memberId/roles
+Routes owned:    /member-roles
 QA pack:         docs/test-packs/TM04-qa-pack.md
 ```
 
@@ -17,7 +17,9 @@ QA pack:         docs/test-packs/TM04-qa-pack.md
 
 ## §2 Overview
 
-TEAM-04 delivers the Standing roles surface for org-admin staff at `/members/:memberId/roles`, where `:memberId` is `core_member.id` (uuid). The page renders a single role-history table for the target member sourced from `core_member_role` joined to `core_role_type`, with an "Add role" header button that opens a modal form to insert a new active role and an "End role" row action that records an `end_date` on an active row via a destructive confirmation dialog. Ended roles remain visible for audit history; there is no hard delete. The page is wrapped by `<PagePermissionGuard pageName="member-roles" operation="read">` and is reached only via TEAM-03's "View roles ›" cross-slice link.
+TEAM-04 delivers the org-wide **Member roles** surface at **`/member-roles`** — active and recent role appointments across all units in the currently selected organisation (not a member-scoped nested route). Layout authority: **`PageHeader`** (title "Member roles", org-wide subtitle, **New appointment** primary in header-right) → optional **inline appointment form** in a **`Card`** region above the table when creating/editing (not a modal **`Dialog`**) → org-wide appointments **`DataTable`**. Ending a role may still use a confirmation dialog. The page is wrapped by `<PagePermissionGuard pageName="member-roles" operation="read">`.
+
+- **Prototype reference:** `pace-prototype/apps/pace-team/pages/MemberPages.jsx` — `MemberRolesPage` at route **`/member-roles`** (org-wide appointments table + inline **`Card`** appointment form).
 
 ---
 
@@ -31,11 +33,9 @@ Org-admin staff need a member-scoped surface where they can review every standin
 
 | Surface | Route | Notes |
 |---------|-------|-------|
-| Standing roles — single role-history page | `/members/:memberId/roles` | Header (Back button + member name + Add-role button) above a single role-history `DataTable`. |
-| Add-role modal | (overlay on `/members/:memberId/roles`) | `Dialog` containing the Add-role form (Role type Select + Start date date picker). |
-| End-role confirmation dialog | (overlay on `/members/:memberId/roles`) | Composed from the `Dialog` family (destructive) with an inline date picker for the chosen `end_date`. |
-| Member-not-found page | (in-page replacement at `/members/:memberId/roles`) | Single safe UX whether the id is unknown, deleted, or in another org. |
-| Org-mismatch alert | (in-page replacement at `/members/:memberId/roles`) | Destructive `Alert` with "Back to members" button. |
+| Member roles — org-wide appointments page | `/member-roles` | **`PageHeader`** + optional inline appointment **`Card`** form + org-wide **`DataTable`** (Member, Role/title, Unit, Start, End, row edit). |
+| Inline appointment form | (in-page on `/member-roles`) | **`Card`** / form region with grid fields (Member, Role, Role title, Unit, Start, End) and **Create appointment** / **Save** footer — not a modal **`Dialog`**. |
+| End-role confirmation dialog | (overlay on `/member-roles`) | Retained for destructive end-date confirmation when row actions require it. |
 
 ### Boundaries
 
@@ -184,13 +184,14 @@ If `selectedOrganisation` resolves to `null` mid-render (for example a race duri
 
 The page renders inside the TEAM-01 `AuthenticatedShell` (`PaceAppLayout` chrome — header, `PaceMain`, footer). Within `PaceMain`:
 
-- **Page header row** — At the top of the `PaceMain` content area, a single horizontal row containing three groups:
-  - Left: a `<Button variant="outline">← Back to Member 360</Button>` with a `ChevronLeft` icon glyph preceding the label.
-  - Centre or left of right: a heading rendered as the member's full name (BR-2) followed by " — Standing roles", styled at the same level as a section title (e.g. `h1` / `CardTitle` typographic level).
-  - Right: an `<Button>Add role</Button>` (default / primary visual). When the role-type lookup is empty, the button renders disabled with helper text `"No role types configured for this organisation. Contact your administrator."` rendered below the button (small, muted typographic style, right-aligned under the button).
-- **Content area** — Below the header row, a single `Card` containing the role-history `DataTable`.
+- **`PageHeader`** — **Title:** "Member roles". **Subtitle:** org-wide copy (prototype: "Active and recent role appointments across all units in this branch."). **Header-right:** primary **`New appointment`** button (`Plus` icon) opens the inline form when `canUpdate === true` and role types exist. Hidden when `canUpdate === false`; disabled with helper text when no role types configured (BR-19).
+- **Inline appointment form (create/edit)** — When `editing !== null`, a **`Card`** form region renders **above** the table (prototype `appt-form` / `role="region" aria-label="Appointment form"`):
+  - Section heading **"New appointment"** or **"Edit appointment"** with short description and close icon.
+  - Grid fields: **Member** (select), **Role** (select), **Role title** (required text with datalist presets), **Unit** (select), **Start date**, **End date** (optional — blank means current).
+  - Footer actions: **Cancel** (secondary) and **Create appointment** / **Save** (primary) — not modal **`Dialog`** chrome.
+- **Appointments table** — **`DataTable`** below the form (when closed, table is first content below header): columns **Member**, **Role** (title + role type subline), **Unit**, **Start**, **End**, row **Edit** action. Row activate navigates to **`/members/:memberId`** (Member 360). Search enabled.
 
-Breakpoints: standard pace-core2 responsive behaviour applies. The role-history `DataTable` shows horizontal scroll on narrow viewports rather than collapsing to a card list. `PaceMain`'s `max-w-(--app-width)` and `p-4` apply per TEAM-01.
+Breakpoints: standard pace-core2 responsive behaviour applies. The appointments `DataTable` shows horizontal scroll on narrow viewports. `PaceMain`'s `max-w-(--app-width)` and `p-4` apply per TEAM-01.
 
 ### Components
 
@@ -297,6 +298,22 @@ Pagination controls (rendered below the table by `DataTable`): page size dropdow
 - The page header (Back button, member name, Add-role button) continues to render above the section error.
 
 **Toasts** — surfaced via the module-level `toast({ title, description?, variant })` from `@solvera/pace-core/components`. Variant vocabulary used by this slice: `'success'` (Add success "Role added.", End success "Role ended.") and `'destructive'` (Add failure with normalised `HandleSupabaseError` message, End failure with normalised message, active-uniqueness race per BR-9). Notifications appear in an `aside[role="region"]` overlay anchored bottom-right of the viewport, auto-dismissing after the default duration (5000 ms). The slice does not mount `<Toaster />` itself — TEAM-01 mounts `<ToastProvider>` (which renders `<Toaster />` internally) inside `AuthenticatedShell`.
+
+### Layout acceptance criteria (prototype alignment)
+
+- [ ] Route is **`/member-roles`** (org-wide), not **`/members/:memberId/roles`**.
+- [ ] **`PageHeader`** uses org-wide title/subtitle and **New appointment** in header-right.
+- [ ] Create/edit appointment uses an **inline `Card` form** above the table, not an **Add-role modal `Dialog`**.
+- [ ] Table lists appointments **across all members/units** in the org; row activate opens Member 360.
+
+### Implementation delta (pass 2)
+
+Current `pace-team2/src/` diverges from prototype layout (informational — pass 2 realigns implementation):
+
+- Route and architecture spec still target **`/members/:memberId/roles`** (member-scoped nested route) with **Back to Member 360** header and member-name page title.
+- **Add role** opens a modal **`Dialog`**, not prototype inline **`Card`** appointment form.
+- Table is member-scoped role history, not org-wide appointments with **Member** column.
+- **`team-architecture-requirements.md`** route registry must be updated when pass 2 adopts **`/member-roles`**.
 
 ### States
 

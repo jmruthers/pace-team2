@@ -17,7 +17,9 @@ QA pack:         docs/test-packs/TM05-qa-pack.md
 
 ## §2 Overview
 
-TEAM-05 delivers the join and transfer request queue and review surface for org-admin staff at `/approvals`. The page renders two tabs — Open (default: `pending` and `on_hold` requests for the currently selected organisation) and Closed (read-only history of `approved`, `rejected`, and `withdrawn` requests) — with column sort, search, request-type filter, and pagination. Selecting a row opens a hybrid review panel via the child route `/approvals/:requestId`: side-by-side at `md+` (queue list + review panel), stacked single-column below `md` (selecting a row navigates to detail; queue is hidden). The review panel shows applicant details, request metadata, and form responses, and exposes the resolve action rail (Approve / Put on hold / Reject) for `pending` requests. All resolve transitions go through the `app_resolve_member_request` RPC, which executes member-side effects (member status change, member-number assignment, transfer source-org adjustment, reject member-row delete) atomically server-side. The page is wrapped by `<PagePermissionGuard pageName="approvals" operation="read">`.
+TEAM-05 delivers the join and transfer request queue and review surface for org-admin staff at `/approvals`. The page renders two tabs — **Open queue** (default: `pending` and `on_hold` requests for the currently selected organisation) and **Resolved** (read-only history of `approved`, `rejected`, and `withdrawn` requests) — with in-page list selection driving a **two-pane** layout: a custom scrollable request list on the left and a detail/review panel on the right. Selection is held in component state (not a child URL). The review panel shows applicant details, request metadata, form responses, and the resolve action rail (Approve / Put on hold / Reject) for `pending` requests. All resolve transitions go through the `app_resolve_member_request` RPC. The page is wrapped by `<PagePermissionGuard pageName="approvals" operation="read">`.
+
+**Prototype reference:** `pace-prototype/apps/pace-team/pages/ApprovalsEventsPages.jsx` — `ApprovalsPage` (two-pane queue + in-page review; optional `initialId` for deep-link only in prototype hash router).
 
 ---
 
@@ -217,24 +219,41 @@ If `selectedOrganisation` resolves to `null` after step 3 (for example a race du
 
 ### Layout
 
-The page renders inside the TEAM-01 `AuthenticatedShell` (`PaceAppLayout` chrome — header, `PaceMain`, footer). Within `PaceMain`:
+The page renders inside the TEAM-01 `AuthenticatedShell` (`PaceAppLayout` chrome — header, `OrgContextBar`, `PaceMain`, footer). `OrgContextBar` renders above page content per TEAM-01.
 
-**Page header block** — A heading "Approvals" (sentence case, h1) at the top of `PaceMain`. No breadcrumb. No description sub-text.
+Within `PaceMain`:
 
-**Tabs row** — Below the header block, a `Tabs` root containing a `TabsList` with two `TabsTrigger` controls in this order: **Open** (default) and **Closed**. The selected tab's `TabsContent` panel hosts the table + (at `md+`) the review panel.
+- **Page header** — `PageHeader`:
+  - `title`: "Approvals".
+  - `sub`: "Review join and transfer requests submitted to your branch."
+  - `right`: primary `Button` "Approval rules" (stub/deferred configuration surface in prototype; pass 2 may wire to settings or rules editor).
+- **Tabs row** — `Tabs` with `TabsList` triggers in order: **Open queue** (default, with count badge) and **Resolved** (with count badge). Tab switch resets in-page selection (prototype clears `selectedId`).
+- **Two-pane queue + review** — Below tabs, a `section` (or grid) with class recipe matching prototype `tk-2pane`:
+  - **Left pane — custom list (not `DataTable`)** — `Card` or `article` list card with list header ("Awaiting decision" / "Recently resolved" + item count). Rows are semantic `<ul>` / `<li>` with `<button type="button">` row activators showing avatar initials, applicant name, request-type badge, membership type, target org, relative submitted time. Active row uses `is-active` visual state. Empty list shows `EmptyState` inside the list card ("All caught up").
+  - **Right pane — detail/review panel** — Renders when a row is selected in component state (`selectedRequestId`). When no selection, pane shows empty prompt ("Select a request to review") or collapses with `no-selection` modifier at narrow widths. Review content matches existing functional groups (applicant, request metadata, form responses, action rail, resolve `Dialog`s).
+  - **Selection model** — Row click sets `selectedRequestId` in React state. **No child route** `/approvals/:requestId` for layout (prototype uses in-page selection only). Deep-link behaviour is pass 2 optional.
+  - **Responsive** — At `md+`, side-by-side two-pane. Below `md`, stack: show list or detail based on whether a request is selected (prototype pattern).
 
-**Hybrid layout container** — Inside each `TabsContent` panel, a CSS grid/flex container splits the area into queue list and review panel:
-- **At `md` and above (≥768px)**: two-column grid. Left column is the queue `DataTable` with a width clamp of approximately `360px` minimum and `480px` maximum (e.g. `grid-template-columns: minmax(360px, 480px) 1fr`). Right column is `flex-1` and hosts `<Outlet />`. When no `:requestId` is present in the URL, the right column shows the empty review-panel state (F-15). When `:requestId` is present, the review panel renders inside the Outlet.
-- **Below `md` (<768px)**: single-column. When no `:requestId` is present, only the queue `DataTable` renders. When `:requestId` is present, only the review panel (the `<Outlet />` content) renders; the queue list is hidden. Selecting a row navigates to `/approvals/:requestId` and replaces the queue with the review panel.
+**Breakpoints** — `md` = 768px (pace-core standard). `PaceMain`'s `max-w-(--app-width)` and `p-4` apply per TEAM-01.
 
-**Page subtitle (review panel only)** — When `:requestId` is present and the request query has resolved, a subtitle "Reviewing request from {applicant full name}" renders inside the review panel area, above the review-panel header strip. The subtitle is part of the review panel, not the page header.
+### Layout acceptance criteria (prototype alignment)
 
-**Review panel internal split** — Inside the review panel area:
-- **Header strip** — Title "Review request" (h2) and subtitle "Reviewing request from {applicant full name}" (paragraph below the title). When `status !== 'pending'`, an additional read-only `<Alert variant="default">` strip renders below the subtitle showing the outcome, resolver, resolved date, and resolution note (per F-46).
-- **Action rail** — When the action rail is shown (per F-47), it renders directly below the header strip / read-only strip area. Anchored at the top of the right pane just below the panel title; not sticky. Right-aligned: Approve (primary) at the rightmost edge, Put on hold (outline) to its left, Reject (destructive) at the leftmost. Buttons use the pace-core2 `Button` defaults.
-- **Two-column body** — Below the action rail, the review panel body is split into a Left column (Applicant + Request grouped sections + "View member 360" link) and a Right column (form responses). At `lg+` (≥1024px) the body is two-column (left ~360px–420px, right `flex-1`); at `md` (768–1023px) the body collapses to single-column with Left above Right; below `md` the entire review panel is already single-column inside the parent layout (the queue is hidden).
+- [ ] `PageHeader` with title "Approvals", subtitle, and header CTA "Approval rules".
+- [ ] `OrgContextBar` breadcrumb above content.
+- [ ] Tab labels **Open queue** and **Resolved** (with count badges).
+- [ ] Queue is a **custom two-pane list**, not a `DataTable`.
+- [ ] Request selection is **in-page state**; URL stays `/approvals` (no `/approvals/:requestId` child route for layout).
+- [ ] Right pane shows review detail for selected row; empty state when none selected.
 
-**Breakpoints** — `md` = 768px, `lg` = 1024px (pace-core2 standard). The `DataTable` shows a horizontal scroll on narrow viewports rather than collapsing to a card list. `PaceMain`'s `max-w-(--app-width)` and `p-4` apply per TEAM-01.
+### Implementation delta (pass 2)
+
+Current `pace-team2/src/` diverges from prototype layout (informational — pass 2 realigns implementation):
+
+- `ApprovalsPage.tsx` uses plain `<h1>Approvals</h1>` instead of `PageHeader` + "Approval rules" CTA.
+- Open/Closed tabs use labels "Open" / "Closed" not "Open queue" / "Resolved".
+- Queue is implemented as `DataTable` with column sort/search/pagination — prototype uses custom scrollable list rows.
+- Hybrid **URL child route** `/approvals/:requestId` with `Outlet` and responsive queue hide/show — prototype keeps selection in component state on `/approvals` only.
+- Tab names and list chrome in requirement §4 functional spec still describe DataTable columns — pass 2 reconciles data presentation with list-row layout while preserving query/RPC contracts.
 
 ### Components
 

@@ -9,7 +9,7 @@ Status:          Draft
 Depends on:      TEAM-01 (app shell, ToastProvider, AuthenticatedShell, navItems)
 Backend impact:  Schema changes (upstream platform: RBAC-checked INSERT/UPDATE RLS policies on core_organisations; AFTER INSERT trigger seeding core_organisation_app_access)
 Frontend impact: UI
-Routes owned:    /settings/organisations
+Routes owned:    /settings/sub-orgs
 QA pack:         docs/test-packs/TM07-qa-pack.md
 ```
 
@@ -17,7 +17,9 @@ QA pack:         docs/test-packs/TM07-qa-pack.md
 
 ## §2 Overview
 
-TEAM-07 delivers the sub-organisations management surface at `/settings/organisations` for the TEAM app. Authenticated org-admin staff see a flat table of direct child organisations of their current organisation, can create a new child via a toolbar dialog, and can edit a child's `display_name`, `description`, and `is_active` flag via a row-level dialog. The slice depends on TEAM-01 for the app shell and the toast context, and on upstream platform work for two pieces of backend wiring (RBAC-checked RLS policies and an `AFTER INSERT` trigger that seeds app-access rows for new children). No detail sub-route exists; all editing is in modals.
+TEAM-07 delivers the sub-organisations management surface at `/settings/sub-orgs` for the TEAM app. Authenticated org-admin staff see a flat table of direct child organisations of their current organisation, can create a new child via header or toolbar action, and can edit a child's `display_name`, `description`, and `is_active` flag. The slice depends on TEAM-01 for the app shell and the toast context, and on upstream platform work for two pieces of backend wiring (RBAC-checked RLS policies and an `AFTER INSERT` trigger that seeds app-access rows for new children). No detail sub-route exists.
+
+**Prototype reference:** `pace-prototype/apps/pace-team/pages/FormsReportsSettingsPages.jsx` — `SettingsSubOrgs` (route `/settings/sub-orgs` via `SettingsPage` dispatcher).
 
 ---
 
@@ -31,7 +33,7 @@ TEAM-07 lets staff in an organisation list, create, and adjust the direct child 
 
 | Surface | Route | Notes |
 |---------|-------|-------|
-| Sub-organisations list page | `/settings/organisations` | Flat DataTable of direct children of the current organisation, with toolbar Create button |
+| Sub-organisations list page | `/settings/sub-orgs` | Flat DataTable of direct children of the current organisation; `PageHeader` with New sub-organisation CTA |
 | Create sub-organisation dialog | *(modal overlay on the list page)* | `Dialog` containing a `Form` for `name`, `display_name`, `description` |
 | Edit sub-organisation dialog | *(modal overlay on the list page)* | `Dialog` containing a `Form` for `display_name`, `description`, `is_active`; `name` shown read-only |
 
@@ -185,19 +187,34 @@ The DataTable's built-in Create / Edit modals, Import, Export, and Delete afford
 
 ### Layout
 
-The page renders inside the standard authenticated shell chrome (header, PaceMain content area, footer) provided by TEAM-01. Within PaceMain:
+The page renders inside the standard authenticated shell chrome (header, `OrgContextBar`, PaceMain content area, footer) provided by TEAM-01. Within PaceMain:
 
-- **Page title row** — "Sub-organisations" rendered as the page heading at the top of the PaceMain content area. No subtitle, no breadcrumb.
-- **Content card** — a single `Card` containing the DataTable. The Card header (`CardHeader`) includes the DataTable's title row and the slice-controlled "+ New sub-organisation" button on the right.
-- **DataTable** — fills the Card body. Footer pagination renders below the table.
-- **Editor dialogs** — overlay `Dialog`s portalled to `document.body`. Modal centred. Dim background behind. Focus trapped inside the dialog; native escape closes it.
+- **Page header** — `PageHeader`:
+  - `title`: "Sub-organisations".
+  - `sub`: "Sub-organisations are the teams or units inside your branch. Members belong to exactly one."
+  - `right`: primary `Button` "New sub-organisation" when `canCreate === true` (prototype header CTA; not buried in `CardHeader` only).
+- **Content** — `DataTable` listing direct children (columns: display name + description subline, slug/internal name, status badge, row edit action). No wrapper `Card` required if `DataTable` provides table chrome; prototype uses table-only under page header.
+
+**Editor pattern (pass 2 note)** — Prototype stubs edit via row icon (`paceStub`); production may use `Dialog` or inline form. Pass 1 layout authority is page header + table list; modal vs inline editor is flagged in implementation delta.
 
 Breakpoints:
-- Desktop (≥ 1024px): full Card width within PaceMain's `max-w-(--app-width)`.
-- Tablet (768–1023px): same Card; DataTable's horizontal scroll handles narrow columns.
-- Mobile (< 768px): same Card; the toolbar's "+ New sub-organisation" button collapses to icon + label per DataTable defaults; the DataTable's body scrolls horizontally inside the Card.
+- Desktop (≥ 1024px): full width within PaceMain's `max-w-(--app-width)`.
+- Tablet / mobile: `DataTable` horizontal scroll as needed.
 
-Sticky elements: the shell header and footer are sticky per TEAM-01's `PaceAppLayout` defaults. The DataTable's header row is not separately sticky beyond DataTable defaults.
+### Layout acceptance criteria (prototype alignment)
+
+- [ ] Route is `/settings/sub-orgs` (not `/settings/organisations`).
+- [ ] `PageHeader` with title, subtitle, and **New sub-organisation** in header right slot.
+- [ ] `OrgContextBar` breadcrumb above content.
+- [ ] `DataTable` list of sub-orgs below header (no settings hub page).
+
+### Implementation delta (pass 2)
+
+Current `pace-team2/src/` diverges from prototype layout:
+
+- Route and nav href use `/settings/organisations` instead of `/settings/sub-orgs`.
+- `SubOrganisationsPage.tsx` uses plain `<h1>` and places "+ New sub-organisation" in `CardHeader` beside table title — not in `PageHeader` right slot.
+- Create/edit implemented as `Dialog` overlays (acceptable for pass 2 if not inline; path alignment is higher priority).
 
 ### Components
 

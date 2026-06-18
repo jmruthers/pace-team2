@@ -9,7 +9,7 @@ Status:          Draft
 Depends on:      TEAM-01 (app shell, ToastProvider, AuthenticatedShell, navItems)
 Backend impact:  Schema changes (upstream platform: RBAC-checked INSERT/UPDATE RLS policies on core_org_settings)
 Frontend impact: UI
-Routes owned:    /settings/org
+Routes owned:    /settings/organisation
 QA pack:         docs/test-packs/TM08-qa-pack.md
 ```
 
@@ -17,7 +17,9 @@ QA pack:         docs/test-packs/TM08-qa-pack.md
 
 ## §2 Overview
 
-TEAM-08 v1 delivers the Organisation settings page at `/settings/org` for the TEAM app. Authenticated org-admin staff edit the Financial fields on `core_org_settings` for the currently selected organisation: joining fee, recurring fee and recurrence cadence, tax rate, base currency, and bank-account details. The page is a single Financial card with one Save button at the bottom; saving issues a single upsert against `core_org_settings`. The slice is gated behind a page-level RBAC guard, mutations are authorised at the database layer by RBAC-checked RLS policies, and toasts surface success and failure outcomes. The Operational section (`member_validation_config` external validation API + inheritance UX) is out of v1 scope and is captured for a follow-up slice.
+TEAM-08 v1 delivers the Organisation settings page at `/settings/organisation` for the TEAM app. Authenticated org-admin staff edit organisation profile and financial fields for the currently selected organisation: overview (display name, slug, description), joining fee, recurring fee and recurrence cadence, tax rate, base currency, and bank-account details. The prototype lays out a **multi-card grid** (Overview full-width, Fees, Currency & banking) with a **`PageSaveBar`** for persistence. The slice is gated behind a page-level RBAC guard, mutations are authorised at the database layer by RBAC-checked RLS policies, and toasts surface success and failure outcomes. Adjacent standalone settings **`/settings/people`** (`SettingsPeople` in prototype) is owned outside TEAM-08. The Operational section (`member_validation_config` external validation API + inheritance UX) is out of v1 scope.
+
+**Prototype reference:** `pace-prototype/apps/pace-team/pages/FormsReportsSettingsPages.jsx` — `SettingsOrganisation` (route `/settings/organisation`); adjacent `SettingsPeople` at `/settings/people`.
 
 ---
 
@@ -164,20 +166,40 @@ When Save is hidden, the form fields remain visible and editable on screen (so t
 
 ### Layout
 
-The page renders inside the standard authenticated shell chrome (header, PaceMain content area, footer) provided by TEAM-01. Within PaceMain:
+The page renders inside the standard authenticated shell chrome (header, `OrgContextBar`, PaceMain content area, footer) provided by TEAM-01. Within PaceMain:
 
-- **Page title row** — "Organisation settings" rendered as the page heading at the top of the PaceMain content area. No subtitle, no breadcrumb.
-- **Financial card** — a single `Card` filling the available width within PaceMain's `max-w-(--app-width)`. The card has three regions:
-  - **`CardHeader`** — `CardTitle` "Financial" on the left; a `CardDescription` underneath reading "Joining and recurring fees, tax rate, base currency, and bank-account details."
-  - **`CardContent`** — the form rows (eight financial fields in the order from §4 F-17).
-  - **`CardFooter`** — `SaveActions` (right-aligned Cancel + Save).
+- **Page header** — `PageHeader`:
+  - `title`: "Organisation details" (prototype; production may retain "Organisation settings" in nav while matching layout).
+  - `sub`: "Fees, banking, tax and branding for this organisation."
+- **Multi-card settings grid** — Single wrapping `Form` with `id` for save-bar association. Grid sections (`org-settings-grid` recipe):
+  - **Overview card** — Full-width (`gridColumn: 1 / -1`): `Card` or `section` with `h2` "Overview", helper line, fields `display_name`, `slug`, `description` (from `core_organisations` — pass 2 scope split vs `core_org_settings`).
+  - **Fees card** — `Card` with `h2` "Fees", joining fee, recurring fee, recurrence days, tax rate.
+  - **Currency & banking card** — `Card` with `h2` "Currency & banking", base currency, bank account name, BSB, account number.
+  - **Branding card** (prototype stub / deferred) — Logo/colours; out of TEAM-08 v1 data contract but reserved in grid for prototype parity.
+- **Persistence chrome** — `PageSaveBar` (prototype-only component pattern) pinned below grid, associated with form `id`; primary **Save** + cancel. Alternative pass 2: `CardFooter` `SaveActions` on a single form wrapper if `PageSaveBar` is not yet in pace-core.
 
 Breakpoints:
-- Desktop (≥ 1024px): full Card width within PaceMain's `max-w-(--app-width)`. Two-column field layout where it fits naturally (currency / fee / tax fields in a left column; bank-account fields in a right column) is permitted but not required; a single-column stack is acceptable. The implementer chooses the layout that uses screen real estate without crowding labels.
-- Tablet (768–1023px): single-column stack within the card body.
-- Mobile (< 768px): single-column stack; field labels stack above their controls.
+- Desktop (≥ 1024px): two-column grid for fee fields within cards; Overview spans full width.
+- Tablet / mobile: single-column stack within each card.
 
-Sticky elements: the shell header and footer are sticky per TEAM-01's `PaceAppLayout` defaults. The card itself does not have sticky elements; the Save / Cancel buttons live in `CardFooter` at the bottom of the card.
+**Cross-reference:** `/settings/people` (`SettingsPeople`) is a separate settings route with its own `PageHeader` ("People & access") — not a tab on this page.
+
+### Layout acceptance criteria (prototype alignment)
+
+- [ ] Route is `/settings/organisation` (not `/settings/org`).
+- [ ] `PageHeader` with title, subtitle (prototype: "Organisation details").
+- [ ] `OrgContextBar` breadcrumb above content.
+- [ ] **Multi-card grid**: Overview (full width), Fees, Currency & banking (not a single Financial card only).
+- [ ] **`PageSaveBar`** (or equivalent full-width save bar) below the grid for one-shot save.
+- [ ] Adjacent `/settings/people` documented as standalone sibling settings page.
+
+### Implementation delta (pass 2)
+
+Current `pace-team2/src/` diverges from prototype layout:
+
+- Route and nav use `/settings/org` instead of `/settings/organisation`.
+- `OrganisationSettingsPage.tsx` renders plain `<h1>Organisation settings</h1>` and a **single Financial `Card`** with `CardFooter` Save — not multi-card grid + `PageSaveBar`.
+- Overview fields (`display_name`, `slug`, `description`) and branding card are absent; only `core_org_settings` financial columns are exposed.
 
 ### Components
 

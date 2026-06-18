@@ -9,7 +9,7 @@ Status:          Draft
 Depends on:      TEAM-01 (app shell, ToastProvider, AuthenticatedShell, navigation), TEAM-02 (member directory + canonical comms-picker hand-off contract)
 Backend impact:  Read contract only (consumer of CR23 PUMP Edge functions and pace-core comms package; no schema changes authored by this slice). Implementation gated on platform PUMP Edge deployment, gateway config seeding, and template fixture seeding — see §15.
 Frontend impact: UI
-Routes owned:    /communications
+Routes owned:    /communications; /communications/log
 QA pack:         docs/test-packs/TM13-qa-pack.md
 ```
 
@@ -17,7 +17,11 @@ QA pack:         docs/test-packs/TM13-qa-pack.md
 
 ## §2 Overview
 
-TEAM-13 delivers the org-admin communications composer at `/communications`. The page mounts the `CommComposer` from `@solvera/pace-core/comms`, lets an operator pick between a filtered organisation broadcast and a manually-curated member list, choose a channel (email or SMS), select an active org template, edit subject and body, preview merge tokens, and either send immediately or schedule for later via PUMP Edge functions. Recipient resolution, sender identity, suppression, and delivery are all PUMP-side concerns — TEAM submits a `RecipientPoolDescriptor`, never a resolved member list. The route is wrapped by `<PagePermissionGuard pageName="comms-log" operation="read">` against the canonical PUMP-registered page resource. Manual recipient selection hands off to the directory picker at `/members` per the contract owned by TEAM-02.
+TEAM-13 delivers the org-admin communications composer at `/communications` and the org send log at `/communications/log`. The compose surface mounts `CommComposer` from `@solvera/pace-core/comms` with recipient modes embedded in the composer's recipient slot (`CommRecipientPool` pattern), lets an operator pick between org broadcast, event attendees, or a manually-curated member list, choose a channel (email or SMS), select an active org template, edit subject and body, preview merge tokens, and either send immediately or schedule for later via PUMP Edge functions. Recipient resolution, sender identity, suppression, and delivery are all PUMP-side concerns — TEAM submits a `RecipientPoolDescriptor`, never a resolved member list. Both routes are wrapped by `<PagePermissionGuard pageName="comms-log" operation="read">` against the canonical PUMP-registered page resource. Manual recipient selection hands off to the directory picker at `/members` per the contract owned by TEAM-02.
+
+- **Prototype reference:** `CommunicationsPage` in `pace-prototype/apps/pace-team/pages/EventDetailCommsPages.jsx`; `CommunicationsLogPage` at `#/communications/log` in `pace-prototype/apps/pace-team/app.jsx`.
+
+**Layout authority** is the pace-team prototype kit (compose-first page titled **Send a message**, recipient modes inside the composer, **Recent sends** below, **Send log** in the header). PUMP adapter contracts below are unchanged.
 
 ---
 
@@ -31,7 +35,8 @@ Org-admin staff need a single surface to send a one-off email or SMS to organisa
 
 | Surface | Route | Notes |
 |---------|-------|-------|
-| Communications composer | `/communications` | Single page; renders the `CommComposer` plus a TEAM-owned recipient-mode card above it |
+| Communications composer | `/communications` | Compose-first page; `PageHeader` title **Send a message**; `CommComposer` with embedded `CommRecipientPool`; **Recent sends** section below |
+| Send log | `/communications/log` | Read-only `DataTable` of recent org sends (channel, subject, recipients, template, sent by) |
 
 ### Boundaries
 
@@ -67,7 +72,7 @@ TEAM-13 does **not** own:
 
 **Toast context.** The slice imports `toast` from `@solvera/pace-core/components` for fire-and-forget notifications (stale-org clearing, send success, send failure, send-test success, send-test failure). `<ToastProvider>` is mounted by TEAM-01 inside `AuthenticatedShell`; this slice does not mount it.
 
-**Page metadata.** `usePaceMain({ printTitle: 'Communications' })` is called on page mount.
+**Page metadata.** `usePaceMain({ printTitle: 'Send a message' })` is called on the compose page mount; `usePaceMain({ printTitle: 'Send log' })` on the log page mount.
 
 ### Page-level guards and evaluation ordering
 
@@ -87,11 +92,11 @@ If `selectedOrganisation` somehow resolves to `null` after step 3 (a race during
 ### Page entry / surface entry
 
 - **F-01** The route `/communications` renders for an authenticated user whose currently selected organisation has resolved and who has `read:page.comms-log` permission.
-- **F-02** On entry, the page sets `printTitle` to "Communications" via `usePaceMain`.
-- **F-03** The page heading is "Communications" (sentence case). No breadcrumb is rendered. No description sub-text is rendered.
+- **F-02** On entry, the page sets `printTitle` to "Send a message" via `usePaceMain` (browser tab may abbreviate; visible page title matches prototype).
+- **F-03** The page heading is **Send a message** (sentence case). Subtitle describes pick-recipients-then-compose. No breadcrumb.
 - **F-04** On mount with a resolved `selectedOrganisation`, the page calls `pump_get_effective_sender_identity` and seeds the composer's draft with the returned `senderName`, `fromAddress`, `senderPhone`, and `replyToAddress`. Null fields seed empty strings.
-- **F-05** On mount with a resolved `selectedOrganisation`, the page reads `sessionStorage['pace:team:comms:manual-pick']` exactly once. If a payload exists and `payload.organisationId === selectedOrganisation.id`, the recipient mode is set to "Specific members" and the manual member list is hydrated from `payload.memberIds`. The key is then removed from `sessionStorage`. If a payload exists with a different `organisationId`, the key is removed and the page starts in default mode. If no payload exists, no action is taken.
-- **F-06** The page initial recipient mode when no manual-pick payload applies is "All organisation members" (org broadcast).
+- **F-05** On mount with a resolved `selectedOrganisation`, the page reads `sessionStorage['pace:team:comms:manual-pick']` exactly once. If a payload exists and `payload.organisationId === selectedOrganisation.id`, the recipient mode is set to **Pick individuals** and the manual member list is hydrated from `payload.memberIds`. The key is then removed from `sessionStorage`. If a payload exists with a different `organisationId`, the key is removed and the page starts in default mode. If no payload exists, no action is taken.
+- **F-06** The page initial recipient mode when no manual-pick payload applies is **Org members** (org broadcast).
 - **F-07** The composer initial channel is `'email'`. The composer initial draft body fields are empty unless the manual-pick hydration or the sender-identity pre-fill has populated them.
 
 ### Loading states
@@ -119,19 +124,19 @@ If `selectedOrganisation` somehow resolves to `null` after step 3 (a race during
 
 ### Primary content
 
-- **F-22** Above the composer Card, a TEAM-owned recipient-mode Card renders with the heading "Recipients" and a radio group with two options:
-  - Option 1: label "All organisation members"; helper copy "Send to filtered organisation membership"; value `'org_members'`.
-  - Option 2: label "Specific members"; helper copy "Pick members from the directory"; value `'manual'`.
-- **F-23** When the recipient mode is "All organisation members", the recipient-mode Card renders the org-broadcast filters below the radio group:
-  - **Membership types** — multi-select chips populated from `core_membership_type` rows for the current org with `is_active = true`. Each chip shows the type name; click toggles inclusion. The selected type ids drive `OrgMembersPool.filters.member_type_ids` (cast to strings — see BR-12).
-  - **Include inactive members** — a single checkbox labelled "Include inactive members". Default unchecked. When checked, sets `OrgMembersPool.filters.include_inactive = true`.
-- **F-24** When the recipient mode is "Specific members" and no manual list is yet selected, the recipient-mode Card renders a primary `Button` labelled "Choose members…". Click navigates to `/members` with `location.state.intent = 'commsManualPick'`.
-- **F-25** When the recipient mode is "Specific members" and a manual list has been hydrated (either from the picker hand-off or from a prior selection in this session), the recipient-mode Card renders the count "{N} members selected" alongside a secondary `Button` labelled "Choose again". Click navigates back to the picker with the same `location.state` payload. (The picker hydrates the prior selection via `sessionStorage` per TEAM-02 BR-07 — but only if the slice writes a fresh payload before navigating, which it does on this path.)
-- **F-26** Below the recipient-mode Card, the `CommComposer` from `@solvera/pace-core/comms` renders. Its embedded sub-components — channel selector, templates list, sender fields, channel-conditional fields (subject + body_html for email; sender_phone for SMS), preview/edit toggle, body fields, merge-field toolbar, send-test button, schedule control, send-now button, optional cancel button, and the recipient-pool preview Card — are described in §5.
+- **F-22** The `CommComposer` from `@solvera/pace-core/comms` mounts with `recipients={<CommRecipientPool … />}`. Recipient mode controls render **inside** the composer via the pool slot — not in a standalone TEAM-owned Recipients Card above the composer. The pool exposes three modes (prototype labels):
+  - **Org members** — helper "Active members, optionally scoped to units"; value `'org_members'`.
+  - **Event attendees** — helper "Everyone registered for a given event"; value `'event_participants'`.
+  - **Pick individuals** — helper "Hand-pick recipients from the directory"; value `'manual'`.
+- **F-23** When the recipient mode is **Org members**, `CommRecipientPool` renders unit/sub-org scope chips (prototype uses sub-orgs as unit filters) and optional **Include inactive members** checkbox. Selected unit ids and the include-inactive flag drive `OrgMembersPool.filters` (membership-type chips remain supported when configured; cast ids to strings — see BR-12).
+- **F-24** When the recipient mode is **Event attendees**, `CommRecipientPool` renders an event `Select` (placeholder "Select event"). The chosen event id scopes the pool descriptor to that event's registered attendees (maps to event-scoped pool resolution in PUMP pass 2).
+- **F-25** When the recipient mode is **Pick individuals**, `CommRecipientPool` renders inline member search and/or a **Choose members…** / **Choose again** hand-off to `/members` with `location.state.intent = 'commsManualPick'`. When a manual list is hydrated, the pool shows "{N} member(s) hand-picked."
+- **F-26** The composer's embedded sub-components — templates list, sender fields, channel-conditional fields (subject + body_html for email; sender_phone for SMS), preview/edit toggle, body fields, merge-field toolbar, send-test button, schedule control, send-now button, optional cancel button, and the recipient-pool preview Card — are described in §5. **CommChannelToggle** renders in the page header (prototype), not only inside the compose Card body.
 - **F-27** The composer is mounted with `recipientPool` set to the slice's current pool descriptor:
-  - When recipient mode is "All organisation members": `{ type: 'org_members', organisation_id: selectedOrganisation.id, filters: { member_type_ids: <string[]>, include_inactive: <boolean> } }`. `member_type_ids` is omitted when no membership types are selected; `include_inactive` is omitted when unchecked (default).
-  - When recipient mode is "Specific members" and a list is selected: `{ type: 'manual', member_ids: <string[]> }`.
-  - When recipient mode is "Specific members" and no list is selected: `{ type: 'manual', member_ids: [] }`.
+  - When recipient mode is **Org members**: `{ type: 'org_members', organisation_id: selectedOrganisation.id, filters: { member_type_ids: <string[]>, include_inactive: <boolean>, unit_ids: <string[]> } }`. Omitted filter keys follow PUMP defaults.
+  - When recipient mode is **Event attendees** and an event is selected: event-scoped descriptor (pass 2 maps to PUMP event-attendee pool contract).
+  - When recipient mode is **Pick individuals** and a list is selected: `{ type: 'manual', member_ids: <string[]> }`.
+  - When recipient mode is **Pick individuals** and no list is selected: `{ type: 'manual', member_ids: [] }`.
 - **F-28** The composer is mounted with `rbac` set to the `CommRbacContext` derived per §3 (canCompose, canSend, canSchedule, scopeType `'organisation'`, scopeId `selectedOrganisation.id`).
 - **F-29** The composer is mounted with `organisationId = selectedOrganisation.id`, `sourceApp = 'team'`, `adapter = useCommSendAdapter({ organisationId: selectedOrganisation.id, sourceApp: 'team' })`, `blockSendOnUnresolvedTokens = true`, and `onCancel = () => navigate('/')`.
 - **F-30** The composer's `templates`, `mergeFields`, and `recipientPreview` props are not supplied by this slice. The composer drives those queries internally via `useCommTemplates`, `useCommMergeFields`, and `useResolvedPool`.
@@ -141,8 +146,9 @@ If `selectedOrganisation` somehow resolves to `null` after step 3 (a race during
 - **F-31** **Channel — Email.** Click on the Email button in the composer sets `draft.channel = 'email'`. Composer-internal `draftForChannel` carries email-specific fields (subject, body_html, sender_email, reply_to) through unchanged or initialised to empty; SMS-specific fields are not cleared on this transition (they remain on the draft object but are hidden from the email view). The pool preview re-resolves with `channel: 'email'` and warning resolution updates accordingly (e.g. `no_email` warnings replace `no_phone`).
 - **F-32** **Channel — SMS.** Click on the SMS button sets `draft.channel = 'sms'`. Composer-internal `draftForChannel` clears email-specific fields (subject, body_html, sender_email, reply_to) from the draft. The pool preview re-resolves with `channel: 'sms'`.
 - **F-33** **Template selection.** Click on a template button in the composer's templates section calls the composer's internal `applyTemplate` which sets `draft.template_id`, `draft.channel`, `draft.subject`, `draft.body_html`, and `draft.body_text` from the template. The selected template button shows a primary visual treatment (default variant); other template buttons show outline. Templates whose `require_merge_field_validation === true` show a "(Strict)" suffix in their button label and trigger the strict-mode banner above the composer Card while selected.
-- **F-34** **Recipient mode — All organisation members.** Selecting the radio for "All organisation members" sets the slice's recipient mode to `'org_members'` and rebuilds the composer's `recipientPool` per F-27. The composer's internal `useResolvedPool` re-runs on the new descriptor.
-- **F-35** **Recipient mode — Specific members.** Selecting the radio for "Specific members" sets the slice's recipient mode to `'manual'`. If a hydrated `member_ids` list is available, the composer's `recipientPool` is `{ type: 'manual', member_ids: [...] }`. If not, the composer's `recipientPool` is `{ type: 'manual', member_ids: [] }` and the composer's pool preview renders with `estimated_count: 0` once `pump-resolve-pool` returns.
+- **F-34** **Recipient mode — Org members.** Selecting **Org members** sets the slice's recipient mode to `'org_members'` and rebuilds the composer's `recipientPool` per F-27. The composer's internal `useResolvedPool` re-runs on the new descriptor.
+- **F-35** **Recipient mode — Event attendees.** Selecting **Event attendees** sets the slice's recipient mode to `'event_participants'`. Until an event is selected, the pool preview may show zero recipients. Selecting an event rebuilds the event-scoped descriptor and re-runs resolve.
+- **F-35a** **Recipient mode — Pick individuals.** Selecting **Pick individuals** sets the slice's recipient mode to `'manual'`. If a hydrated `member_ids` list is available, the composer's `recipientPool` is `{ type: 'manual', member_ids: [...] }`. If not, the composer's `recipientPool` is `{ type: 'manual', member_ids: [] }` and the composer's pool preview renders with `estimated_count: 0` once `pump-resolve-pool` returns.
 - **F-36** **Choose members… / Choose again.** Click writes `{ organisationId: selectedOrganisation.id, memberIds: <currentMemberIds>, updatedAt: Date.now() }` to `sessionStorage['pace:team:comms:manual-pick']` and calls `navigate('/members', { state: { intent: 'commsManualPick' } })`. The picker (TEAM-02) reads-and-hydrates from this key on entry, then writes its own payload back on Done; this slice reads-and-clears the key on next mount.
 - **F-37** **Membership-type chip.** Click on a chip toggles its inclusion in `OrgMembersPool.filters.member_type_ids`. The composer's internal `useResolvedPool` re-runs on the new descriptor.
 - **F-38** **Include inactive checkbox.** Toggle sets `OrgMembersPool.filters.include_inactive` to the new value. Composer re-resolves the pool.
@@ -169,13 +175,15 @@ If `selectedOrganisation` somehow resolves to `null` after step 3 (a race during
 
 ### Permission-conditional rendering
 
-- **F-56** When `read:page.comms-log` is denied, `<AccessDenied />` renders and no recipient-mode card or composer renders.
+- **F-56** When `read:page.comms-log` is denied, `<AccessDenied />` renders and no composer or send-log table renders.
 - **F-57** When `read:page.comms-log` is allowed but `create:page.comms-log` is denied (`canCompose === false`), the composer renders the read-only banner ("You have view-only access to this message.") and disables all editable inputs.
 - **F-58** When `read:page.comms-log` is allowed and `create:page.comms-log` is allowed but `update:page.comms-log` is denied (`canSend === false`, `canSchedule === false`), the composer renders the read-only banner; the CardFooter renders a single `<Alert role="status">` "You have view-only access to this message." in place of the Send-test, Schedule, Send-now, and Cancel buttons.
 
 ### Navigation
 
-- **F-59** The page is reachable from the TEAM-01 navigation menu via the Communications entry (`/communications`).
+- **F-59** The compose page is reachable from the TEAM-01 navigation menu via the Communications entry (`/communications`).
+- **F-59a** The **Send log** header button and `/communications/log` route render the read-only send-history `DataTable` per §5.
+- **F-59b** Below the composer, a **Recent sends** section lists the org's latest sends (subject or "(SMS)", recipient count, relative time). Read-only summary; full history on `/communications/log`.
 - **F-60** "Choose members…" / "Choose again" navigates to `/members` with `location.state.intent = 'commsManualPick'`.
 - **F-61** Cancel navigates to `/`.
 - **F-62** Successful send / schedule does not navigate; the operator remains on `/communications` (F-49, F-48).
@@ -200,39 +208,66 @@ If `selectedOrganisation` somehow resolves to `null` after step 3 (a race during
 
 ### Layout
 
-The page renders inside the TEAM-01 `AuthenticatedShell` (`PaceAppLayout` chrome — header, `PaceMain`, footer). Within `PaceMain`, top-to-bottom:
+The pages render inside the TEAM-01 `AuthenticatedShell` (`PaceAppLayout` chrome — header, `PaceMain`, footer).
 
-- **Page heading row.** A heading "Communications" (sentence case) at the top of `PaceMain`. No breadcrumb. No description sub-text.
-- **Recipient-mode Card.** A `Card` with `CardHeader` ("Recipients" title; no description) and `CardContent` containing the radio group and (when "All organisation members" is selected) the inline filter controls (membership-type chips + include-inactive checkbox). When "Specific members" is selected, the Card content is the picker CTA / populated state instead of the inline filters.
-- **Composer Card and pool preview Card.** Below the recipient-mode Card, the `CommComposer` renders. Its return is a `<section aria-label="Communication composer">` containing (top-to-bottom): conditional inline `<Alert>` banners for unresolved-tokens / read-only / strict-template gating, a `Card` titled "Compose communication", and a `RecipientPoolPreview` Card titled "Recipients" sitting as a sibling Card *below* the composer Card. The pool preview Card is part of the composer's render tree, not a separate slice-owned element.
+#### `/communications` — compose-first (prototype)
 
-The page does not implement a desktop two-column split; the composer's layout is single-column. The pool preview is below, not beside.
+Within `PaceMain`, top-to-bottom:
 
-Breakpoints: standard pace-core2 responsive behaviour applies. `PaceMain`'s `max-w-(--app-width)` and `p-4` apply per TEAM-01.
+- **Page header row** — `PageHeader` with title **Send a message** (sentence case), subtitle explaining pick-recipients-then-compose flow, and header-right cluster:
+  - **Channel toggle** — `CommChannelToggle` (Email | SMS) bound to draft channel.
+  - **Send log** — secondary button navigating to `/communications/log` (label **Send log** in prototype).
+- **Compose stack** — vertical grid gap (~18px prototype spacing):
+  - **`CommComposer`** — primary surface. Recipient modes live **inside** the composer via the `recipients` slot (`CommRecipientPool`), not in a separate TEAM-owned Card above the composer. Three modes per prototype:
+    1. **Org members** — active members, optionally scoped to units/sub-orgs via chip filters.
+    2. **Event attendees** — event picker + pool scoped to registered attendees for the selected event (`event_participants` mode maps to PUMP `RecipientPoolDescriptor` in pass 2).
+    3. **Pick individuals** — inline member search/multi-select or directory hand-off (TEAM-02 picker contract for manual lists exceeding inline UX).
+  - Composer embeds templates, sender fields, preview/edit, merge toolbar, pool preview, and footer actions (Send test, Schedule, Cancel, Send now) per pace-core comms package.
+- **Recent sends section** — Below the composer, a `Card` (or equivalent) titled **Recent sends** listing the org's latest sends (subject or "(SMS)", recipient count, relative time). Read-only; links to full log optional.
+
+The page does **not** use a standalone **Recipients** Card above `CommComposer`. Pool mode selection and filters render inside `CommRecipientPool`.
+
+#### `/communications/log` — send log (prototype)
+
+Within `PaceMain`:
+
+- **Page header row** — `PageHeader` with title **Send log**, subtitle "All messages your branch has sent in the last 90 days." (or equivalent).
+- **Log table** — `DataTable` columns: Sent (datetime), Channel, Subject, Recipients (right-aligned), Template, Sent by. Default sort: Sent descending. Read-only; no row mutations from TEAM.
+
+Breakpoints: standard pace-core2 responsive behaviour. Single-column layout throughout. `PaceMain`'s `max-w-(--app-width)` and `p-4` apply per TEAM-01.
 
 ### Components
 
-**Page heading**
-- A heading element with text "Communications" rendered via the slice's normal heading element. No breadcrumb, no description.
+**Page heading (`/communications`)**
+- `PageHeader` with title **Send a message**, compose-flow subtitle, header-right **CommChannelToggle** and **Send log** button (`navigate('/communications/log')`).
 
-**Recipient-mode Card** (`@solvera/pace-core/components` — `Card`, `CardHeader`, `CardTitle`, `CardContent`, `Label`, `Input` of type radio, `Button`)
-- `Card` with `CardHeader` containing `<CardTitle>Recipients</CardTitle>`. No `CardDescription`.
-- `CardContent` lays out the controls in a vertical stack (`grid gap-4`).
-- **Radio group** (single-select). Two `Label` rows, each containing a radio input and the visible label text.
-  - Row 1: radio input with `value="org_members"`; label text "All organisation members"; helper paragraph "Send to filtered organisation membership" rendered below the label in muted text.
-  - Row 2: radio input with `value="manual"`; label text "Specific members"; helper paragraph "Pick members from the directory" rendered below the label in muted text.
-  - The radio group's controlled value is the slice's recipient mode state.
-- **Org-broadcast filters (rendered when value === `'org_members'`).** A vertical sub-stack:
-  - **Membership-type chip row.** A heading "Membership types" (small heading, e.g. `<h4>`). Below the heading, a horizontal flex of `Button` chips — one per row in `core_membership_type` for the current org with `is_active = true`, ordered by `name` ascending. Each chip's label is the type name. Selected chips render with `variant="default"`; unselected chips render with `variant="outline"`. Click toggles inclusion. When zero chips are selected, no helper copy renders.
-  - **Include-inactive checkbox.** A `Label` row containing a checkbox `Input` and the text "Include inactive members". Default unchecked.
-- **Manual-list controls (rendered when value === `'manual'`).** A vertical sub-stack:
-  - When `member_ids.length === 0`: a `Button` with `variant="default"` (primary) and label "Choose members…".
-  - When `member_ids.length > 0`: an inline row showing the count text "{N} members selected" followed by a `Button` with `variant="outline"` and label "Choose again".
-- **Zero-recipient inline copy (rendered when the composer's pool preview reports `estimated_count === 0`).** A muted paragraph "No recipients match these filters." rendered above the composer's Card.
+**Page heading (`/communications/log`)**
+- `PageHeader` with title **Send log** and 90-day scope subtitle.
 
 **`CommComposer`** (`@solvera/pace-core/comms`)
 - Purpose: compose, preview, send, schedule, send-test the message.
-- The composer renders a `<section aria-label="Communication composer" class="grid gap-4">` containing, in this order:
+- Mount with `recipients={<CommRecipientPool … />}` (or equivalent slot) so recipient mode controls render **inside** the composer — not in a separate TEAM Card above it.
+- Three recipient modes (prototype → PUMP descriptor mapping in pass 2):
+  1. **Org members** — unit/sub-org chip filters + optional include-inactive (maps to `OrgMembersPool`).
+  2. **Event attendees** — event select + attendee pool (maps to event-scoped pool descriptor).
+  3. **Pick individuals** — inline search and/or TEAM-02 directory picker hand-off (maps to `ManualPool`).
+- The composer's return is a `<section aria-label="Communication composer">` containing conditional inline `<Alert>` banners, compose `Card`, and embedded pool preview per pace-core comms package.
+
+**`CommRecipientPool`** (prototype / pace-core comms slot)
+- Renders mode selector and mode-specific filters inside the composer.
+- Org mode: unit/sub-org chips (prototype uses sub-orgs as unit scope).
+- Event mode: event dropdown.
+- Manual mode: inline member picker and/or **Choose members…** navigation to `/members` with `commsManualPick` intent.
+
+**Recent sends Card**
+- Below `CommComposer`. Lists recent org sends (subject, recipient count, relative time). Read-only summary; full history on `/communications/log`.
+
+**Send log `DataTable`** (`/communications/log`)
+- Columns: Sent, Channel, Subject, Recipients, Template, Sent by. Read-only. Default sort Sent desc.
+
+**Recipient-mode Card** — **Do not implement.** Pass 1 prototype audit removed the standalone TEAM-owned Recipients Card above the composer; recipient UX lives in `CommRecipientPool` inside `CommComposer`.
+
+**`CommComposer` internal structure** (pace-core package; reference for pass 2)
   - **Conditional banners:**
     - `<Alert role="status">` "Resolve all tokens before sending — Resolve all tokens before sending." when `blockSendOnUnresolvedTokens === true` and unresolved tokens exist.
     - `<Alert>` "Read-only mode — You have view-only access to this message." when `canCompose === false` or `canSend === false`.
@@ -314,6 +349,25 @@ Default duration 5000 ms. Notifications appear in an `aside[role="region"]` over
 - **Toast.** Auto-dismisses after 5000 ms. Non-blocking.
 - **Org switch.** When `selectedOrganisation` changes, the slice resets recipient mode, clears manual list, clears chip selection, resets include-inactive, re-runs sender-identity RPC, re-runs composer-internal queries, and renders the stale-org `'default'` toast.
 
+### Layout acceptance criteria (prototype alignment)
+
+- [ ] `/communications` page title is **Send a message** with compose-flow subtitle (not "Communications").
+- [ ] Channel toggle and **Send log** button render in the page header right cluster.
+- [ ] Recipient modes render **inside** `CommComposer` via `CommRecipientPool` (org members, event attendees, pick individuals) — no standalone Recipients Card above the composer.
+- [ ] **Recent sends** section renders below the composer.
+- [ ] **Send log** navigates to `/communications/log`.
+- [ ] `/communications/log` renders **Send log** header and read-only send-history `DataTable`.
+
+### Implementation delta (pass 2)
+
+Current `pace-team2/src/` diverges from prototype layout (informational — pass 2 realigns implementation):
+
+- `CommunicationsPage` uses heading **Communications** and a standalone **Recipients** `Card` with org/manual toggle buttons above `CommComposer` instead of compose-first **Send a message** layout with embedded `CommRecipientPool`.
+- No **Recent sends** section below the composer.
+- No `/communications/log` route or `CommunicationsLogPage` (prototype `app.jsx` + header **Send log** button).
+- Recipient modes are limited to org members + manual picker; prototype's **Event attendees** mode and inline manual search are not implemented.
+- Channel toggle lives inside composer body in production; prototype places `CommChannelToggle` in the page header.
+
 ### Permission-conditional rendering
 
 | Condition | Page entry | Composer | Send-test / Schedule / Send-now / Cancel |
@@ -340,8 +394,8 @@ Default duration 5000 ms. Notifications appear in an `aside[role="region"]` over
 - Edge: when `canSend === false`, the composer renders its read-only state and CardFooter renders the read-only `<Alert>` in place of the four action buttons.
 
 **BR-03 — Recipient mode switching.**
-- Input: user selects radio "All organisation members" or "Specific members".
-- Output: when mode changes, the slice rebuilds the `recipientPool` descriptor. For "All organisation members", descriptor is `OrgMembersPool` with current chip + include-inactive filters. For "Specific members", descriptor is `ManualPool` with current `member_ids` (empty when no list hydrated).
+- Input: user selects **Org members**, **Event attendees**, or **Pick individuals** in `CommRecipientPool`.
+- Output: when mode changes, the slice rebuilds the `recipientPool` descriptor. For **Org members**, descriptor is `OrgMembersPool` with current unit/membership-type + include-inactive filters. For **Event attendees**, descriptor is event-scoped once an event is selected. For **Pick individuals**, descriptor is `ManualPool` with current `member_ids` (empty when no list hydrated).
 - Edge: mode switch does not reset the draft body, subject, sender, or template.
 
 **BR-04 — Manual hand-off — read-once-and-clear on mount.**
@@ -527,7 +581,7 @@ The PUMP Edge functions write to `pump_message`, `pump_message_recipient`, `pump
 | `PagePermissionGuard` | `@solvera/pace-core/rbac` | Page-level guard for `pageName="comms-log"` `operation="read"` |
 | `AccessDenied` | `@solvera/pace-core/rbac` | Fallback when the page guard denies |
 | `useOrganisationsContext` | `@solvera/pace-core/providers` | Read `selectedOrganisation` for org id, RBAC scope, RPC argument, descriptor population |
-| `usePaceMain` | `@solvera/pace-core/hooks` | Set `printTitle="Communications"` on page mount |
+| `usePaceMain` | `@solvera/pace-core/hooks` | Set `printTitle="Send a message"` on `/communications` mount; `printTitle="Send log"` on `/communications/log` mount |
 | `CommComposer` | `@solvera/pace-core/comms` | The composer surface |
 | `useCommSendAdapter` | `@solvera/pace-core/comms` | Returns the `CommSendAdapter` configured for `sourceApp: 'team'` |
 | `Card`, `CardHeader`, `CardTitle`, `CardContent` | `@solvera/pace-core/components` | Recipient-mode Card |
@@ -582,28 +636,28 @@ The page resource `comms-log` is registered under the PUMP `rbac_apps` row, but 
 ## §11 Acceptance criteria
 
 **AC-01 — Page entry, authenticated, has org, has read permission.**
-Given a user is authenticated, has an org, and has `read:page.comms-log`, when they navigate to `/communications`, then the page renders the heading "Communications", the recipient-mode Card with the radio defaulted to "All organisation members", and the composer Card with channel set to email, sender fields pre-filled from the effective sender identity, and the recipient pool preview Card visible below. (Traces F-01, F-03, F-04, F-06, F-07, F-22, F-26.)
+Given a user is authenticated, has an org, and has `read:page.comms-log`, when they navigate to `/communications`, then the page renders `PageHeader` title **Send a message**, `CommChannelToggle` and **Send log** in the header, `CommComposer` with embedded `CommRecipientPool` defaulted to **Org members**, channel set to email, sender fields pre-filled from the effective sender identity, recipient pool preview visible, and **Recent sends** below the composer. (Traces F-01, F-03, F-04, F-06, F-07, F-22, F-26, F-59b.)
 
 **AC-02 — Sender identity pre-fill.**
 Given an org whose `pump_get_effective_sender_identity` returns `senderName: 'Org Comms'`, `fromAddress: 'comms@example.org'`, `replyToAddress: 'replies@example.org'`, `senderPhone: null`, when the page mounts, then the composer's Sender name field shows "Org Comms", Sender email shows "comms@example.org", and Sender phone shows the empty string when the channel is later switched to SMS. (Traces F-04, BR-14.)
 
 **AC-03 — Recipient mode default and switch.**
-Given the page is loaded with recipient mode "All organisation members", when the user selects the "Specific members" radio with no manual list yet, then the recipient-mode Card renders the "Choose members…" Button and the composer's pool preview Card shows `estimated_count: 0` after the resolver returns. (Traces F-22, F-24, F-35, BR-03.)
+Given the page is loaded with recipient mode **Org members**, when the user selects **Pick individuals** with no manual list yet, then `CommRecipientPool` renders **Choose members…** (or inline search) and the composer's pool preview Card shows `estimated_count: 0` after the resolver returns. (Traces F-22, F-25, F-35a, BR-03.)
 
 **AC-04 — Manual hand-off entry writes payload and navigates.**
-Given the user is in "Specific members" mode with no list selected, when they click "Choose members…", then `sessionStorage['pace:team:comms:manual-pick']` is set to `{ organisationId: <currentOrgId>, memberIds: [], updatedAt: <ms> }` and the app navigates to `/members` with `location.state.intent === 'commsManualPick'`. (Traces F-24, F-36, BR-05.)
+Given the user is in **Pick individuals** mode with no list selected, when they click "Choose members…", then `sessionStorage['pace:team:comms:manual-pick']` is set to `{ organisationId: <currentOrgId>, memberIds: [], updatedAt: <ms> }` and the app navigates to `/members` with `location.state.intent === 'commsManualPick'`. (Traces F-25, F-36, BR-05.)
 
 **AC-05 — Manual hand-off return and read-once-and-clear.**
-Given the user returns from `/members` with `sessionStorage['pace:team:comms:manual-pick']` set to `{ organisationId: <currentOrgId>, memberIds: ['m1','m2','m3'], updatedAt: <ms> }`, when `/communications` mounts, then the recipient mode is set to "Specific members", the Card renders "3 members selected" alongside the "Choose again" Button, the composer's `recipientPool` is `{ type: 'manual', member_ids: ['m1','m2','m3'] }`, and `sessionStorage['pace:team:comms:manual-pick']` is no longer set. (Traces F-05, F-25, BR-04.)
+Given the user returns from `/members` with `sessionStorage['pace:team:comms:manual-pick']` set to `{ organisationId: <currentOrgId>, memberIds: ['m1','m2','m3'], updatedAt: <ms> }`, when `/communications` mounts, then the recipient mode is **Pick individuals**, the pool shows "3 members hand-picked" alongside **Choose again**, the composer's `recipientPool` is `{ type: 'manual', member_ids: ['m1','m2','m3'] }`, and `sessionStorage['pace:team:comms:manual-pick']` is no longer set. (Traces F-05, F-25, BR-04.)
 
 **AC-06 — Manual hand-off org mismatch ignores payload but clears key.**
-Given `sessionStorage['pace:team:comms:manual-pick']` is set with an `organisationId` differing from the current `selectedOrganisation.id`, when `/communications` mounts, then the recipient mode is "All organisation members", the composer's `recipientPool` is `OrgMembersPool` with no filters, and `sessionStorage['pace:team:comms:manual-pick']` is no longer set. (Traces F-63, BR-04.)
+Given `sessionStorage['pace:team:comms:manual-pick']` is set with an `organisationId` differing from the current `selectedOrganisation.id`, when `/communications` mounts, then the recipient mode is **Org members**, the composer's `recipientPool` is `OrgMembersPool` with no filters, and `sessionStorage['pace:team:comms:manual-pick']` is no longer set. (Traces F-63, BR-04.)
 
 **AC-07 — Membership-type filter applies to descriptor.**
-Given the recipient mode is "All organisation members" and the org has membership types "Junior" (id 1) and "Senior" (id 2), when the user selects only the Junior chip, then the composer's `recipientPool` is `{ type: 'org_members', organisation_id: <orgId>, filters: { member_type_ids: ['1'] } }` (id cast to string) and the pool preview re-runs. (Traces F-23, F-37, F-65, BR-12.)
+Given the recipient mode is **Org members** and the org has membership types "Junior" (id 1) and "Senior" (id 2), when the user selects only the Junior chip, then the composer's `recipientPool` is `{ type: 'org_members', organisation_id: <orgId>, filters: { member_type_ids: ['1'] } }` (id cast to string) and the pool preview re-runs. (Traces F-23, F-37, F-65, BR-12.)
 
 **AC-08 — Include-inactive toggle.**
-Given the recipient mode is "All organisation members" and the include-inactive checkbox is unchecked, when the user checks it, then the composer's `recipientPool` is `{ type: 'org_members', organisation_id: <orgId>, filters: { include_inactive: true } }` (`member_type_ids` omitted) and the pool preview re-runs. (Traces F-23, F-38, F-66.)
+Given the recipient mode is **Org members** and the include-inactive checkbox is unchecked, when the user checks it, then the composer's `recipientPool` is `{ type: 'org_members', organisation_id: <orgId>, filters: { include_inactive: true } }` (`member_type_ids` omitted) and the pool preview re-runs. (Traces F-23, F-38, F-66.)
 
 **AC-09 — Channel switch from email to SMS.**
 Given the channel is email and the draft has `subject: 'Hello'`, `body_html: '<p>Hi</p>'`, `body_text: 'Hi'`, `sender_email: 'a@b.com'`, when the user clicks SMS, then the composer's draft carries `body_text: 'Hi'` through unchanged, drops `subject` and `body_html` and `sender_email`, and the SMS-only sender phone field renders. The pool preview re-runs with `channel: 'sms'`. (Traces F-31, F-32.)
@@ -696,7 +750,9 @@ Given any successful send or schedule from this slice, when the request reaches 
 - All reads (membership types, sender-identity RPC) must go via `useSecureSupabase()`. Do not call `createClient` directly.
 - All sends, schedules, send-tests, template loads, merge-field loads, and pool resolves must go via the `CommSendAdapter` returned by `useCommSendAdapter`. Do not invoke `functions.invoke` directly. Do not write to `pump_message`, `pump_message_recipient`, `pump_delivery_event`, or `pump_suppression` from this slice.
 - Mount `<PagePermissionGuard pageName="comms-log" operation="read">` with no `appName` override and no `scope` prop. If the verification step in §15 fails, patch the slice to add `appName="PUMP"` and file a CR23 capability item.
-- Mount `CommComposer` with `blockSendOnUnresolvedTokens={true}`, `sourceApp='team'`, `onCancel={() => navigate('/')}`. Do not supply `templates`, `mergeFields`, or `recipientPreview` props — let the composer drive its own queries.
+- Mount `CommComposer` with `recipients={<CommRecipientPool … />}` (embedded pool — **no** standalone Recipients Card above the composer), `blockSendOnUnresolvedTokens={true}`, `sourceApp='team'`, `onCancel={() => navigate('/')}`. Do not supply `templates`, `mergeFields`, or `recipientPreview` props — let the composer drive its own queries.
+- Register `/communications/log` with a read-only send-history page; wire header **Send log** button to that route.
+- Render **Recent sends** below the composer on `/communications`.
 - Mount `useCommSendAdapter` with `{ organisationId: selectedOrganisation.id, sourceApp: 'team' }` only. Do not pass `sourceContextType` / `sourceContextId`.
 - Cast `core_membership_type.id` (integer) to string before placing it in `OrgMembersPool.filters.member_type_ids`.
 - Read-once-and-clear `sessionStorage['pace:team:comms:manual-pick']` on `/communications` mount. Always remove the key after reading, regardless of whether the payload was applied.
