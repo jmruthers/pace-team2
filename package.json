@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --port 8089",
     "type-check": "tsc --noEmit -p tsconfig.app.json",
     "test": "vitest run --test-timeout=10000",
     "test:coverage": "vitest run -c vitest.config.ts --coverage",
