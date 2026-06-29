@@ -24,7 +24,6 @@ import {
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { ChevronLeft } from '@solvera/pace-core/icons';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
-import { AccessDenied, PagePermissionGuard } from '@solvera/pace-core/rbac';
 import { useEventAttendeesData } from '@/hooks/useEventAttendeesData';
 import {
   attendeeApplicationStatusBadgeVariant,
@@ -271,9 +270,5 @@ function EventDetailPageContent() {
 }
 
 export function EventDetailPage() {
-  return (
-    <PagePermissionGuard pageName={PAGE_NAMES.events} operation="read" fallback={<AccessDenied />}>
-      <EventDetailPageContent />
-    </PagePermissionGuard>
-  );
+  return <EventDetailPageContent />;
 }

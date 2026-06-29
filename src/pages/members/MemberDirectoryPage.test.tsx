@@ -8,7 +8,6 @@ import { MemberDirectoryPage } from './MemberDirectoryPage';
 import { toast } from '@solvera/pace-core/components';
 
 let currentOrganisation: { id: string } | null = { id: 'org-1' };
-let allowPageRead = true;
 const useMemberDirectoryDataMock = vi.fn();
 
 vi.mock('@solvera/pace-core/hooks', () => ({
@@ -22,14 +21,6 @@ vi.mock('@solvera/pace-core/providers', () => ({
 }));
 
 vi.mock('@solvera/pace-core/rbac', () => ({
-  AccessDenied: () => <p>Denied</p>,
-  PagePermissionGuard: ({
-    children,
-    fallback,
-  }: {
-    children: ReactNode;
-    fallback?: ReactNode;
-  }) => (allowPageRead ? <>{children}</> : <>{fallback ?? null}</>),
   useResourcePermissions: () => ({
     canUpdate: true,
     canCreate: true,
@@ -190,7 +181,6 @@ function renderRoute(pathname: string, state?: unknown) {
 describe('MemberDirectoryPage picker mode', () => {
   beforeEach(() => {
     cleanup();
-    allowPageRead = true;
     currentOrganisation = { id: 'org-1' };
     resolveMemberDirectoryData = () => createMemberDirectoryDataReturn();
     useMemberDirectoryDataMock.mockReset();
@@ -278,12 +268,6 @@ describe('MemberDirectoryPage picker mode', () => {
     expect(screen.queryByText('Selecting members for a comms send')).toBeNull();
   });
 
-  it('renders access denied when read permission is blocked', () => {
-    allowPageRead = false;
-    renderRoute('/members');
-    expect(screen.getByText('Denied')).toBeTruthy();
-  });
-
   it('passes selected membership type into data hook for server-side refetch contract', async () => {
     const user = setupUser();
     renderRoute('/members');
@@ -300,7 +284,6 @@ describe('MemberDirectoryPage picker mode', () => {
 describe('MemberDirectoryPage members fetch error', () => {
   beforeEach(() => {
     cleanup();
-    allowPageRead = true;
     currentOrganisation = { id: 'org-1' };
     useMemberDirectoryDataMock.mockReset();
     window.sessionStorage.clear();

@@ -50,7 +50,10 @@ TEAM-08 v1 does **not** own:
 
 **Mutation contract — Option A (RBAC-checked RLS).** All reads and writes go via `useSecureSupabase().from('core_org_settings')`. Save is a single `.upsert(payload, { onConflict: 'organisation_id' })` call. Authorisation is enforced at the database layer by RBAC-checked INSERT and UPDATE RLS policies on `core_org_settings` matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md`, using `data_check_rbac_permission_with_context('<op>:page.org-settings', 'org-settings', organisation_id, NULL, data_get_app_id('TEAM'))` (where `<op>` is `create` or `update`). The slice does **not** author the RLS migration. The migration is upstream platform work and gates implementation (see §15). Super-admins also pass authorisation via the standards-template super-admin OR-clause (`is_super_admin(safe_get_user_id_for_rls())`).
 
-**Page guard.** The page is wrapped in `<PagePermissionGuard pageName="org-settings" operation="read">`. Scope is resolved internally by the guard from `OrganisationServiceProvider` context — no `scope` prop is passed.
+**Route read access.**
+
+> **Route read access:** Enforced by the app authenticated shell / PaceAppLayout `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts). The page component must not wrap content in an outer `PagePermissionGuard operation="read"` unless this slice explicitly requires a **scoped read** override (`scope={{ organisationId, eventId, appId }}`).
+
 
 **RBAC visibility gating.** The Save button is conditioned on `useResourcePermissions('org-settings')`: `canCreate` when no `core_org_settings` row exists yet for the current org (the save will be an INSERT), `canUpdate` when a row exists (the save will be an UPDATE). When the relevant permission is `false`, the Save button is hidden — the slice never renders an affordance that would always fail authorisation.
 
@@ -60,12 +63,12 @@ TEAM-08 v1 does **not** own:
 
 ### Page-level guards and evaluation ordering
 
-The route `/settings/org` sits inside `AuthenticatedShell` (TEAM-01) and is wrapped by `<PagePermissionGuard pageName="org-settings" operation="read">`. Evaluation order when context is absent:
+The route `/settings/org` sits inside `AuthenticatedShell` (TEAM-01) registers read access in [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts); shell `routeAccessDenied` enforces entry. Evaluation order when context is absent:
 
 1. **Authentication check** — `ProtectedRoute` (TEAM-01) fires before any other gate. An unauthenticated user is redirected to `/login` and never reaches the org check or the page guard.
 2. **Org context loading** — `OrganisationServiceProvider` resolves memberships. While `isLoading === true`, `AuthenticatedShell` renders a loading state; the page body and the page guard are not reached.
-3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the "No organisation assigned. Please contact your administrator." empty state from TEAM-01. `PagePermissionGuard` is not reached; no RBAC query fires.
-4. **Page permission guard** — Once org context is resolved, `PagePermissionGuard` evaluates with `pageName: 'org-settings'`, `operation: 'read'`. Scope is resolved internally; no `scope` prop is passed. While the RBAC check is in flight (`isLoading === true`) and no `loading` prop is supplied, the guard returns `null` (a brief blank inside the PaceMain content area is acceptable). On `can === false`, `<AccessDenied />` is rendered. On `can === true`, the page body renders.
+3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the "No organisation assigned. Please contact your administrator." empty state from TEAM-01. shell route read is not evaluated; no RBAC query fires.
+4. **Route read access** — Once org context is resolved, shell `routeAccessDenied` (via [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts)) evaluates the route's registered `pageName` / `read` permission. Scope resolves internally from `OrganisationServiceProvider`; no page-level read guard wraps the component tree. While the shell RBAC check is in flight, a brief blank inside the `PaceMain` content area is acceptable. On deny, `<AccessDenied />` renders in the shell main region. On allow, the page body renders.
 
 If `selectedOrganisation` becomes `null` after the guard would otherwise evaluate (race condition during org switch), the RBAC engine evaluates with `organisationId: undefined`; the check returns pending and the guard returns `null`. In practice, the no-org check at step 3 prevents this path under normal conditions.
 
@@ -604,7 +607,7 @@ Given the user clears `bank_account_name`, `bank_bsb`, and `bank_account_number`
 
 ## §12 Verification
 
-- Confirm `<PagePermissionGuard pageName="org-settings" operation="read">` wraps the page body and that no `scope` prop is passed.
+- Confirm route read is registered in [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts) and enforced by shell `routeAccessDenied` (no outer page read guard) and that no `scope` prop is passed.
 - Confirm `useSecureSupabase()` is used for both the SELECT and the upsert; confirm there is no direct `createClient` import from `@supabase/supabase-js`.
 - Confirm the SELECT uses `.eq('organisation_id', selectedOrganisation.id).maybeSingle()` and selects only the columns listed in §7 Read contract.
 - Confirm the upsert payload contains exactly `{ organisation_id, base_currency, joining_fee, recurring_fee, fee_recurrence_days, tax_rate, bank_account_name, bank_bsb, bank_account_number }` — no `id`, no `member_validation_config`, no audit columns.

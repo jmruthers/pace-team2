@@ -22,7 +22,7 @@ import {
 } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
-import { AccessDenied, PagePermissionGuard, useResourcePermissions } from '@solvera/pace-core/rbac';
+import { useResourcePermissions } from '@solvera/pace-core/rbac';
 import { buildMemberColumns, buildPendingColumns } from '@/lib/members/memberDirectory.columns';
 import {
   buildManualPickPayload,
@@ -394,9 +394,5 @@ function MemberDirectoryPageContent() {
 }
 
 export function MemberDirectoryPage() {
-  return (
-    <PagePermissionGuard pageName={PAGE_NAMES.members} operation="read" fallback={<AccessDenied />}>
-      <MemberDirectoryPageContent />
-    </PagePermissionGuard>
-  );
+  return <MemberDirectoryPageContent />;
 }

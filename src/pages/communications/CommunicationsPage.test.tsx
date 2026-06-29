@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import type { ReactNode } from 'react';
 import type { CommSendAdapter, RecipientPoolDescriptor } from '@solvera/pace-core/comms';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -14,7 +13,6 @@ const toastSpy = vi.hoisted(() => vi.fn());
 
 let capturedRecipientPool: RecipientPoolDescriptor | undefined;
 let capturedBlockSendWhenPoolEmpty: boolean | undefined;
-let pagePermissionGuardProps: Record<string, unknown> | undefined;
 
 let selectedOrg: { id: string; display_name: string; name: string } | null = {
   id: 'org-a',
@@ -58,20 +56,6 @@ vi.mock('@solvera/pace-core/providers', () => ({
   useOrganisationsContext: () => ({
     selectedOrganisation: selectedOrg,
   }),
-}));
-
-vi.mock('@solvera/pace-core/rbac', () => ({
-  PagePermissionGuard: (props: {
-    children: ReactNode;
-    pageName?: string;
-    operation?: string;
-    appName?: string;
-    scope?: unknown;
-  }) => {
-    pagePermissionGuardProps = props;
-    return <>{props.children}</>;
-  },
-  AccessDenied: () => <article>Denied</article>,
 }));
 
 vi.mock('@/hooks/useCommsLogRbac', () => ({
@@ -163,7 +147,6 @@ describe('CommunicationsPage', () => {
   beforeEach(() => {
     capturedRecipientPool = undefined;
     capturedBlockSendWhenPoolEmpty = undefined;
-    pagePermissionGuardProps = undefined;
     wrappedSend = undefined;
     selectedOrg = { id: 'org-a', display_name: 'Org A', name: 'Org A' };
     commsRbacState.canCompose = true;
@@ -182,12 +165,9 @@ describe('CommunicationsPage', () => {
     cleanup();
   });
 
-  it('wraps content with PagePermissionGuard for CommsLogPage read without appName or scope', () => {
+  it('renders the composer when organisation context is available', () => {
     renderPage();
-    expect(pagePermissionGuardProps?.pageName).toBe('CommsLogPage');
-    expect(pagePermissionGuardProps?.operation).toBe('read');
-    expect(pagePermissionGuardProps).not.toHaveProperty('appName');
-    expect(pagePermissionGuardProps).not.toHaveProperty('scope');
+    expect(screen.getByTestId('composer-mock')).toBeTruthy();
   });
 
   it('hydrates manual pick from sessionStorage and clears the key (matching org)', () => {

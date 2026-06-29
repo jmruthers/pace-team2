@@ -17,7 +17,7 @@ QA pack:         docs/test-packs/TM11-qa-pack.md
 
 ## §2 Overview
 
-TEAM-11 owns the `/reports` route inside the TEAM-01 authenticated shell. It delivers an organisation-scoped, self-service reporting surface for org-admin staff: a single explore (`team.participant`), a field picker drawn from `core_field_list`, filters, sorts, a Run action that previews up to 10,000 rows in a results table with built-in CSV export, and a templates panel for saving, loading, and deleting named report configurations. Layout authority: **`PageHeader`** (title + subtitle) above the shared **`ReportsWorkstation`** wrapper, which composes builder, results, and template lifecycle from pace-core reporting (prototype passes one config object; production may wire adapters around the same workstation contract). The page is wrapped by `<PagePermissionGuard pageName="reports" operation="read">`.
+TEAM-11 owns the `/reports` route inside the TEAM-01 authenticated shell. It delivers an organisation-scoped, self-service reporting surface for org-admin staff: a single explore (`team.participant`), a field picker drawn from `core_field_list`, filters, sorts, a Run action that previews up to 10,000 rows in a results table with built-in CSV export, and a templates panel for saving, loading, and deleting named report configurations. Layout authority: **`PageHeader`** (title + subtitle) above the shared **`ReportsWorkstation`** wrapper, which composes builder, results, and template lifecycle from pace-core reporting (prototype passes one config object; production may wire adapters around the same workstation contract). Route read is enforced by shell `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts).
 
 - **Prototype reference:** `pace-prototype/apps/pace-team/pages/FormsReportsSettingsPages.jsx` — `ReportsPage` with **`PageHeader`** + **`ReportsWorkstation`** (`pace-prototype/apps/_pace-core/reports.jsx` shared layer).
 
@@ -57,7 +57,10 @@ TEAM-11 does **not** own:
 
 **Mutation contract.** TEAM-11 mutates `core_report_template` (insert, update, delete) via `useSecureSupabase`. Live RLS uses `check_user_is_org_admin(organisation_id)` for org-admin override plus a creator-only path for non-admin staff. The UI is **creator-only at the application layer** for v1 — the slice hides Save / Delete on the active template when the acting user is not the creator, even though RLS would permit org-admin overwrites at the database layer. The org-admin UI override is deferred to a follow-up slice (see §17).
 
-**Page guard.** `<PagePermissionGuard pageName="reports" operation="read">` wraps the page content. The guard resolves scope internally from `OrganisationServiceProvider` context — no `scope` prop is passed.
+**Route read access.**
+
+> **Route read access:** Enforced by the app authenticated shell / PaceAppLayout `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts). The page component must not wrap content in an outer `PagePermissionGuard operation="read"` unless this slice explicitly requires a **scoped read** override (`scope={{ organisationId, eventId, appId }}`).
+
 
 **Action gating.** `useResourcePermissions('reports')` returns `{ canRead, canCreate, canUpdate, canDelete, canExport, isLoading }`. The slice consumes:
 - `canCreate` → controls Save button visibility for new templates.
@@ -85,12 +88,12 @@ TEAM-11 does **not** own:
 
 ### Page-level guards and evaluation ordering
 
-The route `/reports` sits inside `AuthenticatedShell` (TEAM-01) and is wrapped by `<PagePermissionGuard pageName="reports" operation="read">`. Evaluation order when context is absent:
+The route `/reports` sits inside `AuthenticatedShell` (TEAM-01) registers read access in [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts); shell `routeAccessDenied` enforces entry. Evaluation order when context is absent:
 
 1. **Authentication check** — `ProtectedRoute` (TEAM-01) fires first. An unauthenticated user is redirected to `/login`; the page guard never evaluates.
 2. **Org context loading** — `OrganisationServiceProvider` resolves memberships. While `isLoading === true`, `AuthenticatedShell` renders a loading state from TEAM-01; no feature content or page guard is reached.
-3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the no-org empty state from TEAM-01 ("No organisation assigned. Please contact your administrator."). `PagePermissionGuard` is not reached; no RBAC query fires.
-4. **Page permission guard** — Once org context is resolved, `<PagePermissionGuard pageName="reports" operation="read">` evaluates with `pageName: 'reports'`, `operation: 'read'`. Scope is resolved internally from the organisation context; no `scope` prop is passed. While the RBAC check is in flight (`isLoading === true`) and no `loading` prop is supplied, the guard returns `null` (a brief blank inside the `PaceMain` content area is acceptable). On `can === false`, `<AccessDenied />` renders. On `can === true`, the page body renders.
+3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the no-org empty state from TEAM-01 ("No organisation assigned. Please contact your administrator."). shell route read is not evaluated; no RBAC query fires.
+4. **Route read access** — Once org context is resolved, shell `routeAccessDenied` (via [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts)) evaluates the route's registered `pageName` / `read` permission. Scope resolves internally from `OrganisationServiceProvider`; no page-level read guard wraps the component tree. While the shell RBAC check is in flight, a brief blank inside the `PaceMain` content area is acceptable. On deny, `<AccessDenied />` renders in the shell main region. On allow, the page body renders.
 
 If `selectedOrganisation` resolves to `null` mid-render (for example a race during org switch), the RBAC engine evaluates with `organisationId: undefined`, the check returns pending, and the guard returns `null`. The no-org check at step 3 prevents this path under normal conditions. If the selected organisation changes while the page is mounted, the metadata, templates list, and results refetch against the new org (BR-ORG-SWITCH).
 
@@ -452,7 +455,7 @@ Current `pace-team2/src/` diverges from prototype layout (informational — pass
 
 **BR-PAGE-GUARD — Page guard.**
 - Input: route entry to `/reports`.
-- Output: `<PagePermissionGuard pageName="reports" operation="read">` evaluates with org scope resolved internally. On deny, `<AccessDenied />` is rendered. On allow, the page body renders.
+- Output: shell `routeAccessDenied` evaluates the route registry entry with org scope resolved internally. On deny, `<AccessDenied />` is rendered. On allow, the page body renders.
 
 ---
 

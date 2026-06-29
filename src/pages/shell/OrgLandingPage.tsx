@@ -12,8 +12,6 @@ import {
 import { usePaceMain, useUnifiedAuth } from '@solvera/pace-core/hooks';
 import type { Organisation } from '@solvera/pace-core/types';
 import { createOrganisationId } from '@solvera/pace-core/types';
-import { AccessDenied, PagePermissionGuard } from '@solvera/pace-core/rbac';
-import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { useOrgLandingApprovalCounts } from '@/hooks/useOrgLandingApprovalCounts';
 import { formatMembershipRole, orgInitials, organisationDisplayName } from '@/lib/shell/orgDisplay';
 
@@ -118,11 +116,7 @@ function OrgLandingPageContent({ onPickOrganisation }: OrgLandingPageProps) {
 }
 
 export function OrgLandingPage(props: OrgLandingPageProps) {
-  return (
-    <PagePermissionGuard pageName={PAGE_NAMES.home} operation="read" fallback={<AccessDenied />}>
-      <OrgLandingPageContent {...props} />
-    </PagePermissionGuard>
-  );
+  return <OrgLandingPageContent {...props} />;
 }
 
 export function pickOrganisation(

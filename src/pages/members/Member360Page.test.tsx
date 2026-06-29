@@ -34,12 +34,7 @@ vi.mock('@solvera/pace-core/providers', () => ({
   }),
 }));
 
-let allowMembersPageRead = true;
-
 vi.mock('@solvera/pace-core/rbac', () => ({
-  AccessDenied: () => <p>Denied</p>,
-  PagePermissionGuard: ({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) =>
-    allowMembersPageRead ? <>{children}</> : <>{fallback ?? null}</>,
   useResourcePermissions: (resource: string) => {
     if (resource === 'members') {
       return { canUpdate: memberPermissionCanUpdate, canRead: true };
@@ -228,7 +223,6 @@ describe('Member360Page', () => {
     memberPermissionCanUpdate = true;
     portalPermissionCanRead = true;
     portalPermissionCanUpdate = true;
-    allowMembersPageRead = true;
     formIsDirty = false;
     launchMemberProfileMock.mockReset();
     toastMock.mockReset();
@@ -365,13 +359,5 @@ describe('Member360Page', () => {
     await user.click(screen.getByRole('button', { name: /Back to members/u }));
 
     expect(screen.getByText('Members directory route')).toBeTruthy();
-  });
-
-  it('shows access denied fallback when members page guard denies read', () => {
-    allowMembersPageRead = false;
-    renderPage();
-
-    expect(screen.getByText('Denied')).toBeTruthy();
-    expect(screen.queryByText(/Ava Adams/)).toBeNull();
   });
 });

@@ -33,7 +33,7 @@ vi.mock('@solvera/pace-core/rbac', () => ({
   useResourcePermissions: () => useResourcePermissionsMock(),
 }));
 
-vi.mock('@/components/approvals/resolveDialogs', () => ({
+vi.mock('@/components/approvals/ResolveDialogs', () => ({
   ApproveResolveDialog: () => null,
   RejectResolveDialog: () => null,
   HoldResolveDialog: () => null,

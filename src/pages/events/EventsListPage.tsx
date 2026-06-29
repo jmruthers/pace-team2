@@ -17,7 +17,6 @@ import {
 } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
-import { AccessDenied, PagePermissionGuard } from '@solvera/pace-core/rbac';
 import { useOrgEventsData } from '@/hooks/useOrgEventsData';
 import {
   formatEventDateSpan,
@@ -171,9 +170,5 @@ function EventsListPageContent() {
 }
 
 export function EventsListPage() {
-  return (
-    <PagePermissionGuard pageName={PAGE_NAMES.events} operation="read" fallback={<AccessDenied />}>
-      <EventsListPageContent />
-    </PagePermissionGuard>
-  );
+  return <EventsListPageContent />;
 }

@@ -3,7 +3,6 @@ import { cleanup, render, screen } from '@testing-library/react';
 
 const toastMock = vi.hoisted(() => vi.fn());
 import userEvent from '@testing-library/user-event';
-import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { EventsListPage } from '@/pages/events/EventsListPage';
@@ -12,8 +11,6 @@ import type { OrgEventSummaryRow } from '@/lib/events/events.types';
 const useOrgEventsDataMock = vi.fn();
 const useOrganisationsContextMock = vi.fn();
 const navigateMock = vi.fn();
-
-let pageGuardAllows = true;
 
 const sampleEvent: OrgEventSummaryRow = {
   event_id: 'event-1',
@@ -45,14 +42,6 @@ vi.mock('@solvera/pace-core/providers', () => ({
   useOrganisationsContext: () => useOrganisationsContextMock(),
 }));
 
-vi.mock('@solvera/pace-core/rbac', () => ({
-  AccessDenied: ({ message }: { message?: string }) => (
-    <p data-testid="access-denied">{message ?? 'Denied'}</p>
-  ),
-  PagePermissionGuard: ({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) =>
-    pageGuardAllows ? <>{children}</> : <>{fallback}</>,
-}));
-
 vi.mock('@solvera/pace-core/components', async (importActual) => {
   const actual = await importActual<typeof import('@solvera/pace-core/components')>();
   const { buildEventsListDataTableMock } = await import('@/test-utils/eventsPageMocks');
@@ -69,7 +58,6 @@ function renderPage() {
 
 describe('EventsListPage', () => {
   beforeEach(() => {
-    pageGuardAllows = true;
     navigateMock.mockReset();
     useOrganisationsContextMock.mockReturnValue({
       selectedOrganisation: { id: 'org-1', name: 'Org One' },
@@ -97,12 +85,6 @@ describe('EventsListPage', () => {
     expect(screen.getAllByTestId('initial-sort')[0]?.textContent).toBe(
       JSON.stringify([{ id: 'event_date_sort_key', desc: true }]),
     );
-  });
-
-  it('renders access denied when page guard denies', () => {
-    pageGuardAllows = false;
-    renderPage();
-    expect(screen.getByTestId('access-denied')).toBeTruthy();
   });
 
   it('shows loading spinner on initial load', () => {

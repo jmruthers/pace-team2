@@ -12,6 +12,7 @@ import {
 const domEnvironmentGlobs = domInclude.map((pattern) => [pattern, 'happy-dom'] as [string, string]);
 
 export default defineConfig({
+  configLoader: 'runner',
   plugins: [react()],
   resolve: vitestResolve,
   optimizeDeps: vitestOptimizeDeps,

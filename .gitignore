@@ -19,6 +19,7 @@ audit/*.md
 
 # Test coverage
 coverage/
+**/*config*.timestamp-*.mjs
 
 # TS build artefacts (sometimes emitted at repo root)
 /tsconfig.tsbuildinfo

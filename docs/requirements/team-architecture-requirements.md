@@ -34,10 +34,16 @@ Legacy `pace-team` used Vite, `@jmruthers/pace-core`, participant routes, `/team
 
 ### Intended rebuild target
 
-- **`@solvera/pace-core`** (pace-core2), **`setupRBAC`**, **`OrganisationServiceProvider`**, **`PaceAppLayout`**, **`usePaceMain`**, and **`useSecureSupabase`** for feature data. TEAM must consume pace-core2 RBAC only: `PagePermissionGuard`, RBAC hooks, secure clients, and Edge-side `isPermitted`; no app-local permission engine or custom namespace.
+- **`@solvera/pace-core`** (pace-core2), **`setupRBAC`**, **`OrganisationServiceProvider`**, **`PaceAppLayout`**, **`usePaceMain`**, and **`useSecureSupabase`** for feature data. TEAM must consume pace-core2 RBAC only: `PagePermissionGuard` (mutation affordances and scoped read overrides only), RBAC hooks, secure clients, and Edge-side `isPermitted`; no app-local permission engine or custom namespace.
 - **Admin-only** app: **no** participant/member-facing TEAM surfaces (see brief).
 - **No `team_unit`** for org structure — use **`core_organisations.parent_id`**. Event groupings use BASE tables (e.g. `base_units`) where relevant—not TEAM standing-state.
 - **Event registration / “events attending”** in Member 360 and Events features: use **`base_application`**. There is **no** `base_event_registration` table.
+
+### Route read access (map-first shell contract)
+
+> **Route read access:** Enforced by the app authenticated shell / PaceAppLayout `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts). The page component must not wrap content in an outer `PagePermissionGuard operation="read"` unless this slice explicitly requires a **scoped read** override (`scope={{ organisationId, eventId, appId }}`).
+
+Protected routes MUST register `{ path, pageName, operation: 'read' }` in [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts). `AuthenticatedShell` wires `PaceAppLayout` `routeAccessDenied` via `useShellRouteAccessDenied`. Slice pages use `PagePermissionGuard` only for mutation affordances (`create` / `update` / `delete`) and for scoped read when an explicit `scope` prop is required.
 
 ---
 

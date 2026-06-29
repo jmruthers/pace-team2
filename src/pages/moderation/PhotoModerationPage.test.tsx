@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { setupUser } from '@test-utils';
-import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PhotoModerationPage } from '@/pages/moderation/PhotoModerationPage';
@@ -11,7 +10,6 @@ const usePhotoModerationDataMock = vi.fn();
 const useOrganisationsContextMock = vi.fn();
 const toastMock = vi.hoisted(() => vi.fn());
 
-let pageGuardAllows = true;
 let canDelete = true;
 let organisationId = 'org-1';
 
@@ -47,11 +45,6 @@ vi.mock('@solvera/pace-core/providers', () => ({
 }));
 
 vi.mock('@solvera/pace-core/rbac', () => ({
-  AccessDenied: ({ message }: { message?: string }) => (
-    <p data-testid="access-denied">{message ?? 'Denied'}</p>
-  ),
-  PagePermissionGuard: ({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) =>
-    pageGuardAllows ? <>{children}</> : <>{fallback}</>,
   useResourcePermissions: () => ({
     canDelete,
     isLoading: false,
@@ -75,7 +68,6 @@ function renderPage() {
 
 describe('PhotoModerationPage', () => {
   beforeEach(() => {
-    pageGuardAllows = true;
     canDelete = true;
     organisationId = 'org-1';
     toastMock.mockReset();
@@ -102,12 +94,6 @@ describe('PhotoModerationPage', () => {
     expect(screen.getByRole('heading', { name: 'Photo moderation' })).toBeTruthy();
     expect(screen.getByTestId('photo-table')).toBeTruthy();
     expect(screen.getByText('Alex Member')).toBeTruthy();
-  });
-
-  it('renders access denied when page guard denies', () => {
-    pageGuardAllows = false;
-    renderPage();
-    expect(screen.getByTestId('access-denied')).toBeTruthy();
   });
 
   it('hides Remove action when canDelete is false', () => {

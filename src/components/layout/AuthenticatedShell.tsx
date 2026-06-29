@@ -12,7 +12,9 @@ import {
   ToastProvider,
 } from '@solvera/pace-core/components';
 import type { NavigationItem, UserMenuExtraAction } from '@solvera/pace-core/components';
+import { AccessDenied, useShellRouteAccessDenied } from '@solvera/pace-core/rbac';
 import { useUnifiedAuth } from '@solvera/pace-core/hooks';
+import { getTeamRoutePermissionForPath } from '@/lib/navigation/team-route-registry';
 import { OrgContextBar } from '@/components/layout/OrgContextBar';
 import {
   buildInOrgNavItems,
@@ -37,6 +39,8 @@ export function AuthenticatedShell({ appName }: AuthenticatedShellProps) {
     updatePassword,
   } = useUnifiedAuth();
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+
+  const routeAccessDenied = useShellRouteAccessDenied(getTeamRoutePermissionForPath);
 
   const navItems = useMemo((): NavigationItem[] => {
     if (isOrganisationLandingPath(location.pathname)) {
@@ -136,6 +140,9 @@ export function AuthenticatedShell({ appName }: AuthenticatedShellProps) {
           showContextSelector
           showOrganisations
           showEvents={false}
+          enforcePermissions
+          routeAccessDenied={routeAccessDenied}
+          permissionFallback={<AccessDenied />}
         >
           <main className="grid min-h-[60vh] place-items-center">
             <section>
@@ -161,6 +168,9 @@ export function AuthenticatedShell({ appName }: AuthenticatedShellProps) {
         showContextSelector
         showOrganisations
         showEvents={false}
+        enforcePermissions
+        routeAccessDenied={routeAccessDenied}
+        permissionFallback={<AccessDenied />}
       >
         {showOrgContextBar ? (
           <OrgContextBar org={selectedOrganisation} pageLabel={orgContextLabel} />

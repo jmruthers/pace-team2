@@ -49,8 +49,7 @@ TEAM-01 gives authenticated staff a stable, org-aware application shell to navig
 
 TEAM-01 does **not** own:
 - Any feature-domain data queries (membership lists, events, communications, forms, reports, moderation, settings data)
-- Route-level `PagePermissionGuard` configurations for TEAM-02 through TEAM-13 — each slice owns its own guards
-- Navigation permission gating via `NavigationGuard` — deferred to post-TEAM-01 iterations
+- Route-level `PagePermissionGuard` for registered read paths — shell uses **`team-route-registry.ts`** + **`useShellRouteAccessDenied`**
 - Any participant-facing surfaces
 
 ### Architectural posture
@@ -79,12 +78,12 @@ QueryClientProvider
 
 **EventServiceProvider.** Do not add `EventServiceProvider` — TEAM is not event-scoped.
 
-**Route guards.** Every protected route uses `PagePermissionGuard` with the canonical `pageName` and `operation: 'read'`. `PagePermissionGuard` resolves scope internally — no `scope` prop is passed. `ProtectedRoute` wraps all authenticated routes and redirects unauthenticated users to `/login`.
+**Route guards.** `ProtectedRoute` wraps all authenticated routes and redirects unauthenticated users to `/login`. Registered route **read** access is enforced by **`PaceAppLayout`** with **`enforcePermissions`**, **`routeAccessDenied={useShellRouteAccessDenied(getTeamRoutePermissionForPath)}`**, and **`permissionFallback={<AccessDenied />}`**, backed by **`src/lib/navigation/team-route-registry.ts`**. Primary nav visibility is map-driven: each `NavigationItem` carries **`pageId`** (from the registry) and is pre-filtered by `NavigationMenu` — do **not** use **`NavigationGuard`**. **`PagePermissionGuard`** on `/` and `/orgs/:orgId` covers landing/overview read; TEAM-02 through TEAM-13 add **`PagePermissionGuard`** only for mutation affordances or scoped-read overrides on their pages — not duplicate route-read gates for paths already in the registry.
 
 **`AuthenticatedShell` component.** All authenticated routes mount inside a layout route component at `src/components/layout/AuthenticatedShell.tsx`. This component is the single place responsible for:
 1. Checking auth loading state — renders `<LoadingSpinner />` while `isLoading === true` (from `useUnifiedAuth()`)
 2. Checking org context — renders the "no organisation assigned" empty state if `selectedOrganisation === null` after loading resolves
-3. Rendering `<PaceAppLayout>` with `<Outlet />` for all normal authenticated routes, passing **route-aware `navItems`** (empty on landing; slim in-org nav on overview and feature routes — see §5)
+3. Rendering `<PaceAppLayout>` with `<Outlet />` for all normal authenticated routes, passing **route-aware `navItems`** (empty on landing; slim in-org nav on overview and feature routes — see §5), **`enforcePermissions`**, **`routeAccessDenied`**, and **`permissionFallback`** (see §3 route guards)
 4. Rendering **`OrgContextBar`** (breadcrumb region) on in-org feature routes only — not on landing or overview
 5. Hosting the change-password dialog (see below)
 6. Wrapping its rendered children in `<ToastProvider>` so that any descendant route or component can call the module-level `toast(...)` function from `@solvera/pace-core/components` to show success or error notifications. `ToastProvider` renders `<Toaster />` internally — `AuthenticatedShell` does not mount `<Toaster />` directly. `ToastProvider` is the outermost element returned by `AuthenticatedShell`, wrapping the `LoadingSpinner` branch, the no-org branch, and the `PaceAppLayout` + `<Outlet />` branch alike, so `toast(...)` is callable from every state the shell can render.
@@ -202,7 +201,8 @@ If `selectedOrganisation` is null when the guard would otherwise evaluate (e.g. 
 ### Permission-conditional rendering
 
 - **Landing and overview content** — only shown if `PagePermissionGuard pageName="home" operation="read"` passes. If denied, `AccessDenied` is shown instead.
-- **`NavigationGuard` on nav items** — not implemented in TEAM-01. Slim nav items are unconditionally shown when the shell is in in-org mode.
+- **Primary nav (in-org mode)** — items carry `pageId` from **`team-route-registry.ts`**; `NavigationMenu` hides items the permission map denies. Shell **`routeAccessDenied`** blocks direct navigation to disallowed registered routes.
+- **Feature routes (TEAM-02+)** — route read enforced by shell map; slices add **`PagePermissionGuard`** only for mutations or scoped read where needed.
 
 ### Navigation
 
@@ -264,12 +264,14 @@ Full-viewport overlay. Centred dialog. Countdown in seconds. "Stay signed in" (p
 
 ```ts
 const inOrgNavItems: NavigationItem[] = [
-  { id: 'nav-overview',      label: 'Overview',       href: `/orgs/${selectedOrganisationId}`, icon: 'LayoutDashboard' },
-  { id: 'nav-members',       label: 'Members',        href: '/members',                        icon: 'Users' },
-  { id: 'nav-communications', label: 'Communications', href: '/communications',               icon: 'MessageSquare' },
-  { id: 'nav-reports',       label: 'Reports',        href: '/reports',                        icon: 'BarChart2' },
+  { id: 'nav-overview',      label: 'Overview',       href: `/orgs/${selectedOrganisationId}`, icon: 'LayoutDashboard', pageId: 'HomePage' },
+  { id: 'nav-members',       label: 'Members',        href: '/members',                        icon: 'Users',           pageId: 'MembersPage' },
+  { id: 'nav-communications', label: 'Communications', href: '/communications',               icon: 'MessageSquare',   pageId: 'CommsLogPage' },
+  { id: 'nav-reports',       label: 'Reports',        href: '/reports',                        icon: 'BarChart2',       pageId: 'ReportsPage' },
 ];
 ```
+
+`pageId` values MUST match **`team-route-registry.ts`** / `rbac_app_pages.page_name`. Registry helper: **`getTeamRoutePermissionForPath(pathname)`** for shell `routeAccessDenied`.
 
 Approvals, Events, Forms, Moderation, and Settings are **not** in primary nav — reached from overview launcher, hero actions, user menu, or deep links (prototype IA).
 
@@ -497,8 +499,9 @@ Existing legacy rows (`Activities`, `dashboard`, `Dashboard`, `Members`, `Report
 | `OrganisationServiceProvider` | `@solvera/pace-core/providers` | Org context provider; requires explicit `user` + `session` |
 | `useUnifiedAuthContext` | `@solvera/pace-core/providers` | Called in `AppProviders` bridge to extract `user` + `session` |
 | `setupRBAC` | `@solvera/pace-core/rbac` | Initialise RBAC engine at module level before root render |
-| `PagePermissionGuard` | `@solvera/pace-core/rbac` | Page-level RBAC guard on `/` |
-| `AccessDenied` | `@solvera/pace-core/rbac` | Fallback when `PagePermissionGuard` denies access |
+| `PagePermissionGuard` | `@solvera/pace-core/rbac` | Page-level guard on `/` and `/orgs/:orgId` landing/overview read |
+| `useShellRouteAccessDenied` | `@solvera/pace-core/rbac` | Shell route read denial from `team-route-registry` map |
+| `AccessDenied` | `@solvera/pace-core/rbac` | Fallback when shell route or page guard denies access |
 | `usePaceMain` | `@solvera/pace-core/hooks` | Configures shell metadata (title, print orientation) from page components |
 | `useUnifiedAuth` | `@solvera/pace-core/hooks` | Auth + org context in `AuthenticatedShell`; provides `isLoading`, `user`, `selectedOrganisation`, `signOut`, `updatePassword` |
 | `NavigationItem` | `@solvera/pace-core/components` | Type for `navItems` array |
@@ -541,12 +544,12 @@ function AppProviders() {
 
 ### Page-level guards
 
-| Route | `pageName` | `operation` | Fallback |
-|-------|-----------|------------|---------|
-| `/` | `home` | `read` | `<AccessDenied />` |
-| `/orgs/:orgId` | `home` | `read` | `<AccessDenied />` |
+| Route | `pageName` | `operation` | Fallback | Notes |
+|-------|-----------|------------|---------|-------|
+| `/` | `home` | `read` | `<AccessDenied />` | Landing; also in shell route registry |
+| `/orgs/:orgId` | `home` | `read` | `<AccessDenied />` | Overview; also in shell route registry |
 
-All other TEAM routes define their own `PagePermissionGuard` configurations in TEAM-02 through TEAM-13.
+All other TEAM routes: shell **read** via **`team-route-registry.ts`** + **`useShellRouteAccessDenied`**. TEAM-02 through TEAM-13 add **`PagePermissionGuard`** only for **mutations** or **scoped read** on their pages.
 
 ### Access rules
 
@@ -554,7 +557,8 @@ All other TEAM routes define their own `PagePermissionGuard` configurations in T
 - A user must be authenticated before any guard fires (`ProtectedRoute` fires first).
 - A user must have org context before any guard fires (no-org check fires before the guard; see §3 evaluation ordering).
 - Users denied `read:page.home` see `AccessDenied` within the authenticated shell; the header and footer remain visible.
-- `NavigationGuard` is not used in TEAM-01 — slim nav items are unconditionally rendered when in in-org shell mode.
+- Primary nav items without read permission are hidden by `NavigationMenu` map filtering; direct URL access to a registered route without read shows shell `AccessDenied`.
+- Do **not** use **`NavigationGuard`** — removed from pace-core.
 
 ---
 
@@ -616,9 +620,9 @@ Given a user navigates to a route not yet implemented (e.g. `/events` before the
 
 Given a user is authenticated with org context, when they view any authenticated route, then the TEAM logo, navigation menu trigger, org context selector, and user menu are visible in the header.
 
-- [ ] **AC-13 — Slim in-org nav**
+- [ ] **AC-13 — Slim in-org nav (RBAC-gated)**
 
-Given a user is on an in-org route (overview or feature page), when they view the header, then primary nav shows Overview, Members, Communications, and Reports only — not Approvals, Events, Forms, Moderation, or Settings.
+Given a user is on an in-org route (overview or feature page), when they view the header, then primary nav shows Overview, Members, Communications, and Reports only when the permission map grants read for each item's `pageId` — not Approvals, Events, Forms, Moderation, or Settings.
 
 - [x] **AC-14 — Sign out**
 
@@ -651,7 +655,9 @@ Given a user is authenticated and inside the `AuthenticatedShell`, when any desc
 - Confirm `AuthenticatedShell` checks `isLoading` first (renders `<LoadingSpinner />`), then checks `selectedOrganisation === null` (renders no-org message), before rendering `<PaceAppLayout>`.
 - Confirm change-password dialog is defined in `AuthenticatedShell` and wired to `onUserMenuChangePassword`.
 - Confirm `EventServiceProvider` is absent from the provider stack.
-- Confirm slim in-org `navItems` (Overview, Members, Communications, Reports) and empty nav on `/`.
+- Confirm `AuthenticatedShell` passes **`enforcePermissions`**, **`routeAccessDenied={useShellRouteAccessDenied(getTeamRoutePermissionForPath)}`**, and **`permissionFallback={<AccessDenied />}`** to `PaceAppLayout`.
+- Confirm **`src/lib/navigation/team-route-registry.ts`** registers all authenticated TEAM routes and exports **`getTeamRoutePermissionForPath`**.
+- Confirm slim in-org `navItems` (Overview, Members, Communications, Reports) with **`pageId`** and empty nav on `/`.
 - Confirm `OrgContextBar` renders on in-org feature routes and is omitted on `/` and `/orgs/:orgId`.
 - Confirm organisation landing and overview routes exist (`/`, `/orgs/:orgId`).
 - Confirm `/logos/team-logo-square.svg`, `/logos/team-favicon.svg`, and `/logos/team-logo-wide.svg` exist in the public directory. If absent, note as a known asset gap and raise with the product team — do not block build on this.
@@ -692,7 +698,8 @@ n/a — standard PDLC quality gates apply.
 - Do not put Approvals, Events, Forms, Moderation, or Settings in primary header nav — use overview launcher and deep links.
 - Do not fetch feature-domain detail on landing beyond org-card summary stats and rolled-up attention counts; overview KPIs/attention/events are shell-level summaries only (detail queries stay in owning slices).
 - Do not add `EventServiceProvider` to the provider stack.
-- Do not implement `NavigationGuard` permission gating on nav items in this slice.
+- Do not implement **`NavigationGuard`** — use map-first nav (`pageId` on items) and shell **`routeAccessDenied`** instead.
+- Do not add duplicate **`PagePermissionGuard pageName operation='read'`** on routes already covered by **`team-route-registry.ts`** unless the page requires scoped-read override.
 - Do not add `team_unit` usage.
 - Do not add participant-facing routes.
 - Do not add a debug RBAC panel or any RBAC diagnostics UI.

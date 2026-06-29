@@ -1,8 +1,5 @@
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { EmptyState, PageHeader } from '@solvera/pace-core/components';
-import { AccessDenied, PagePermissionGuard } from '@solvera/pace-core/rbac';
-
-import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 
 function SettingsPeoplePageContent() {
   usePaceMain({ printTitle: 'People & access', ariaLabel: 'People and access settings' });
@@ -26,13 +23,5 @@ function SettingsPeoplePageContent() {
 }
 
 export function SettingsPeoplePage() {
-  return (
-    <PagePermissionGuard
-      pageName={PAGE_NAMES.orgSettings}
-      operation="read"
-      fallback={<AccessDenied message="You do not have permission to view this page." />}
-    >
-      <SettingsPeoplePageContent />
-    </PagePermissionGuard>
-  );
+  return <SettingsPeoplePageContent />;
 }

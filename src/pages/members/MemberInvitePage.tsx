@@ -19,7 +19,7 @@ import {
 } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
-import { AccessDenied, PagePermissionGuard, useResourcePermissions } from '@solvera/pace-core/rbac';
+import { useResourcePermissions } from '@solvera/pace-core/rbac';
 
 import { useActiveOrganisationMembershipTypes } from '@/hooks/useActiveOrganisationMembershipTypes';
 import { useSubOrganisationsData } from '@/hooks/useSubOrganisationsData';
@@ -170,13 +170,5 @@ function MemberInvitePageContent() {
 }
 
 export function MemberInvitePage() {
-  return (
-    <PagePermissionGuard
-      pageName={PAGE_NAMES.members}
-      operation="read"
-      fallback={<AccessDenied message="You do not have permission to view this page." />}
-    >
-      <MemberInvitePageContent />
-    </PagePermissionGuard>
-  );
+  return <MemberInvitePageContent />;
 }

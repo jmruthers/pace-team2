@@ -17,7 +17,7 @@ import {
 import { ChevronLeft } from '@solvera/pace-core/icons';
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
-import { AccessDenied, PagePermissionGuard, useResourcePermissions } from '@solvera/pace-core/rbac';
+import { useResourcePermissions } from '@solvera/pace-core/rbac';
 import { useMemberRolesData } from '@/hooks/useMemberRolesData';
 import { MemberRoleDialogs, runEndRoleWithToast } from '@/components/members/MemberRoleDialogs';
 import { filterRoleTypesForMembership } from '@/lib/members/memberRoleTypes';
@@ -456,9 +456,5 @@ function MemberRolesPageContent() {
 }
 
 export function MemberRolesPage() {
-  return (
-    <PagePermissionGuard pageName={PAGE_NAMES.memberRoles} operation="read" fallback={<AccessDenied />}>
-      <MemberRolesPageContent />
-    </PagePermissionGuard>
-  );
+  return <MemberRolesPageContent />;
 }

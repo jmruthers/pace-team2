@@ -24,7 +24,7 @@ import {
 } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
-import { AccessDenied, PagePermissionGuard, useResourcePermissions } from '@solvera/pace-core/rbac';
+import { useResourcePermissions } from '@solvera/pace-core/rbac';
 import { HandleSupabaseError } from '@solvera/pace-core/utils';
 import { Copy, ExternalLink, Plus, SquarePen, Trash2 } from '@solvera/pace-core/icons';
 
@@ -409,13 +409,5 @@ function FormsListPageContent() {
 }
 
 export function FormsListPage() {
-  return (
-    <PagePermissionGuard
-      pageName={PAGE_NAMES.forms}
-      operation="read"
-      fallback={<AccessDenied message="You do not have permission to view this page." />}
-    >
-      <FormsListPageOrganisationScope />
-    </PagePermissionGuard>
-  );
+  return <FormsListPageOrganisationScope />;
 }

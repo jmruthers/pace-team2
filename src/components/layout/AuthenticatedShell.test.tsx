@@ -25,8 +25,15 @@ let authFixture: AuthFixture = {
   updatePassword: vi.fn(async () => undefined),
 };
 
+let shellRouteAccessDenied = false;
+
 vi.mock('@solvera/pace-core/hooks', () => ({
   useUnifiedAuth: () => authFixture,
+}));
+
+vi.mock('@solvera/pace-core/rbac', () => ({
+  AccessDenied: () => <main>Access denied</main>,
+  useShellRouteAccessDenied: () => shellRouteAccessDenied,
 }));
 
 vi.mock('@solvera/pace-core/components', () => ({
@@ -41,24 +48,33 @@ vi.mock('@solvera/pace-core/components', () => ({
     userEmail,
     userFullName,
     navItems,
+    routeAccessDenied,
+    permissionFallback,
   }: {
     children?: ReactNode;
     appName: string;
     userEmail: string;
     userFullName: string;
     navItems?: Array<{ label: string }>;
-  }) => (
-    <div
-      data-testid="pace-app-shell"
-      data-app={appName}
-      data-email={userEmail}
-      data-fullname={userFullName}
-      data-nav-count={navItems?.length ?? 0}
-    >
-      <header>Mini shell</header>
-      {children}
-    </div>
-  ),
+    routeAccessDenied?: boolean;
+    permissionFallback?: ReactNode;
+  }) => {
+    if (routeAccessDenied === true) {
+      return <>{permissionFallback}</>;
+    }
+    return (
+      <div
+        data-testid="pace-app-shell"
+        data-app={appName}
+        data-email={userEmail}
+        data-fullname={userFullName}
+        data-nav-count={navItems?.length ?? 0}
+      >
+        <header>Mini shell</header>
+        {children}
+      </div>
+    );
+  },
   Dialog: ({ open, children }: { open: boolean; children: ReactNode }) => (open ? <aside>{children}</aside> : null),
   DialogContent: ({ children }: { children: ReactNode }) => <>{children}</>,
   DialogHeader: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -68,7 +84,12 @@ vi.mock('@solvera/pace-core/components', () => ({
 }));
 
 function OutletChild() {
-  return <article>Outlet child fixture</article>;
+  return (
+    <article>
+      <h1>Member directory</h1>
+      Outlet child fixture
+    </article>
+  );
 }
 
 function renderShell(initialPath = '/') {
@@ -87,6 +108,7 @@ function renderShell(initialPath = '/') {
 describe('AuthenticatedShell', () => {
   beforeEach(() => {
     cleanup();
+    shellRouteAccessDenied = false;
     authFixture = {
       isLoading: false,
       user: { email: 'staff@example.com', user_metadata: {} },
@@ -137,5 +159,14 @@ describe('AuthenticatedShell', () => {
 
     expect(screen.getByTestId('pace-app-shell').getAttribute('data-nav-count')).toBe('4');
     expect(screen.getByLabelText('Breadcrumb')).toBeTruthy();
+  });
+
+  it('does not mount outlet content when shell route access is denied', () => {
+    shellRouteAccessDenied = true;
+    renderShell('/members');
+
+    expect(screen.getByText('Access denied')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Member directory' })).toBeNull();
+    expect(screen.queryByText('Outlet child fixture')).toBeNull();
   });
 });

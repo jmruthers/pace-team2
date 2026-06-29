@@ -17,7 +17,7 @@ QA pack:         docs/test-packs/TM10-qa-pack.md
 
 ## §2 Overview
 
-TEAM-10 delivers the events surface for org-admin staff at `/events` (a list of every event for which the current organisation has at least one non-draft member application) and `/events/:eventId` (an event header plus a member-centric attendee list of those applicants). Both surfaces are member-centric: each row at `/events` represents an event the organisation has presence in; each row at `/events/:eventId` represents a member of the current organisation whose application is recorded for that event. The data is sourced through two SECURITY DEFINER RPCs that join `core_events`, `base_application`, `core_member`, and `core_person` server-side, scope reads to the current organisation's presence, exclude drafts, and authorise on org-admin caller identity. Both routes are read-only and wrapped by `<PagePermissionGuard pageName="events" operation="read">`.
+TEAM-10 delivers the events surface for org-admin staff at `/events` (a list of every event for which the current organisation has at least one non-draft member application) and `/events/:eventId` (an event header plus a member-centric attendee list of those applicants). Both surfaces are member-centric: each row at `/events` represents an event the organisation has presence in; each row at `/events/:eventId` represents a member of the current organisation whose application is recorded for that event. The data is sourced through two SECURITY DEFINER RPCs that join `core_events`, `base_application`, `core_member`, and `core_person` server-side, scope reads to the current organisation's presence, exclude drafts, and authorise on org-admin caller identity. Both routes are read-only; route read is enforced by shell `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts).
 
 - **Prototype reference:** `EventsPage`, `NewEventPage` in `pace-prototype/apps/pace-team/pages/ApprovalsEventsPages.jsx`; `EventDetailPage` in `pace-prototype/apps/pace-team/pages/EventDetailCommsPages.jsx`.
 
@@ -57,7 +57,10 @@ TEAM-10 does **not** own:
 
 **Read-only surface.** Every data path in this slice is a `useSecureSupabase().rpc(...)` invocation against one of the two SECURITY DEFINER RPCs. There are no `insert`, `update`, or `delete` calls, no PostgREST embedded selects, and no direct reads against `core_events` or `base_application` from the client. The cross-app dependency on BASE `read:page.applications` that would otherwise apply to a direct `base_application` SELECT is eliminated by the SECURITY DEFINER bypass — the RPCs run as definer and the caller's authorisation is checked inside the RPC body (caller is org admin of the requesting `p_organisation_id`).
 
-**Page guard.** Both `/events` and `/events/:eventId` are wrapped by `<PagePermissionGuard pageName="events" operation="read">`. Same `pageName` for both routes. The guard resolves scope internally from `OrganisationServiceProvider` — no `scope` prop is passed.
+**Route read access.**
+
+> **Route read access:** Enforced by the app authenticated shell / PaceAppLayout `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts). The page component must not wrap content in an outer `PagePermissionGuard operation="read"` unless this slice explicitly requires a **scoped read** override (`scope={{ organisationId, eventId, appId }}`).
+
 
 **Resource-level action gating.** `useResourcePermissions('events')` is **not** invoked. The slice is read-only with no inline mutation affordances; the page guard alone gates access.
 
@@ -79,12 +82,12 @@ TEAM-10 does **not** own:
 
 ### Page-level guards and evaluation ordering
 
-Both `/events` and `/events/:eventId` sit inside `AuthenticatedShell` (TEAM-01) and are wrapped by `<PagePermissionGuard pageName="events" operation="read">`. Evaluation order when context is absent:
+Both `/events` and `/events/:eventId` sit inside `AuthenticatedShell` (TEAM-01) and register read access in [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts); shell `routeAccessDenied` enforces entry. Evaluation order when context is absent:
 
 1. **Authentication check** — `ProtectedRoute` (TEAM-01) fires first. An unauthenticated user is redirected to `/login`; the page guard never evaluates.
 2. **Org context loading** — `OrganisationServiceProvider` resolves memberships. While `isLoading === true`, `AuthenticatedShell` renders a loading state from TEAM-01; the page guard does not evaluate.
 3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the no-org empty state from TEAM-01. The page guard is not reached.
-4. **Page permission guard** — Once org context is resolved, `<PagePermissionGuard pageName="events" operation="read">` evaluates with scope resolved internally. While the RBAC check is in flight (`isLoading === true`) and no `loading` prop is supplied, the guard returns `null` (a brief blank inside `PaceMain` is acceptable). On `can === false`, `<AccessDenied />` renders. On `can === true`, the page body renders.
+4. **Route read access** — Once org context is resolved, shell `routeAccessDenied` (via [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts)) evaluates the route's registered `pageName` / `read` permission. Scope resolves internally from `OrganisationServiceProvider`; no page-level read guard wraps the component tree. While the shell RBAC check is in flight, a brief blank inside the `PaceMain` content area is acceptable. On deny, `<AccessDenied />` renders in the shell main region. On allow, the page body renders.
 5. **Data fetch** —
    - On `/events`: the slice invokes `app_org_event_summaries(p_organisation_id: selectedOrganisation.id)`. While the RPC is in flight, a full-page `<LoadingSpinner />` renders inside the `PaceMain` content area.
    - On `/events/:eventId`: the slice invokes `app_org_event_attendees(p_organisation_id: selectedOrganisation.id, p_event_id: :eventId)`. While the RPC is in flight, a full-page `<LoadingSpinner />` renders inside the `PaceMain` content area. On a zero-row result, the "Event not found" page renders (header data is otherwise carried in the same row shape — see §6 BR-A2).
@@ -469,7 +472,7 @@ Current `pace-team2/src/` diverges from prototype layout (informational — pass
 
 **BR-T — Page guard and resource permissions.**
 - Input: route entry.
-- Output: both routes are wrapped by `<PagePermissionGuard pageName="events" operation="read">`. No `useResourcePermissions('events')` invocation — the slice is read-only with no inline mutation gating.
+- Output: both routes register read access in [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts); shell `routeAccessDenied` enforces entry. No `useResourcePermissions('events')` invocation — the slice is read-only with no inline mutation gating.
 
 **BR-U — Page metadata.**
 - Input: page mount.

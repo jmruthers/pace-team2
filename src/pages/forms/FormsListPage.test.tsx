@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { setupUser } from '@test-utils';
-import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -17,7 +16,6 @@ const navigateSpy = vi.hoisted(() => vi.fn());
 let canCreate = true;
 let canUpdate = true;
 let canDelete = true;
-let formsPageReadAllowed = true;
 
 function buildFixtureRow(): OrgFormsTableRow {
   return {
@@ -66,16 +64,6 @@ vi.mock('@solvera/pace-core/providers', () => ({
 }));
 
 vi.mock('@solvera/pace-core/rbac', () => ({
-  AccessDenied: ({ message }: { message?: string }) => (
-    <p data-testid="access-denied">{message ?? 'Denied'}</p>
-  ),
-  PagePermissionGuard: ({
-    children,
-    fallback,
-  }: {
-    children: ReactNode;
-    fallback?: ReactNode;
-  }) => (formsPageReadAllowed ? <>{children}</> : <>{fallback}</>),
   useResourcePermissions: () => ({
     canRead: true,
     canCreate,
@@ -138,7 +126,6 @@ describe('FormsListPage', () => {
     canCreate = true;
     canUpdate = true;
     canDelete = true;
-    formsPageReadAllowed = true;
     navigateSpy.mockReset();
     toastMock.mockReset();
     deleteFormAsyncMock.mockReset().mockResolvedValue({});
@@ -152,14 +139,6 @@ describe('FormsListPage', () => {
     cleanup();
     vi.clearAllMocks();
     vi.unstubAllEnvs();
-  });
-
-  it('renders AccessDenied when read permission is denied', () => {
-    formsPageReadAllowed = false;
-    renderFlat();
-    expect(screen.getByTestId('access-denied').textContent).toContain(
-      'You do not have permission to view this page.',
-    );
   });
 
   it('renders error alert with Retry when list query fails and Retry refetches', async () => {

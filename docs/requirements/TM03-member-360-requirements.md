@@ -17,7 +17,7 @@ QA pack:         docs/test-packs/TM03-qa-pack.md
 
 ## §2 Overview
 
-TEAM-03 delivers the Member 360 detail surface for org-admin staff at `/members/:memberId`, where `:memberId` is `core_member.id` (uuid). Layout authority: **`PageHeader`** (member display name; **Message** and **Edit profile** actions in header-right) → **avatar hero** (initials, membership number, status, type, unit meta row) → **tabbed content** with five tabs — **Personal**, **Medical**, **Contacts**, **Membership**, **Events** — not five stacked section cards on one scroll. Tab bodies use section stacks (`M360Section` pattern in prototype); **roles & appointments** render as an **inline table inside the Membership tab**, not a separate Standing roles card linking to TEAM-04. Identity scalar editing and Portal handoff follow existing mutation/read contracts. The page is wrapped by `<PagePermissionGuard pageName="members" operation="read">`.
+TEAM-03 delivers the Member 360 detail surface for org-admin staff at `/members/:memberId`, where `:memberId` is `core_member.id` (uuid). Layout authority: **`PageHeader`** (member display name; **Message** and **Edit profile** actions in header-right) → **avatar hero** (initials, membership number, status, type, unit meta row) → **tabbed content** with five tabs — **Personal**, **Medical**, **Contacts**, **Membership**, **Events** — not five stacked section cards on one scroll. Tab bodies use section stacks (`M360Section` pattern in prototype); **roles & appointments** render as an **inline table inside the Membership tab**, not a separate Standing roles card linking to TEAM-04. Identity scalar editing and Portal handoff follow existing mutation/read contracts. Route read is enforced by shell `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts).
 
 - **Prototype reference:** `pace-prototype/apps/pace-team/pages/MemberPages.jsx` — `Member360Page` ( **`PageHeader`**, avatar hero, **`Tabs`** with Personal / Medical / Contacts / Membership / Events ).
 
@@ -57,7 +57,10 @@ TEAM-03 does **not** own:
 
 **Mutation contract — live `check_user_is_org_admin(organisation_id)` RLS gate.** All reads and writes go via `useSecureSupabase().from(...)`. Authorisation on the four mutated tables (`core_person`, `core_member`, `core_member_card`) is enforced at the database layer by RLS policies that gate on whether the acting user is an `org_admin` for the target `organisation_id`. These policies already exist on dev and work today; this slice authors against them. No upstream RLS migration is required to ship TEAM-03 v1. (`core_contact` mutations are not in v1 scope — see §16.) Future cross-app convergence to RBAC-checked RLS for these tables is informational only and captured in §17.
 
-**Page guard.** `/members/:memberId` is wrapped by `<PagePermissionGuard pageName="members" operation="read">`. Same `pageName` as TEAM-02 (Member 360 is the detail surface for the directory). The guard resolves scope internally from `OrganisationServiceProvider` — no `scope` prop is passed.
+**Route read access.**
+
+> **Route read access:** Enforced by the app authenticated shell / PaceAppLayout `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts). The page component must not wrap content in an outer `PagePermissionGuard operation="read"` unless this slice explicitly requires a **scoped read** override (`scope={{ organisationId, eventId, appId }}`).
+
 
 **Action gating.** Visibility of the Identity Unlock button and the card row actions (Deactivate / Reactivate) is gated by `useResourcePermissions('members')`: hidden when `canUpdate === false`. Visibility of the Portal CTAs is gated by `useResourcePermissions('member-profile')` (singular resource key matching the dev `rbac_app_pages` row under PACE app): "Edit in Portal" when `canUpdate === true`; "View in Portal" when `canRead === true` AND `canUpdate === false`; neither when neither.
 
@@ -75,12 +78,12 @@ TEAM-03 does **not** own:
 
 ### Page-level guards and evaluation ordering
 
-The route `/members/:memberId` sits inside `AuthenticatedShell` (TEAM-01) and is wrapped by `<PagePermissionGuard pageName="members" operation="read">`. Evaluation order when context is absent:
+The route `/members/:memberId` sits inside `AuthenticatedShell` (TEAM-01) registers read access in [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts); shell `routeAccessDenied` enforces entry. Evaluation order when context is absent:
 
 1. **Authentication check** — `ProtectedRoute` (TEAM-01) fires first. An unauthenticated user is redirected to `/login`; the page guard never evaluates.
 2. **Org context loading** — `OrganisationServiceProvider` resolves memberships. While `isLoading === true`, `AuthenticatedShell` renders a loading state from TEAM-01; the page guard does not evaluate.
 3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the no-org empty state from TEAM-01. The page guard is not reached.
-4. **Page permission guard** — Once org context is resolved, `<PagePermissionGuard pageName="members" operation="read">` evaluates. Scope is resolved internally; no `scope` prop is passed. While the RBAC check is in flight (`isLoading === true`) and no `loading` prop is supplied, the guard returns `null` (a brief blank inside the `PaceMain` content area is acceptable). On `can === false`, `<AccessDenied />` renders. On `can === true`, the page body renders.
+4. **Route read access** — Once org context is resolved, shell `routeAccessDenied` (via [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts)) evaluates the route's registered `pageName` / `read` permission. Scope resolves internally from `OrganisationServiceProvider`; no page-level read guard wraps the component tree. While the shell RBAC check is in flight, a brief blank inside the `PaceMain` content area is acceptable. On deny, `<AccessDenied />` renders in the shell main region. On allow, the page body renders.
 5. **Member fetch** — Inside the page body, the slice fetches `core_member` joined to `core_person` for `core_member.id = :memberId AND organisation_id = selectedOrganisation.id`. While the query is in flight, a full-page `<LoadingSpinner />` renders inside the `PaceMain` content area. On a zero-row result (unknown id, deleted member, cross-org member), the "Member not found" page renders. On a non-zero result, the five sections render with their own section-level loading states.
 
 If `selectedOrganisation` resolves to `null` mid-render (for example a race during org switch), the RBAC engine evaluates with `organisationId: undefined` and the page guard returns `null` (pending). The no-org check at step 3 prevents this path under normal conditions. If the loaded member's `organisation_id` no longer matches `selectedOrganisation.id` after an org switch, the page replaces its content with the org-mismatch alert (BR-W).

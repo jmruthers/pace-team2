@@ -20,7 +20,7 @@ import {
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { Trash2 } from '@solvera/pace-core/icons';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
-import { AccessDenied, PagePermissionGuard, useResourcePermissions } from '@solvera/pace-core/rbac';
+import { useResourcePermissions } from '@solvera/pace-core/rbac';
 import { PhotoPreviewDialog } from '@/components/moderation/PhotoPreviewDialog';
 import { PhotoThumbnailCell } from '@/components/moderation/PhotoThumbnailCell';
 import { usePhotoModerationData } from '@/hooks/usePhotoModerationData';
@@ -307,13 +307,5 @@ function PhotoModerationPageContent() {
 }
 
 export function PhotoModerationPage() {
-  return (
-    <PagePermissionGuard
-      pageName={PAGE_NAMES.moderationPhotos}
-      operation="read"
-      fallback={<AccessDenied message="You do not have permission to view this page." />}
-    >
-      <PhotoModerationPageContent />
-    </PagePermissionGuard>
-  );
+  return <PhotoModerationPageContent />;
 }

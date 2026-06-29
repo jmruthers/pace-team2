@@ -17,7 +17,7 @@ QA pack:         docs/test-packs/TM02-qa-pack.md
 
 ## §2 Overview
 
-TEAM-02 delivers the member directory for org-admin staff at `/members`. The page renders two tabs — Members (active and suspended members of the currently selected organisation) and Pending join & transfer (provisional members whose join or transfer request is awaiting resolution) — with text search, membership-type filtering on the Members tab, sortable columns, pagination, and row navigation to Member 360 at `/members/:memberId`. The same route doubles as a multi-select picker for the communications composer: when entered with `location.state.intent === 'commsManualPick'`, the page swaps to picker mode, surfaces a selection checkbox column on the Members tab, and on Done writes the chosen member ids to `sessionStorage` for TEAM-13 to read on `/communications`. The slice is read-only — no creates, updates, or deletes happen on this surface — and the page is wrapped by `<PagePermissionGuard pageName="members" operation="read">`.
+TEAM-02 delivers the member directory for org-admin staff at `/members`. The page renders two tabs — Members (active and suspended members of the currently selected organisation) and Pending join & transfer (provisional members whose join or transfer request is awaiting resolution) — with text search, membership-type filtering on the Members tab, sortable columns, pagination, and row navigation to Member 360 at `/members/:memberId`. The same route doubles as a multi-select picker for the communications composer: when entered with `location.state.intent === 'commsManualPick'`, the page swaps to picker mode, surfaces a selection checkbox column on the Members tab, and on Done writes the chosen member ids to `sessionStorage` for TEAM-13 to read on `/communications`. The slice is read-only — no creates, updates, or deletes happen on this surface — route read is enforced by shell `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts).
 
 **Prototype reference:** `pace-prototype/apps/pace-team/pages/MemberPages.jsx` — `MembersPage` (directory at `/members`), `MemberInvitePage` (invite flow at `/members/invite`).
 
@@ -50,9 +50,12 @@ TEAM-02 does **not** own:
 
 ### Architectural posture
 
-**Read-only surface.** Every data path in this slice is a SELECT via `useSecureSupabase()`. There are no `insert`, `update`, or `delete` calls. There are no `useResourcePermissions('members')` checks — `<PagePermissionGuard pageName="members" operation="read">` is the sole gate, since no row-level affordance on this page mutates data.
+**Read-only surface.** Every data path in this slice is a SELECT via `useSecureSupabase()`. There are no `insert`, `update`, or `delete` calls. There are no `useResourcePermissions('members')` checks — shell route read is the sole route gate, since no row-level affordance on this page mutates data.
 
-**Page guard.** `<PagePermissionGuard pageName="members" operation="read">` wraps the page content. The guard resolves scope internally from `OrganisationServiceProvider` context — no `scope` prop is passed.
+**Route read access.**
+
+> **Route read access:** Enforced by the app authenticated shell / PaceAppLayout `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts). The page component must not wrap content in an outer `PagePermissionGuard operation="read"` unless this slice explicitly requires a **scoped read** override (`scope={{ organisationId, eventId, appId }}`).
+
 
 **Filter execution model (Option A — membership at issuing org).** Members tab: include `core_member` rows where `deleted_at IS NULL`, `membership_status IN ('Active','Suspended')`, and the member is visible at the selected org via an active `core_member_role` placement (`organisation_id = selectedOrganisation.id`, `end_date IS NULL`) **or** flat-org membership (`core_member.organisation_id = selectedOrganisation.id` when no separate placement row exists). Pending tab: request-first — open `team_member_request` rows at `organisation_id = selectedOrganisation.id` joined to `core_member` via `subject_member_id` (membership row lives at the issuing/root org, not necessarily the selected sub-org). Pending includes second-placement requests where the issuing-org `core_member` may already be `Active`. Members tab also filters `membership_type_id` when the membership-type filter is active. Client-side: free-text search across last name, first name, preferred name, email, and membership number.
 
@@ -66,12 +69,12 @@ TEAM-02 does **not** own:
 
 ### Page-level guards and evaluation ordering
 
-The route `/members` sits inside `AuthenticatedShell` (TEAM-01) and is wrapped by `<PagePermissionGuard pageName="members" operation="read">`. Evaluation order when context is absent:
+The route `/members` sits inside `AuthenticatedShell` (TEAM-01) registers read access in [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts); shell `routeAccessDenied` enforces entry. Evaluation order when context is absent:
 
 1. **Authentication check** — `ProtectedRoute` (TEAM-01) fires first. An unauthenticated user is redirected to `/login`; the guard never evaluates.
 2. **Org context loading** — `OrganisationServiceProvider` resolves memberships. While `isLoading === true`, `AuthenticatedShell` renders a loading state; no feature content or guard is shown.
-3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the "No organisation assigned. Please contact your administrator." empty state from TEAM-01. `PagePermissionGuard` is not reached; no RBAC query fires.
-4. **Page permission guard** — Once org context is resolved, `PagePermissionGuard` evaluates with `pageName: 'members'`, `operation: 'read'`. Scope is resolved internally; no `scope` prop is passed. While the RBAC check is in flight (`isLoading === true`) and no `loading` prop is supplied, the guard returns `null` (a brief blank inside the PaceMain content area is acceptable). On `can === false`, `<AccessDenied />` is rendered. On `can === true`, the page body renders.
+3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the "No organisation assigned. Please contact your administrator." empty state from TEAM-01. shell route read is not evaluated; no RBAC query fires.
+4. **Route read access** — Once org context is resolved, shell `routeAccessDenied` (via [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts)) evaluates the route's registered `pageName` / `read` permission. Scope resolves internally from `OrganisationServiceProvider`; no page-level read guard wraps the component tree. While the shell RBAC check is in flight, a brief blank inside the `PaceMain` content area is acceptable. On deny, `<AccessDenied />` renders in the shell main region. On allow, the page body renders.
 
 If `selectedOrganisation` somehow resolves to `null` after step 3 (for example a race during org switch), the RBAC engine evaluates with `organisationId: undefined`, the check returns pending, and the guard returns `null`. The no-org check at step 3 prevents this path under normal conditions.
 
@@ -394,7 +397,7 @@ Toolbar: same as Members tab minus the Membership-type filter.
 
 **BR-13 — Page guard.**
 - Input: route entry to `/members`.
-- Output: `<PagePermissionGuard pageName="members" operation="read">` evaluates with org scope resolved internally. On deny, `<AccessDenied />` is rendered. On allow, the page body renders.
+- Output: shell `routeAccessDenied` evaluates the route registry entry with org scope resolved internally. On deny, `<AccessDenied />` is rendered. On allow, the page body renders.
 
 ---
 

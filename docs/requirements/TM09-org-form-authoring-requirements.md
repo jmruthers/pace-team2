@@ -54,7 +54,10 @@ TEAM-09 does **not** own:
 
 **Mutation contract — live `check_user_is_org_admin(organisation_id)` RLS gate.** All reads and writes go via `useSecureSupabase().from(...)`. Authorisation on the two mutated tables (`core_forms`, `core_form_fields`) is enforced at the database layer by RLS policies that gate INSERT / UPDATE / DELETE on whether the acting user is an `org_admin` for the target `organisation_id`. These policies already exist on dev and work today; this slice authors against them. Future cross-app convergence to RBAC-checked RLS for these tables is informational only and captured in §17.
 
-**Page guard.** All three routes are wrapped by `<PagePermissionGuard pageName="forms" operation="read">`. The guard resolves scope internally from `OrganisationServiceProvider` — no `scope` prop is passed.
+**Route read access.**
+
+> **Route read access:** Enforced by the app authenticated shell / PaceAppLayout `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts). The page component must not wrap content in an outer `PagePermissionGuard operation="read"` unless this slice explicitly requires a **scoped read** override (`scope={{ organisationId, eventId, appId }}`).
+
 
 **Action gating.** Create / Edit / Delete visibility is gated by `useResourcePermissions('forms')`: the **Create form** toolbar button is hidden when `canCreate === false`; row Edit / Delete actions are hidden when `canUpdate === false` / `canDelete === false`. Copy share URL and Open in new tab are not permission-gated — they are read-only navigation affordances visible to anyone who can read the row.
 
@@ -70,12 +73,12 @@ TEAM-09 does **not** own:
 
 ### Page-level guards and evaluation ordering
 
-The routes `/forms`, `/forms/new`, and `/forms/:formId` sit inside `AuthenticatedShell` (TEAM-01) and are wrapped by `<PagePermissionGuard pageName="forms" operation="read">`. Evaluation order when context is absent:
+The routes `/forms`, `/forms/new`, and `/forms/:formId` sit inside `AuthenticatedShell` (TEAM-01) and register read access in [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts); shell `routeAccessDenied` enforces entry. Evaluation order when context is absent:
 
 1. **Authentication check** — `ProtectedRoute` (TEAM-01) fires first. An unauthenticated user is redirected to `/login`; the guard never evaluates.
 2. **Org context loading** — `OrganisationServiceProvider` resolves memberships. While `isLoading === true`, `AuthenticatedShell` renders a loading state from TEAM-01; the page guard does not evaluate.
-3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the no-org empty state from TEAM-01 ("No organisation assigned. Please contact your administrator."). `PagePermissionGuard` is not reached; no RBAC query fires.
-4. **Page permission guard** — Once org context is resolved, `<PagePermissionGuard pageName="forms" operation="read">` evaluates. Scope is resolved internally from `OrganisationServiceProvider`; no `scope` prop is passed. While the RBAC check is in flight (`isLoading === true`) and no `loading` prop is supplied, the guard returns `null` (a brief blank inside the `PaceMain` content area is acceptable). On `can === false`, `<AccessDenied />` renders. On `can === true`, the page body renders.
+3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the no-org empty state from TEAM-01 ("No organisation assigned. Please contact your administrator."). shell route read is not evaluated; no RBAC query fires.
+4. **Route read access** — Once org context is resolved, shell `routeAccessDenied` (via [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts)) evaluates the route's registered `pageName` / `read` permission. Scope resolves internally from `OrganisationServiceProvider`; no page-level read guard wraps the component tree. While the shell RBAC check is in flight, a brief blank inside the `PaceMain` content area is acceptable. On deny, `<AccessDenied />` renders in the shell main region. On allow, the page body renders.
 5. **Form fetch (edit route only)** — Inside the page body of `/forms/:formId`, the slice fetches `core_forms` joined to `core_form_fields` for `core_forms.id = :formId AND organisation_id = selectedOrganisation.id`. While the query is in flight, a full-page `<LoadingSpinner />` renders inside `PaceMain`. On a zero-row result (unknown id, deleted form, cross-org form), the slice navigates to `/forms` and surfaces a `'default'`-variant toast "Form not found in this organisation."
 
 If `selectedOrganisation` resolves to `null` after step 3 (for example a race during org switch), the RBAC engine evaluates with `organisationId: undefined`, the check returns pending, and the guard returns `null`. The no-org check at step 3 prevents this path under normal conditions.

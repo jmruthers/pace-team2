@@ -9,7 +9,7 @@ import {
 } from '@solvera/pace-core/components';
 import { usePaceMain, useUnifiedAuth } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
-import { AccessDenied, PagePermissionGuard, useResourcePermissions } from '@solvera/pace-core/rbac';
+import { useResourcePermissions } from '@solvera/pace-core/rbac';
 import { ReportBuilder } from '@solvera/pace-core/reporting';
 import type { ReportingExecutionRequest, ReportBuilderHandle } from '@solvera/pace-core/reporting';
 
@@ -18,11 +18,7 @@ import { reportsTemplatesPanelQueryKey } from '@/lib/reports/teamReporting.templ
 import { TeamReportTemplatesTable } from '@/components/reports/TeamReportTemplatesTable';
 
 export function ReportsPage() {
-  return (
-    <PagePermissionGuard pageName={PAGE_NAMES.reports} operation="read" fallback={<AccessDenied />}>
-      <ReportsPageOrganisationScope />
-    </PagePermissionGuard>
-  );
+  return <ReportsPageOrganisationScope />;
 }
 
 /** Remount page state when org changes (TM11 BR-ORG-SWITCH / AC-23). */

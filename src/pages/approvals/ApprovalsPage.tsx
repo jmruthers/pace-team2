@@ -1,4 +1,3 @@
-import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
@@ -22,7 +21,6 @@ import {
 } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
-import { AccessDenied, PagePermissionGuard } from '@solvera/pace-core/rbac';
 import { ApprovalQueueList } from '@/components/approvals/ApprovalQueueList';
 import { ApprovalReviewPanel } from '@/components/approvals/ApprovalReviewPanel';
 import { useApprovalsData } from '@/hooks/useApprovalsData';
@@ -249,9 +247,5 @@ function ApprovalsPageContent() {
 }
 
 export function ApprovalsPage() {
-  return (
-    <PagePermissionGuard pageName={PAGE_NAMES.approvals} operation="read" fallback={<AccessDenied />}>
-      <ApprovalsPageContent />
-    </PagePermissionGuard>
-  );
+  return <ApprovalsPageContent />;
 }

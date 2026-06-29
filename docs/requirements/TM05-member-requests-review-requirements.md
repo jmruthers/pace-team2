@@ -17,7 +17,7 @@ QA pack:         docs/test-packs/TM05-qa-pack.md
 
 ## §2 Overview
 
-TEAM-05 delivers the join and transfer request queue and review surface for org-admin staff at `/approvals`. The page renders two tabs — **Open queue** (default: `pending` and `on_hold` requests for the currently selected organisation) and **Resolved** (read-only history of `approved`, `rejected`, and `withdrawn` requests) — with in-page list selection driving a **two-pane** layout: a custom scrollable request list on the left and a detail/review panel on the right. Selection is held in component state (not a child URL). The review panel shows applicant details, request metadata, form responses, and the resolve action rail (Approve / Put on hold / Reject) for `pending` requests. All resolve transitions go through the `app_resolve_member_request` RPC. The page is wrapped by `<PagePermissionGuard pageName="approvals" operation="read">`.
+TEAM-05 delivers the join and transfer request queue and review surface for org-admin staff at `/approvals`. The page renders two tabs — **Open queue** (default: `pending` and `on_hold` requests for the currently selected organisation) and **Resolved** (read-only history of `approved`, `rejected`, and `withdrawn` requests) — with in-page list selection driving a **two-pane** layout: a custom scrollable request list on the left and a detail/review panel on the right. Selection is held in component state (not a child URL). The review panel shows applicant details, request metadata, form responses, and the resolve action rail (Approve / Put on hold / Reject) for `pending` requests. All resolve transitions go through the `app_resolve_member_request` RPC. Route read is enforced by shell `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts).
 
 **Prototype reference:** `pace-prototype/apps/pace-team/pages/ApprovalsEventsPages.jsx` — `ApprovalsPage` (two-pane queue + in-page review; optional `initialId` for deep-link only in prototype hash router).
 
@@ -55,7 +55,10 @@ TEAM-05 does **not** own:
 
 **RPC-only resolve mutations.** All resolve transitions go through `app_resolve_member_request(p_request_id, p_status, p_review_notes?, p_member_number?)`. The slice does not call `.from('team_member_request').update(...)` or `.delete(...)` directly, and does not write `core_member` from the client. Member-side effects (set `core_member.membership_status='Active'`, assign member number, DELETE provisional row on reject, set source-org member to `Resigned` on transfer-approve) execute server-side inside the RPC, atomically with the request status change.
 
-**Page guard.** `<PagePermissionGuard pageName="approvals" operation="read">` wraps the parent layout, covering both `/approvals` and `/approvals/:requestId`. The guard resolves scope internally from `OrganisationServiceProvider` context — no `scope` prop is passed.
+**Route read access.**
+
+> **Route read access:** Enforced by the app authenticated shell / PaceAppLayout `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts). The page component must not wrap content in an outer `PagePermissionGuard operation="read"` unless this slice explicitly requires a **scoped read** override (`scope={{ organisationId, eventId, appId }}`).
+
 
 **Action-level RBAC.** The action rail (Approve / Put on hold / Reject) is rendered only when `useResourcePermissions('approvals', 'update')` returns a `canUpdate === true` flag for the current org context. Server-side authority is `team_member_request_can_resolve`, which checks `update:member-profiles` under app PACE; the two keys do not need to agree because the server is the final authority and the UI gate is a render hint.
 
@@ -71,12 +74,12 @@ TEAM-05 does **not** own:
 
 ### Page-level guards and evaluation ordering
 
-The routes `/approvals` and `/approvals/:requestId` sit inside `AuthenticatedShell` (TEAM-01) and are wrapped by `<PagePermissionGuard pageName="approvals" operation="read">` on the parent layout. Evaluation order when context is absent:
+The routes `/approvals` and `/approvals/:requestId` sit inside `AuthenticatedShell` (TEAM-01) and register read access in [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts); shell `routeAccessDenied` enforces entry. Evaluation order when context is absent:
 
 1. **Authentication check** — `ProtectedRoute` (TEAM-01) fires first. An unauthenticated user is redirected to `/login`; the guard never evaluates.
 2. **Org context loading** — `OrganisationServiceProvider` resolves memberships. While `isLoading === true`, `AuthenticatedShell` renders a loading state; no feature content or guard is shown.
-3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the "No organisation assigned. Please contact your administrator." empty state from TEAM-01. `PagePermissionGuard` is not reached; no RBAC query fires.
-4. **Page permission guard** — Once org context is resolved, `PagePermissionGuard` evaluates with `pageName: 'approvals'`, `operation: 'read'`. Scope is resolved internally; no `scope` prop is passed. While the RBAC check is in flight (`isLoading === true`) and no `loading` prop is supplied, the guard returns `null` (a brief blank inside the `PaceMain` content area is acceptable). On `can === false`, `<AccessDenied />` renders. On `can === true`, the page body renders.
+3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the "No organisation assigned. Please contact your administrator." empty state from TEAM-01. shell route read is not evaluated; no RBAC query fires.
+4. **Route read access** — Once org context is resolved, shell `routeAccessDenied` (via [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts)) evaluates the route's registered `pageName` / `read` permission. Scope resolves internally from `OrganisationServiceProvider`; no page-level read guard wraps the component tree. While the shell RBAC check is in flight, a brief blank inside the `PaceMain` content area is acceptable. On deny, `<AccessDenied />` renders in the shell main region. On allow, the page body renders.
 5. **Action-rail visibility check** — Inside the page body, when a review panel is rendered, the slice calls `useResourcePermissions('approvals', 'update')`. While that check is in flight, the action rail does not render. On `canUpdate === false`, the action rail is hidden. On `canUpdate === true`, the action rail renders.
 
 If `selectedOrganisation` resolves to `null` after step 3 (for example a race during org switch), the RBAC engine evaluates with `organisationId: undefined`, the check returns pending, and the guard returns `null`. The no-org check at step 3 prevents this path under normal conditions.
@@ -524,7 +527,7 @@ The review panel is a single container occupying the right pane (`md+`) or the f
 
 **BR-13 — Page guard and unknown / wrong-org id.**
 - Input: route entry to `/approvals` or `/approvals/:requestId`; review panel SELECT result.
-- Output: `<PagePermissionGuard pageName="approvals" operation="read">` evaluates with org scope resolved internally. On deny, `<AccessDenied />` renders. On allow, the page body renders. On `/approvals/:requestId`, when the SELECT (filtered by `id=:requestId AND organisation_id=:orgId`) returns zero rows, the slice navigates to `/approvals` and surfaces a `'default'`-variant toast "Request not found in this organisation."
+- Output: shell `routeAccessDenied` evaluates the route registry entry with org scope resolved internally. On deny, `<AccessDenied />` renders. On allow, the page body renders. On `/approvals/:requestId`, when the SELECT (filtered by `id=:requestId AND organisation_id=:orgId`) returns zero rows, the slice navigates to `/approvals` and surfaces a `'default'`-variant toast "Request not found in this organisation."
 
 **BR-14 — Default sort.**
 - Input: list queries.

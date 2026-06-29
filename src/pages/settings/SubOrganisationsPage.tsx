@@ -30,7 +30,7 @@ import {
 } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
-import { AccessDenied, PagePermissionGuard, useResourcePermissions } from '@solvera/pace-core/rbac';
+import { useResourcePermissions } from '@solvera/pace-core/rbac';
 import { HandleSupabaseError } from '@solvera/pace-core/utils';
 import { useSubOrganisationsData } from '@/hooks/useSubOrganisationsData';
 import type { SubOrganisationFormValues, SubOrganisationMutationError, SubOrganisationRow } from '@/lib/settings/subOrganisations.types';
@@ -429,13 +429,5 @@ function SubOrganisationsPageContent() {
 }
 
 export function SubOrganisationsPage() {
-  return (
-    <PagePermissionGuard
-      pageName={PAGE_NAMES.organisations}
-      operation="read"
-      fallback={<AccessDenied message="You do not have permission to view this page." />}
-    >
-      <SubOrganisationsPageContent />
-    </PagePermissionGuard>
-  );
+  return <SubOrganisationsPageContent />;
 }

@@ -11,47 +11,17 @@ import {
   CardTitle,
   EmptyState,
   EntityHero,
-  EventTile,
+  EventCard,
   HeroBadge,
   PageHeader,
 } from '@solvera/pace-core/components';
 import { usePaceMain, useUnifiedAuth } from '@solvera/pace-core/hooks';
+import { filterUpcomingEventsForLanding } from '@solvera/pace-core/events';
 import { createOrganisationId } from '@solvera/pace-core/types';
-import { AccessDenied, PagePermissionGuard } from '@solvera/pace-core/rbac';
-import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { useApprovalsOpenCount } from '@/hooks/useApprovalsData';
 import { useOrgEventsData } from '@/hooks/useOrgEventsData';
-import { formatEventDateSpan } from '@/lib/events/events.display';
 import type { OrgEventSummaryRow } from '@/lib/events/events.types';
 import { formatMembershipRole, orgInitials, organisationDisplayName } from '@/lib/shell/orgDisplay';
-
-function parseEventDateChip(eventDate: string | null): { m: string; d: string } | undefined {
-  if (eventDate == null || eventDate.trim().length === 0) {
-    return undefined;
-  }
-  const match = /^(\d{4})-(\d{2})-(\d{2})/u.exec(eventDate.trim());
-  if (match == null) {
-    return undefined;
-  }
-  const monthIndex = Number(match[2]) - 1;
-  const day = Number(match[3]);
-  const monthLabel = new Intl.DateTimeFormat('en-GB', { month: 'short' }).format(new Date(2000, monthIndex, 1));
-  return { m: monthLabel, d: String(day) };
-}
-
-function isUpcomingEvent(event: OrgEventSummaryRow): boolean {
-  if (event.event_date == null || event.event_date.trim().length === 0) {
-    return false;
-  }
-  const match = /^(\d{4})-(\d{2})-(\d{2})/u.exec(event.event_date.trim());
-  if (match == null) {
-    return false;
-  }
-  const eventDay = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
-  const today = new Date();
-  const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-  return eventDay >= todayStart;
-}
 
 const SETUP_LAUNCHERS = [
   {
@@ -93,11 +63,7 @@ const SETUP_LAUNCHERS = [
 ] as const;
 
 export function OrgOverviewPage() {
-  return (
-    <PagePermissionGuard pageName={PAGE_NAMES.home} operation="read" fallback={<AccessDenied />}>
-      <OrgOverviewPageContent />
-    </PagePermissionGuard>
-  );
+  return <OrgOverviewPageContent />;
 }
 
 function OrgOverviewPageContent() {
@@ -127,10 +93,7 @@ function OrgOverviewPageContent() {
   const { events, isLoading: eventsLoading } = useOrgEventsData(organisationId);
 
   const upcomingEvents = useMemo(() => {
-    return events
-      .filter(isUpcomingEvent)
-      .sort((left, right) => left.event_date_sort_key - right.event_date_sort_key)
-      .slice(0, 6);
+    return filterUpcomingEventsForLanding(events).slice(0, 6) as OrgEventSummaryRow[];
   }, [events]);
 
   const membershipRole = useMemo(() => {
@@ -261,25 +224,22 @@ function OrgOverviewPageContent() {
           ) : upcomingEvents.length > 0 ? (
             <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {upcomingEvents.map((event) => (
-                <EventTile
+                <EventCard
                   key={event.event_id}
-                  as="a"
-                  href={`/events/${event.event_id}`}
-                  title={event.event_name}
+                  link={`/events/${event.event_id}`}
+                  event={{
+                    event_name: event.event_name,
+                    event_date: event.event_date,
+                    event_venue: event.event_venue ?? null,
+                    event_code: null,
+                  }}
                   imageGlyph={orgInitials(event.event_name)}
-                  dateChip={parseEventDateChip(event.event_date)}
-                  imageTag={event.event_days != null && event.event_days > 1 ? `${event.event_days}-day` : undefined}
-                  meta={(
-                    <>
-                      <span>{formatEventDateSpan(event.event_date, event.event_days)}</span>
-                      {event.event_venue != null && event.event_venue.length > 0 ? (
-                        <span>{event.event_venue}</span>
-                      ) : null}
-                    </>
-                  )}
-                  foot={(
-                    <span>{event.members_registered_count} registered</span>
-                  )}
+                  imageTag={
+                    event.event_days != null && event.event_days > 1
+                      ? `${event.event_days}-day`
+                      : undefined
+                  }
+                  footer={<span>{event.members_registered_count} registered</span>}
                 />
               ))}
             </section>

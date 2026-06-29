@@ -17,7 +17,7 @@ QA pack:         docs/test-packs/TM04-qa-pack.md
 
 ## §2 Overview
 
-TEAM-04 delivers the org-wide **Member roles** surface at **`/member-roles`** — active and recent role appointments across all units in the currently selected organisation (not a member-scoped nested route). Layout authority: **`PageHeader`** (title "Member roles", org-wide subtitle, **New appointment** primary in header-right) → optional **inline appointment form** in a **`Card`** region above the table when creating/editing (not a modal **`Dialog`**) → org-wide appointments **`DataTable`**. Ending a role may still use a confirmation dialog. The page is wrapped by `<PagePermissionGuard pageName="member-roles" operation="read">`.
+TEAM-04 delivers the org-wide **Member roles** surface at **`/member-roles`** — active and recent role appointments across all units in the currently selected organisation (not a member-scoped nested route). Layout authority: **`PageHeader`** (title "Member roles", org-wide subtitle, **New appointment** primary in header-right) → optional **inline appointment form** in a **`Card`** region above the table when creating/editing (not a modal **`Dialog`**) → org-wide appointments **`DataTable`**. Ending a role may still use a confirmation dialog. Route read is enforced by shell `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts).
 
 - **Prototype reference:** `pace-prototype/apps/pace-team/pages/MemberPages.jsx` — `MemberRolesPage` at route **`/member-roles`** (org-wide appointments table + inline **`Card`** appointment form).
 
@@ -54,7 +54,10 @@ TEAM-04 does **not** own:
 
 **Implementation gate on planned `core_role_type` per-org uniqueness migration.** The Add-role form filters `core_role_type` rows by `organisation_id = selectedOrganisation.id`. The slice authors against the **planned** per-org UNIQUE constraint `(name, organisation_id)` on `core_role_type`. Live dev currently enforces a global UNIQUE on `core_role_type.name` (constraint `team_formation_roles_name_key` — an artefact of an earlier table rename) which is internally inconsistent with the per-org `organisation_id NOT NULL` design. The planned migration drops the global UNIQUE and adds UNIQUE `(name, organisation_id)`. The migration is non-breaking on dev (4 rows, 1 org — no conflicts). The v6 slice does not author the migration; it cites the planned constraint — see §15 and §17. Day-1 read behaviour is unaffected since `organisation_id` is already populated.
 
-**Page guard.** `/members/:memberId/roles` is wrapped by `<PagePermissionGuard pageName="member-roles" operation="read">`. The `pageName` is singular `member-roles` (matches the canonical architecture map). Distinct from TEAM-02 / TEAM-03 (`members`). The guard resolves scope internally from `OrganisationServiceProvider` — no `scope` prop is passed.
+**Route read access.**
+
+> **Route read access:** Enforced by the app authenticated shell / PaceAppLayout `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts). The page component must not wrap content in an outer `PagePermissionGuard operation="read"` unless this slice explicitly requires a **scoped read** override (`scope={{ organisationId, eventId, appId }}`).
+
 
 **Action gating.** Visibility of the "Add role" header button and the End-role row action is gated by `useResourcePermissions('member-roles')`: hidden when `canUpdate === false`. The resource key matches the page name (`'member-roles'`) and gives finer-grained access than the broader `'members'` key used by TEAM-02 / TEAM-03.
 
@@ -70,12 +73,12 @@ TEAM-04 does **not** own:
 
 ### Page-level guards and evaluation ordering
 
-The route `/members/:memberId/roles` sits inside `AuthenticatedShell` (TEAM-01) and is wrapped by `<PagePermissionGuard pageName="member-roles" operation="read">`. Evaluation order when context is absent:
+The route `/members/:memberId/roles` sits inside `AuthenticatedShell` (TEAM-01) registers read access in [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts); shell `routeAccessDenied` enforces entry. Evaluation order when context is absent:
 
 1. **Authentication check** — `ProtectedRoute` (TEAM-01) fires first. An unauthenticated user is redirected to `/login`; the page guard never evaluates.
 2. **Org context loading** — `OrganisationServiceProvider` resolves memberships. While `isLoading === true`, `AuthenticatedShell` renders a loading state from TEAM-01; the page guard does not evaluate.
 3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the no-org empty state from TEAM-01. The page guard is not reached.
-4. **Page permission guard** — Once org context is resolved, `<PagePermissionGuard pageName="member-roles" operation="read">` evaluates. Scope is resolved internally; no `scope` prop is passed. While the RBAC check is in flight (`isLoading === true`) and no `loading` prop is supplied, the guard returns `null` (a brief blank inside the `PaceMain` content area is acceptable). On `can === false`, `<AccessDenied />` renders. On `can === true`, the page body renders.
+4. **Route read access** — Once org context is resolved, shell `routeAccessDenied` (via [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts)) evaluates the route's registered `pageName` / `read` permission. Scope resolves internally from `OrganisationServiceProvider`; no page-level read guard wraps the component tree. While the shell RBAC check is in flight, a brief blank inside the `PaceMain` content area is acceptable. On deny, `<AccessDenied />` renders in the shell main region. On allow, the page body renders.
 5. **Member fetch** — Inside the page body, the slice fetches `core_member` joined to `core_person` for `core_member.id = :memberId AND organisation_id = selectedOrganisation.id AND deleted_at IS NULL`. While the query is in flight, a full-page `<LoadingSpinner />` renders inside the `PaceMain` content area. On a zero-row result (unknown id, deleted member, cross-org member), the "Member not found" page renders. On a non-zero result, the page header (Back button + member name + Add-role button) and the role-history table render with the table's built-in loading state for the role-history query.
 
 If `selectedOrganisation` resolves to `null` mid-render (for example a race during org switch), the RBAC engine evaluates with `organisationId: undefined` and the page guard returns `null` (pending). The no-org check at step 3 prevents this path under normal conditions. If the loaded member's `organisation_id` no longer matches `selectedOrganisation.id` after an org switch, the page replaces its content with the org-mismatch alert (BR-14).

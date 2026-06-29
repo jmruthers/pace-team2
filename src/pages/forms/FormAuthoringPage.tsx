@@ -19,7 +19,7 @@ import {
 
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
-import { AccessDenied, PagePermissionGuard, useResourcePermissions } from '@solvera/pace-core/rbac';
+import { useResourcePermissions } from '@solvera/pace-core/rbac';
 import { HandleSupabaseError } from '@solvera/pace-core/utils';
 
 import { ScheduleLimitsCard } from '@/components/org-forms/ScheduleLimitsCard';
@@ -400,13 +400,5 @@ function FormAuthoringPageContent() {
 }
 
 export function FormAuthoringPage() {
-  return (
-    <PagePermissionGuard
-      pageName={PAGE_NAMES.forms}
-      operation="read"
-      fallback={<AccessDenied message="You do not have permission to view this page." />}
-    >
-      <FormAuthoringPageContent />
-    </PagePermissionGuard>
-  );
+  return <FormAuthoringPageContent />;
 }

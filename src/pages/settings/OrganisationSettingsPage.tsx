@@ -27,7 +27,7 @@ import {
 } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
-import { AccessDenied, PagePermissionGuard, useResourcePermissions } from '@solvera/pace-core/rbac';
+import { useResourcePermissions } from '@solvera/pace-core/rbac';
 import { useOrganisationSettingsData } from '@/hooks/useOrganisationSettingsData';
 import {
   BASE_CURRENCY_OPTIONS,
@@ -454,13 +454,5 @@ function OrganisationSettingsPageContent() {
 }
 
 export function OrganisationSettingsPage() {
-  return (
-    <PagePermissionGuard
-      pageName={PAGE_NAMES.orgSettings}
-      operation="read"
-      fallback={<AccessDenied message="You do not have permission to view this page." />}
-    >
-      <OrganisationSettingsPageContent />
-    </PagePermissionGuard>
-  );
+  return <OrganisationSettingsPageContent />;
 }

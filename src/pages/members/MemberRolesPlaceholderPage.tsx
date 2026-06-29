@@ -1,8 +1,5 @@
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { EmptyState, PageHeader } from '@solvera/pace-core/components';
-import { AccessDenied, PagePermissionGuard } from '@solvera/pace-core/rbac';
-
-import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 
 function MemberRolesPlaceholderPageContent() {
   usePaceMain({ printTitle: 'Member roles', ariaLabel: 'Member roles' });
@@ -26,13 +23,5 @@ function MemberRolesPlaceholderPageContent() {
 }
 
 export function MemberRolesPlaceholderPage() {
-  return (
-    <PagePermissionGuard
-      pageName={PAGE_NAMES.memberRoles}
-      operation="read"
-      fallback={<AccessDenied message="You do not have permission to view this page." />}
-    >
-      <MemberRolesPlaceholderPageContent />
-    </PagePermissionGuard>
-  );
+  return <MemberRolesPlaceholderPageContent />;
 }

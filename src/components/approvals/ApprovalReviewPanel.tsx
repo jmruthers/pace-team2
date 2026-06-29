@@ -12,7 +12,7 @@ import {
   LoadingSpinner,
   toast,
 } from '@solvera/pace-core/components';
-import { AccessDenied, PagePermissionGuard, useResourcePermissions } from '@solvera/pace-core/rbac';
+import { useResourcePermissions } from '@solvera/pace-core/rbac';
 import { useApprovalRequestDetail } from '@/hooks/useApprovalRequestDetail';
 import { useIssuingOrganisation } from '@/hooks/useIssuingOrganisation';
 import { useResolveMemberRequest } from '@/hooks/useResolveMemberRequest';
@@ -32,7 +32,7 @@ import {
 import { ApprovalReviewFormResponsesAside } from '@/components/approvals/ApprovalReviewFormResponsesAside';
 import type { ApprovalRequestRow } from '@/lib/approvals/approvals.types';
 import { PAGE_NAMES } from '@/lib/rbac/pageNames';
-import { ApproveResolveDialog, HoldResolveDialog, RejectResolveDialog } from '@/components/approvals/resolveDialogs';
+import { ApproveResolveDialog, HoldResolveDialog, RejectResolveDialog } from '@/components/approvals/ResolveDialogs';
 
 interface ApprovalReviewPanelProps {
   requestId: string | undefined;
@@ -285,9 +285,5 @@ function ApprovalReviewPanelContent({
 }
 
 export function ApprovalReviewPanel(props: ApprovalReviewPanelProps) {
-  return (
-    <PagePermissionGuard pageName={PAGE_NAMES.approvals} operation="read" fallback={<AccessDenied />}>
-      <ApprovalReviewPanelContent {...props} />
-    </PagePermissionGuard>
-  );
+  return <ApprovalReviewPanelContent {...props} />;
 }

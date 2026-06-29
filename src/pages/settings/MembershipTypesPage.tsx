@@ -26,7 +26,7 @@ import {
 } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
-import { AccessDenied, PagePermissionGuard, useResourcePermissions } from '@solvera/pace-core/rbac';
+import { useResourcePermissions } from '@solvera/pace-core/rbac';
 import { HandleSupabaseError } from '@solvera/pace-core/utils';
 import { useMembershipTypesData } from '@/hooks/useMembershipTypesData';
 import type {
@@ -459,13 +459,5 @@ function MembershipTypesPageContent() {
 }
 
 export function MembershipTypesPage() {
-  return (
-    <PagePermissionGuard
-      pageName={PAGE_NAMES.membershipTypes}
-      operation="read"
-      fallback={<AccessDenied message="You do not have permission to view this page." />}
-    >
-      <MembershipTypesPageContent />
-    </PagePermissionGuard>
-  );
+  return <MembershipTypesPageContent />;
 }

@@ -17,7 +17,7 @@ QA pack:         docs/test-packs/TM13-qa-pack.md
 
 ## §2 Overview
 
-TEAM-13 delivers the org-admin communications composer at `/communications` and the org send log at `/communications/log`. The compose surface mounts `CommComposer` from `@solvera/pace-core/comms` with recipient modes embedded in the composer's recipient slot (`CommRecipientPool` pattern), lets an operator pick between org broadcast, event attendees, or a manually-curated member list, choose a channel (email or SMS), select an active org template, edit subject and body, preview merge tokens, and either send immediately or schedule for later via PUMP Edge functions. Recipient resolution, sender identity, suppression, and delivery are all PUMP-side concerns — TEAM submits a `RecipientPoolDescriptor`, never a resolved member list. Both routes are wrapped by `<PagePermissionGuard pageName="comms-log" operation="read">` against the canonical PUMP-registered page resource. Manual recipient selection hands off to the directory picker at `/members` per the contract owned by TEAM-02.
+TEAM-13 delivers the org-admin communications composer at `/communications` and the org send log at `/communications/log`. The compose surface mounts `CommComposer` from `@solvera/pace-core/comms` with recipient modes embedded in the composer's recipient slot (`CommRecipientPool` pattern), lets an operator pick between org broadcast, event attendees, or a manually-curated member list, choose a channel (email or SMS), select an active org template, edit subject and body, preview merge tokens, and either send immediately or schedule for later via PUMP Edge functions. Recipient resolution, sender identity, suppression, and delivery are all PUMP-side concerns — TEAM submits a `RecipientPoolDescriptor`, never a resolved member list. Both routes register `comms-log` / `read` in [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts) against the canonical PUMP-registered page resource; shell `routeAccessDenied` enforces route read. Manual recipient selection hands off to the directory picker at `/members` per the contract owned by TEAM-02.
 
 - **Prototype reference:** `CommunicationsPage` in `pace-prototype/apps/pace-team/pages/EventDetailCommsPages.jsx`; `CommunicationsLogPage` at `#/communications/log` in `pace-prototype/apps/pace-team/app.jsx`.
 
@@ -58,7 +58,10 @@ TEAM-13 does **not** own:
 
 **Pool descriptor, not resolved list.** When the operator initiates a send, the slice passes a `RecipientPoolDescriptor` (either `OrgMembersPool` or `ManualPool`) to the adapter. PUMP Edge resolves the descriptor server-side. Resolved member lists never leave the browser as a send payload.
 
-**Page guard.** `<PagePermissionGuard pageName="comms-log" operation="read">` wraps the page content. The `pageName` value is the canonical page resource registered under the PUMP `rbac_apps` row — the same page key PUMP Edge uses for `isPermitted` checks. No `scope` prop is passed; no `appName` override prop is passed. Scope resolves from `OrganisationServiceProvider` context.
+**Route read access.**
+
+> **Route read access:** Enforced by the app authenticated shell / PaceAppLayout `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts). The page component must not wrap content in an outer `PagePermissionGuard operation="read"` unless this slice explicitly requires a **scoped read** override (`scope={{ organisationId, eventId, appId }}`).
+
 
 **RBAC context for the composer.** The slice derives `CommRbacContext` from `useCan` calls against the canonical permission strings: `canCompose = useCan('create:page.comms-log', { organisationId })`, `canSend = useCan('update:page.comms-log', { organisationId })`, `canSchedule = useCan('update:page.comms-log', { organisationId })`, `scopeType = 'organisation'`, `scopeId = selectedOrganisation.id`. The composer renders its own read-only state when `canSend === false`.
 
@@ -76,12 +79,12 @@ TEAM-13 does **not** own:
 
 ### Page-level guards and evaluation ordering
 
-The route `/communications` sits inside `AuthenticatedShell` (TEAM-01) and is wrapped by `<PagePermissionGuard pageName="comms-log" operation="read">`. Evaluation order when context is absent:
+The route `/communications` sits inside `AuthenticatedShell` (TEAM-01) registers read access in [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts); shell `routeAccessDenied` enforces entry. Evaluation order when context is absent:
 
 1. **Authentication check** — `ProtectedRoute` (TEAM-01) fires first. An unauthenticated user is redirected to `/login`; the guard never evaluates.
 2. **Org context loading** — `OrganisationServiceProvider` resolves memberships. While `isLoading === true`, `AuthenticatedShell` renders a loading state; no feature content or guard is shown.
-3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the "No organisation assigned. Please contact your administrator." empty state from TEAM-01. `PagePermissionGuard` is not reached; no RBAC query fires.
-4. **Page permission guard** — Once org context is resolved, `PagePermissionGuard` evaluates with `pageName: 'comms-log'`, `operation: 'read'`. Scope is resolved internally; no `scope` prop is passed. While the RBAC check is in flight (`isLoading === true`) and no `loading` prop is supplied, the guard returns `null` (a brief blank inside the PaceMain content area is acceptable). On `can === false`, `<AccessDenied />` is rendered. On `can === true`, the page body renders.
+3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the "No organisation assigned. Please contact your administrator." empty state from TEAM-01. shell route read is not evaluated; no RBAC query fires.
+4. **Route read access** — Once org context is resolved, shell `routeAccessDenied` (via [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts)) evaluates the route's registered `pageName` / `read` permission. Scope resolves internally from `OrganisationServiceProvider`; no page-level read guard wraps the component tree. While the shell RBAC check is in flight, a brief blank inside the `PaceMain` content area is acceptable. On deny, `<AccessDenied />` renders in the shell main region. On allow, the page body renders.
 
 If `selectedOrganisation` somehow resolves to `null` after step 3 (a race during org switch), the RBAC engine evaluates with `organisationId: undefined`, the check returns pending, and the guard returns `null`. The no-org check at step 3 prevents this path under normal conditions.
 
@@ -385,7 +388,7 @@ Current `pace-team2/src/` diverges from prototype layout (informational — pass
 
 **BR-01 — Page access.**
 - Input: navigation to `/communications`.
-- Output: `<PagePermissionGuard pageName="comms-log" operation="read">` evaluates with org scope from `OrganisationServiceProvider`. Deny → `<AccessDenied />`. Allow → page body renders.
+- Output: shell `routeAccessDenied` evaluates the route registry entry with org scope from `OrganisationServiceProvider`. Deny → `<AccessDenied />`. Allow → page body renders.
 - Edge: no-org → TEAM-01 no-org empty state fires before the guard.
 
 **BR-02 — `CommRbacContext` derivation.**
@@ -740,7 +743,7 @@ Given any successful send or schedule from this slice, when the request reaches 
 - Component test that asserts every adapter call carries `source_app === 'team'`, `source_context_type === undefined`, `source_context_id === undefined`, and that `bypass_suppression` is never set on the request.
 - Component test that asserts the success-toast copy includes "{N} recipients" and conditionally appends "{M} skipped (suppression)" and " Some recipients had unresolved tokens; check delivery in PUMP." per `result.suppression_skipped` and `result.warnings.length`.
 - Component test that asserts the zero-recipient guard blocks Send-now and Schedule and surfaces the "No recipients match these filters." copy.
-- Component test that asserts `<PagePermissionGuard pageName="comms-log" operation="read">` is rendered with no `appName` and no `scope` prop.
+- Component test that asserts the page does not wrap an outer read `PagePermissionGuard` (route read is shell-owned) with no `appName` and no `scope` prop.
 - Otherwise: standard PDLC quality gates apply.
 
 ---
@@ -749,7 +752,7 @@ Given any successful send or schedule from this slice, when the request reaches 
 
 - All reads (membership types, sender-identity RPC) must go via `useSecureSupabase()`. Do not call `createClient` directly.
 - All sends, schedules, send-tests, template loads, merge-field loads, and pool resolves must go via the `CommSendAdapter` returned by `useCommSendAdapter`. Do not invoke `functions.invoke` directly. Do not write to `pump_message`, `pump_message_recipient`, `pump_delivery_event`, or `pump_suppression` from this slice.
-- Mount `<PagePermissionGuard pageName="comms-log" operation="read">` with no `appName` override and no `scope` prop. If the verification step in §15 fails, patch the slice to add `appName="PUMP"` and file a CR23 capability item.
+- Verify shell route registry + `routeAccessDenied` for the route's `pageName` / `read` (no outer page read guard) and no `scope` prop. If the verification step in §15 fails, patch the slice to add `appName="PUMP"` and file a CR23 capability item.
 - Mount `CommComposer` with `recipients={<CommRecipientPool … />}` (embedded pool — **no** standalone Recipients Card above the composer), `blockSendOnUnresolvedTokens={true}`, `sourceApp='team'`, `onCancel={() => navigate('/')}`. Do not supply `templates`, `mergeFields`, or `recipientPreview` props — let the composer drive its own queries.
 - Register `/communications/log` with a read-only send-history page; wire header **Send log** button to that route.
 - Render **Recent sends** below the composer on `/communications`.

@@ -2,7 +2,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { setupUser } from '@test-utils';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ApproveResolveDialog, HoldResolveDialog, RejectResolveDialog } from '@/components/approvals/resolveDialogs';
+import { ApproveResolveDialog, HoldResolveDialog, RejectResolveDialog } from '@/components/approvals/ResolveDialogs';
 import type { ApprovalRequestRow } from '@/lib/approvals/approvals.types';
 
 vi.mock('@solvera/pace-core/components', async () => {

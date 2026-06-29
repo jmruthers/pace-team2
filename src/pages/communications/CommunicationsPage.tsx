@@ -1,4 +1,3 @@
-import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { CommDraft, CommRbacContext, CommScheduleCompletePayload, CommSendResult, RecipientPoolDescriptor } from '@solvera/pace-core/comms';
@@ -19,7 +18,6 @@ import {
 } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
 import { useOrganisationsContext } from '@solvera/pace-core/providers';
-import { AccessDenied, PagePermissionGuard } from '@solvera/pace-core/rbac';
 import { useCommsLogRbac } from '@/hooks/useCommsLogRbac';
 import { useActiveOrganisationMembershipTypes } from '@/hooks/useActiveOrganisationMembershipTypes';
 import { usePumpEffectiveSenderIdentity } from '@/hooks/usePumpEffectiveSenderIdentity';
@@ -411,9 +409,5 @@ export function CommunicationsPage() {
     return null;
   }
 
-  return (
-    <PagePermissionGuard pageName={PAGE_NAMES.commsLog} operation="read" fallback={<AccessDenied />}>
-      <CommunicationsPageInner key={organisationId} organisationId={organisationId} />
-    </PagePermissionGuard>
-  );
+  return <CommunicationsPageInner key={organisationId} organisationId={organisationId} />;
 }

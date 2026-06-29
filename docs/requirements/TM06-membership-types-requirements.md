@@ -51,7 +51,10 @@ TEAM-06 does **not** own:
 
 **Mutation contract — Option A (RBAC-checked RLS policies).** All reads and writes go via `useSecureSupabase().from('core_membership_type')` using `select`, `insert`, and `update`. Authorisation is enforced at the database layer by RBAC-checked INSERT and UPDATE RLS policies on `core_membership_type` matching the "RBAC Permission-Based Policy" template in `pace-core2/packages/core/docs/standards/3-security-rbac-standards.md`, using helper `data_check_rbac_permission_with_context('<op>:page.membership-types', 'membership-types', organisation_id, NULL, data_get_app_id('TEAM'))`. The slice does **not** author the RLS migration. The migration is upstream platform work and gates implementation (see §15).
 
-**Page guard.** `/settings/membership-types` is wrapped by `<PagePermissionGuard pageName="membership-types" operation="read">`. The guard resolves scope internally from the `OrganisationServiceProvider` context — no `scope` prop is passed.
+**Route read access.**
+
+> **Route read access:** Enforced by the app authenticated shell / PaceAppLayout `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts). The page component must not wrap content in an outer `PagePermissionGuard operation="read"` unless this slice explicitly requires a **scoped read** override (`scope={{ organisationId, eventId, appId }}`).
+
 
 **Action gating.** Create / Edit / Deactivate / Reactivate visibility is gated by `useResourcePermissions('membership-types')`: the Create button is hidden when `canCreate === false`; Edit / Deactivate / Reactivate row actions are hidden when `canUpdate === false`. Hard delete is not exposed; `canDelete` is not consumed.
 

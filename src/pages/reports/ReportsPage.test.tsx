@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
-import { forwardRef, useImperativeHandle, type ReactNode } from 'react';
+import { forwardRef, useImperativeHandle } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -16,7 +16,6 @@ let mockExecuteResult = createSuccessResult({ rows: [] as Record<string, unknown
 let canCreate = true;
 let canUpdate = true;
 let canDelete = true;
-let pageGuardAllows = true;
 
 vi.mock('@solvera/pace-core/hooks', () => ({
   usePaceMain: () => undefined,
@@ -67,11 +66,6 @@ vi.mock('@solvera/pace-core/rbac', async (importActual) => {
   const actual = await importActual<typeof import('@solvera/pace-core/rbac')>();
   return {
     ...actual,
-    AccessDenied: ({ message }: { message?: string }) => (
-      <p data-testid="access-denied">{message ?? 'Denied'}</p>
-    ),
-    PagePermissionGuard: ({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) =>
-      pageGuardAllows ? <>{children}</> : <>{fallback}</>,
     useResourcePermissions: () => ({
       canRead: true,
       canCreate,
@@ -157,19 +151,11 @@ describe('ReportsPage', () => {
     canCreate = true;
     canUpdate = true;
     canDelete = true;
-    pageGuardAllows = true;
     secureSupabaseMock.current = createSecureSupabaseMock();
   });
 
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it('renders AccessDenied when read permission is denied (AC-22)', () => {
-    pageGuardAllows = false;
-    renderReportsRoute();
-    expect(screen.getByTestId('access-denied')).toBeTruthy();
-    expect(screen.queryByTestId('report-builder-mock')).toBeNull();
   });
 
   it('passes deleteTemplateConfirmation copy per TM11', () => {

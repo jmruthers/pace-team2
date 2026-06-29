@@ -1,4 +1,6 @@
 import type { NavigationItem } from '@solvera/pace-core/components';
+import { PAGE_NAMES } from '@/lib/rbac/pageNames';
+import { attachTeamNavPermissions } from '@/lib/navigation/team-route-registry';
 
 export const IN_ORG_PAGE_LABELS: Record<string, string> = {
   members: 'Members',
@@ -22,17 +24,36 @@ const SETTINGS_SECTION_LABELS: Record<string, string> = {
 };
 
 export function buildInOrgNavItems(selectedOrganisationId: string): NavigationItem[] {
-  return [
+  return attachTeamNavPermissions([
     {
       id: 'nav-overview',
       label: 'Overview',
       href: `/orgs/${selectedOrganisationId}`,
       icon: 'LayoutDashboard',
+      pageId: PAGE_NAMES.home,
     },
-    { id: 'nav-members', label: 'Members', href: '/members', icon: 'Users' },
-    { id: 'nav-communications', label: 'Communications', href: '/communications', icon: 'MessageSquare' },
-    { id: 'nav-reports', label: 'Reports', href: '/reports', icon: 'BarChart2' },
-  ];
+    {
+      id: 'nav-members',
+      label: 'Members',
+      href: '/members',
+      icon: 'Users',
+      pageId: PAGE_NAMES.members,
+    },
+    {
+      id: 'nav-communications',
+      label: 'Communications',
+      href: '/communications',
+      icon: 'MessageSquare',
+      pageId: PAGE_NAMES.commsLog,
+    },
+    {
+      id: 'nav-reports',
+      label: 'Reports',
+      href: '/reports',
+      icon: 'BarChart2',
+      pageId: PAGE_NAMES.reports,
+    },
+  ]);
 }
 
 export function resolveInOrgPageLabel(pathname: string): string | null {

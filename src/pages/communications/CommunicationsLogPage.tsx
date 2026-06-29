@@ -1,8 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Button, EmptyState, PageHeader } from '@solvera/pace-core/components';
 import { usePaceMain } from '@solvera/pace-core/hooks';
-import { AccessDenied, PagePermissionGuard } from '@solvera/pace-core/rbac';
-import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 
 function CommunicationsLogPageContent() {
   usePaceMain({ printTitle: 'Send log', ariaLabel: 'Communications send log' });
@@ -28,9 +26,5 @@ function CommunicationsLogPageContent() {
 }
 
 export function CommunicationsLogPage() {
-  return (
-    <PagePermissionGuard pageName={PAGE_NAMES.commsLog} operation="read" fallback={<AccessDenied />}>
-      <CommunicationsLogPageContent />
-    </PagePermissionGuard>
-  );
+  return <CommunicationsLogPageContent />;
 }

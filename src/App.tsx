@@ -1,8 +1,6 @@
 import { Link, Route, Routes, useNavigate } from 'react-router-dom';
 import type { Organisation } from '@solvera/pace-core/types';
 import { PaceLoginPage, ProtectedRoute } from '@solvera/pace-core/components';
-import { AccessDenied, PagePermissionGuard } from '@solvera/pace-core/rbac';
-import { PAGE_NAMES } from '@/lib/rbac/pageNames';
 import { usePaceMain, useUnifiedAuth } from '@solvera/pace-core/hooks';
 import { AuthenticatedShell } from './components/layout/AuthenticatedShell';
 import { MemberDirectoryPage } from './pages/members/MemberDirectoryPage';
@@ -71,22 +69,8 @@ function App() {
             path="member-roles"
             element={<MemberRolesPlaceholderPage />}
           />
-          <Route
-            path="approvals"
-            element={(
-              <PagePermissionGuard pageName={PAGE_NAMES.approvals} operation="read" fallback={<AccessDenied />}>
-                <ApprovalsPage />
-              </PagePermissionGuard>
-            )}
-          />
-          <Route
-            path="approvals/:requestId"
-            element={(
-              <PagePermissionGuard pageName={PAGE_NAMES.approvals} operation="read" fallback={<AccessDenied />}>
-                <ApprovalsLegacyRedirectPage />
-              </PagePermissionGuard>
-            )}
-          />
+          <Route path="approvals" element={<ApprovalsPage />} />
+          <Route path="approvals/:requestId" element={<ApprovalsLegacyRedirectPage />} />
           <Route path="communications" element={<CommunicationsPage />} />
           <Route path="communications/log" element={<CommunicationsLogPage />} />
           <Route path="events" element={<EventsListPage />} />

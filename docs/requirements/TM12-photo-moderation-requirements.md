@@ -59,7 +59,10 @@ TEAM-12 does **not** own:
 
 **Storage URL discipline.** Thumbnails and preview images are resolved via `useFileDisplay` from `@solvera/pace-core/hooks`, which signs URLs for `is_public = false` rows (1 hour TTL, cached for 50 minutes by `id`) and uses public URLs for `is_public = true` rows. The slice never constructs storage URLs by hand and never exposes `file_path` to the user.
 
-**Page guard.** The page is wrapped in `<PagePermissionGuard pageName="moderation-photos" operation="read">`. Scope is resolved internally by the guard from `OrganisationServiceProvider` context — no `scope` prop is passed.
+**Route read access.**
+
+> **Route read access:** Enforced by the app authenticated shell / PaceAppLayout `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts). The page component must not wrap content in an outer `PagePermissionGuard operation="read"` unless this slice explicitly requires a **scoped read** override (`scope={{ organisationId, eventId, appId }}`).
+
 
 **RBAC visibility gating.** The row Remove action is conditioned on `useResourcePermissions('moderation-photos').canDelete`. When the permission is `false`, the action is hidden — the slice never renders an affordance that would always fail authorisation.
 
@@ -69,12 +72,12 @@ TEAM-12 does **not** own:
 
 ### Page-level guards and evaluation ordering
 
-The route `/moderation/photos` sits inside `AuthenticatedShell` (TEAM-01) and is wrapped by `<PagePermissionGuard pageName="moderation-photos" operation="read">`. Evaluation order when context is absent:
+The route `/moderation/photos` sits inside `AuthenticatedShell` (TEAM-01) registers read access in [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts); shell `routeAccessDenied` enforces entry. Evaluation order when context is absent:
 
 1. **Authentication check** — `ProtectedRoute` (TEAM-01) fires before any guard. An unauthenticated user is redirected to `/login` and never reaches the org check or the guard.
 2. **Org context loading** — `OrganisationServiceProvider` resolves memberships. While `isLoading === true`, `AuthenticatedShell` renders a loading state; no feature content or guard is shown.
-3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the "No organisation assigned. Please contact your administrator." empty state. `PagePermissionGuard` is not reached; no RBAC query fires.
-4. **Page permission guard** — Once org context is resolved, `PagePermissionGuard` evaluates with `pageName: 'moderation-photos'`, `operation: 'read'`. Scope is resolved internally; no `scope` prop is passed. While the RBAC check is in flight (`isLoading === true`) and no `loading` prop is supplied, the guard returns `null` (a brief blank inside the PaceMain content area is acceptable). On `can === false`, `<AccessDenied />` is rendered. On `can === true`, the page body renders.
+3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the "No organisation assigned. Please contact your administrator." empty state. shell route read is not evaluated; no RBAC query fires.
+4. **Route read access** — Once org context is resolved, shell `routeAccessDenied` (via [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts)) evaluates the route's registered `pageName` / `read` permission. Scope resolves internally from `OrganisationServiceProvider`; no page-level read guard wraps the component tree. While the shell RBAC check is in flight, a brief blank inside the `PaceMain` content area is acceptable. On deny, `<AccessDenied />` renders in the shell main region. On allow, the page body renders.
 
 If `selectedOrganisation` becomes null after the guard would otherwise evaluate (race condition), the RBAC engine evaluates with `organisationId: undefined`; the check returns pending and the guard returns `null`. In practice, the no-org check at step 3 prevents this path under normal conditions. With partially-undefined scope (e.g. event id absent — not applicable to TEAM but stated for completeness), the guard treats the missing field as "not required" and evaluates the page-level `pageName` + `operation` against the `organisationId` only.
 
@@ -647,7 +650,7 @@ Given two moderators click Remove on the same row at the same time, when the sec
 
 ## §12 Verification
 
-- Confirm `<PagePermissionGuard pageName="moderation-photos" operation="read">` wraps the page body and that no `scope` prop is passed.
+- Confirm route read is registered in [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts) and enforced by shell `routeAccessDenied` (no outer page read guard) and that no `scope` prop is passed.
 - Confirm `useSecureSupabase()` is used for the `data_moderation_photo_list` RPC and as `secureClient` for `deleteAttachment`; confirm there is no direct `createClient` import from `@supabase/supabase-js`.
 - Confirm the slice never calls the legacy `app_file_reference_delete` RPC and never issues a direct `from('core_file_references').delete()` — all deletes go through `deleteAttachment` from `@solvera/pace-core/crud`.
 - Confirm the bucket passed to `useFileDisplay` and to the `AttachmentLifecycleAdapter` is selected per row by `row.is_public ? 'public-files' : 'files'`.

@@ -54,7 +54,10 @@ TEAM-07 does **not** own:
 
 **App-access seeding.** When a new child organisation is inserted, an `AFTER INSERT` trigger on `core_organisations` seeds rows in `core_organisation_app_access` for the new child by copying the active app-access rows from the parent organisation. The TEAM-07 client never writes to `core_organisation_app_access`.
 
-**Page guard.** The page is wrapped in `<PagePermissionGuard pageName="organisations" operation="read">`. Scope is resolved internally by the guard from `OrganisationServiceProvider` context — no `scope` prop is passed.
+**Route read access.**
+
+> **Route read access:** Enforced by the app authenticated shell / PaceAppLayout `routeAccessDenied` and [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts). The page component must not wrap content in an outer `PagePermissionGuard operation="read"` unless this slice explicitly requires a **scoped read** override (`scope={{ organisationId, eventId, appId }}`).
+
 
 **RBAC visibility gating.** The toolbar Create button and the row Edit action are conditioned on `useResourcePermissions('organisations').canCreate` and `.canUpdate` respectively. When a permission is `false`, the corresponding affordance is hidden — the slice never renders an affordance that would always fail authorisation.
 
@@ -64,12 +67,12 @@ TEAM-07 does **not** own:
 
 ### Page-level guards and evaluation ordering
 
-The route `/settings/organisations` sits inside `AuthenticatedShell` (TEAM-01) and is wrapped by `<PagePermissionGuard pageName="organisations" operation="read">`. Evaluation order when context is absent:
+The route `/settings/organisations` sits inside `AuthenticatedShell` (TEAM-01) registers read access in [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts); shell `routeAccessDenied` enforces entry. Evaluation order when context is absent:
 
 1. **Authentication check** — `ProtectedRoute` (TEAM-01) fires before any guard. An unauthenticated user is redirected to `/login` and never reaches the org check or the guard.
 2. **Org context loading** — `OrganisationServiceProvider` resolves memberships. While `isLoading === true`, `AuthenticatedShell` renders a loading state; no feature content or guard is shown.
-3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the "No organisation assigned. Please contact your administrator." empty state. `PagePermissionGuard` is not reached; no RBAC query fires.
-4. **Page permission guard** — Once org context is resolved, `PagePermissionGuard` evaluates with `pageName: 'organisations'`, `operation: 'read'`. Scope is resolved internally; no `scope` prop is passed. While the RBAC check is in flight (`isLoading === true`) and no `loading` prop is supplied, the guard returns `null` (a brief blank inside the PaceMain content area is acceptable). On `can === false`, `<AccessDenied />` is rendered. On `can === true`, the page body renders.
+3. **No-org check** — If `selectedOrganisation === null` after org loading completes, `AuthenticatedShell` renders the "No organisation assigned. Please contact your administrator." empty state. shell route read is not evaluated; no RBAC query fires.
+4. **Route read access** — Once org context is resolved, shell `routeAccessDenied` (via [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts)) evaluates the route's registered `pageName` / `read` permission. Scope resolves internally from `OrganisationServiceProvider`; no page-level read guard wraps the component tree. While the shell RBAC check is in flight, a brief blank inside the `PaceMain` content area is acceptable. On deny, `<AccessDenied />` renders in the shell main region. On allow, the page body renders.
 
 If `selectedOrganisation` becomes null after the guard would otherwise evaluate (race condition), the RBAC engine evaluates with `organisationId: undefined`; the check returns pending and the guard returns `null`. In practice, the no-org check at step 3 prevents this path under normal conditions.
 
@@ -646,7 +649,7 @@ Given a user opens the Edit dialog on a row, when the dialog renders, then a rea
 
 ## §12 Verification
 
-- Confirm `<PagePermissionGuard pageName="organisations" operation="read">` wraps the page body and that no `scope` prop is passed.
+- Confirm route read is registered in [`team-route-registry.ts`](../../src/lib/navigation/team-route-registry.ts) and enforced by shell `routeAccessDenied` (no outer page read guard) and that no `scope` prop is passed.
 - Confirm `useSecureSupabase()` is used for all reads and writes; confirm there is no direct `createClient` import from `@supabase/supabase-js`.
 - Confirm the SELECT query uses `.eq('parent_id', selectedOrganisation.id)` and `.order('display_name', { ascending: true })`.
 - Confirm the INSERT payload includes `name`, `display_name`, `description` (or `null`), and `parent_id` only — no `is_active`, no audit columns, no branding columns.
